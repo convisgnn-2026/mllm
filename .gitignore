@@ -1,0 +1,16 @@
+# 재생성 가능한 큰 이진 파일 (T5 임베딩 캐시, 4 MiB)
+results/prompt_embed.pt
+
+# 실행 로그
+logs/
+
+# 파이썬
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 편집기
+.vscode/
+.idea/
+*.swp
