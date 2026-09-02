@@ -1,0 +1,16 @@
+rep,op,seconds
+1,mig_off,.437125648
+1,mig_on_2x3g,1.863160737
+1,worker_cold_start_1req,33.240636992
+2,mig_off,1.194074259
+2,mig_on_2x3g,1.638968419
+2,worker_cold_start_1req,32.594650073
+3,mig_off,1.082931883
+3,mig_on_2x3g,1.699808753
+3,worker_cold_start_1req,33.121056663
+4,mig_off,1.100426669
+4,mig_on_2x3g,2.334314900
+4,worker_cold_start_1req,32.078876292
+5,mig_off,1.071898553
+5,mig_on_2x3g,1.665466642
+5,worker_cold_start_1req,32.665313879
