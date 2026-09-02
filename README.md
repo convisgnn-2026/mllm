@@ -41,6 +41,7 @@ vidbench/
 ├── scripts/       실험 실행 셸 스크립트
 ├── slo_configs/   SLO 정의 — 템플릿별 절대 초, 0.75x ~ 6.0x 스윕
 ├── results/       모든 실측 데이터와 그림
+├── papers/        참고 논문 19편 (PDF + 추출 텍스트) 와 TetriServe 코드 (MIT). 클러스터 옮길 때 같이 보려고
 └── logs/
 ```
 

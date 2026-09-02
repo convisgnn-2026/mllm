@@ -1,0 +1,2607 @@
+TridentServe: A Stage-level Serving System for
+Diffusion Pipelines
+Yifei Xia, Fangcheng Fu, Hao Yuan, Hanke Zhang, Xupeng Miao, Yijun Liu, Suhan Ling, Jie Jiang, Bin Cui
+The Hetu Team @ Peking University
+Abstract
+Diffusion pipelines, renowned for their powerful visual gen-
+eration capabilities, have seen widespread adoption in gener-
+ative vision tasks (e.g., text-to-image/video). These pipelines
+typically follow anencode–diffuse–decodethree-stage archi-
+tecture. Current serving systems deploy diffusion pipelines
+within astatic, manual, and pipeline-level paradigm, allocat-
+ing the same resources to every request and stage. However,
+through an in-depth analysis, we find that such a paradigm
+is inefficient due to the discrepancy in resource needs across
+the three stages of each request, as well as across different
+requests. Following the analysis, we propose thedynamic
+stage-level serving paradigmand developTridentServe, a
+brand new diffusion serving system.TridentServeauto-
+matically, dynamically derives the placement plan (i.e., how
+each stage resides) for pipeline deployment and the dispatch
+plan (i.e., how the requests are routed) for request processing,
+co-optimizing the resource allocation for both model and
+requests. Extensive experiments show thatTridentServe
+consistently improves SLO attainment and reduces aver-
+age/P95 latencies by up to 2.5×and 3.6×/4.1×over existing
+works across a variety of workloads.
+1 Introduction
+Background. In recent years,Generative Vision Tasks[ 15, 19,
+26, 61, 62] (GVTs), such as text-to-image [11, 28, 29, 48] and
+text-to-video [27, 71, 74], have surged in popularity, prompt-
+ing a proliferation of models [20, 48, 68, 72, 73, 77] designed
+to address them. Among these,Diffusion Pipelines[ 19, 61]
+have come to dominate the field for their powerful genera-
+tive capabilities, giving rise to widely known pipelines such
+as Stable Diffusion [11, 53] and Sora [34].
+As illustrated in Figure 1,Diffusion Pipelinescomprise a
+multi-stage inference pipeline that can be abstracted into
+three consecutive stages:Encode,Diffuse, andDecode. The
+Encodestage embeds the user guidance (e.g., the text prompt)
+into acondition 𝑐 and passes it to theDiffusestage [ 4, 52].
+Then, theDiffusestage samples Gaussian noise [ 19] corre-
+sponding to the targeted output resolution (and duration for
+video) in the low-dimensional latent space [53], concatenates
+it with𝑐, and then performs multi-step forward propagation
+for denoising through theDiffusion modelto obtain a latent
+Contact: Yifei Xia (yifeixia@stu.pku.edu.cn), Fangcheng Fu (cc-
+chengff@sjtu.edu.cn) and Bin Cui (bin.cui@pku.edu.cn)
+User Configuration:          target = 720p-5s          denoising steps = 5
+Prompt: 
+Generate a 
+small cat
+Encoder
+Encode Stage Diffuse Stage
+Low-dimensional Latent Space
+Diffusion Model
+Step1 Step2 Step3 Step4 Step5
+Decode Stage
+Decoder
+Pixel 
+Space
+condition c
+Gaussian 
+Noise 
+Concatenates
+Sampled by 
+target resolution
+Figure 1.The typical inference process of aDiffusion Pipeline.
+result in the low-dimensional space [11, 48]. Finally, the la-
+tent result is fed into theDecodestage to obtain the visual
+result in pixel space [26]. With the increasing widespread
+adoption ofDiffusion Pipeline, how to serve such pipelines
+efficiently has become a timely and important topic [12, 66].
+The Current Landscape. Currently, predominant prac-
+tices [12, 66] ofDiffusion Pipelineserving follow two designs:
+•Static, manual resource allocation for stage models. Cur-
+rent systems manually allocate resources for the stage
+models under a static paradigm: they either co-locate
+all stages on each GPU (for small pipelines) or stati-
+cally deploy the pipeline in a disaggregated fashion
+and assign a fixed number of replicas to different stages
+(for large pipelines).
+•Static, pipeline-level resource allocation for requests. When
+handling different requests, current systems assign a
+fixed number of GPUs to every request (a.k.a., use the
+same parallelism [24, 33, 37, 58] strategy). Meanwhile,
+for any single request, the different stages also share
+the same amount of allocated GPU resources at the
+pipeline-level.
+However, after our detailed analysis of the architecture
+and workloads ofDiffusion Pipelines(§3), we find that such
+a naïve, static design is inefficient for the following reasons:
+First,Diffusion Pipelinesare bothstage-heterogeneousand
+request-heterogeneous, rendering this naive resource alloca-
+tion inefficient and wasteful. On the one hand, GVTs exhibit
+substantial workload variation across requests due to dif-
+ferences in target resolutions or video durations, and dif-
+ferent requests manifest distinct scalability characteristics
+(§3). Hence, statically allocating identical resources to all
+requests is inefficient, as illustrated in Figure 2(a). On the
+other hand, stages within the sameDiffusion Pipelinehave
+distinct architectures and behaviors, and therefore exhibit
+different scalability (§3). Thus, when processing one request,
+arXiv:2510.02838v1  [cs.DC]  3 Oct 2025
+(a) Static Parallelism, Pipeline-level
+(b) Dynamic Parallelism, Pipeline-level
+(c) Dynamic Parallelism, Stage-Level (Ours)
+Timeline
+Encode
+Diffuse
+Decode
+Req1
+Req2
+Req3
+Figure 2.Example of different serving methods. Assuming the
+GPU demands for theDiffusestage of requests #1/2/3 are 3,2,1
+respectively, and the demand for allEncode,Decodestages is 1.
+allocating the same resources to all three stages of that re-
+quest at the pipeline-level is likewise inefficient, as shown in
+Figure 2(b). Finally, this heterogeneity varies across different
+Diffusion Pipelines, making manual deployment extremely
+difficult and brittle.
+Second, production GVT workloads exhibit complex and
+highly dynamic arrival patterns [2, 57]. Particularly, in §3, we
+analyze that as workload arrival patterns shift, the resources
+required by different stages also change, thereby render-
+ing static deployments maladaptive. Besides, the change in
+workload arrival patterns also necessitates adjusting the par-
+allelism choices of different requests. Unfortunately, current
+approaches fail to handle such dynamicity.
+Therefore, to serve diffusion pipelines efficiently, we ex-
+pect a system capable of fine-grained, dynamic resource al-
+location for both request processing and model deployment.
+However, realizing such a system presents two challenges:
+• How to efficiently support such fine-grained, dynamic
+processing and deployment?All existing diffusion serv-
+ing systems, such as xDiT [12] and VideoSys [66], are
+coarse-grained and pipeline-level. Once varying re-
+sources are allocated to different requests and stage
+models, how to carry out the serving process efficiently
+is an unexplored question.
+• How to accurately solve dynamic resource allocation?
+For resource allocation and processing of each request,
+the inter-stage topology and communication, tight
+GPU-memory budgets [40–42], and divergent resource
+demands together vastly expand the decision space.
+Meanwhile, for resource allocation of stage models,
+differing requirements across pipelines and dynam-
+ically shifting workload arrival patterns [ 2, 57] also
+exacerbate the complexity of solving the problem.
+Our Solution. To address this, we proposeTridentServe,
+the first system that supports dynamic, stage-level resource
+allocation for both request processing and model deploy-
+ment. To facilitate stage-level processing and deployment,
+TridentServeintroduces two abstractions: it casts model-
+side allocation asplacement plans, enabling automatic, dy-
+namic deployment; and casts request-side resource allocation
+asdispatch plans, enabling dynamic, stage-level resource al-
+location (Figure 2 (c)) for request processing. TheRuntime
+EngineofTridentServeis in charge of the efficient execu-
+tion of both plans. For theplacement plan, it automatically
+deploys the pipeline at initialization and performs anAdjust-
+on-Dispatchmechanism that integrates stage-model resource
+transitions into request processing, allowing the system to
+flexibly adapt to diverse workload patterns while achieving
+seamless, no-downtime deployment switch. For thedispatch
+plan, we define an atomic three-step procedure to execute
+requests at the stage-level efficiently.
+As for plan generation, we 1) employ aDynamic Orches-
+tratorforplacement plangeneration, which automatically
+optimizes model deployment given the model and workload
+statistics without manual tuning; and 2) propose a two-step
+Resource-A ware Dispatcherto generatedispatch plans, which
+achieves efficient resource utilization while greatly improv-
+ing overall system efficiency.
+We summarize our main contributions as follows:
+• We present the first systematic, stage-aware analy-
+sis of diffusion pipelines, revealing the asymmetry in
+resource demand across stages and requests, which
+motivates astage-levelserving paradigm.
+• We developTridentServe, the firstDiffusion Pipeline
+serving system withdynamic, stage-levelresource al-
+location for both models and requests. It integrates a
+Dynamic Orchestratorand aResource-A ware Dispatcher
+that co-optimize the model placement and request dis-
+patching, markedly improving serving efficiency and
+robustness under complex workload arrival patterns.
+• TridentServeauto-deploys pipelines to eliminate la-
+borious manual tuning. Extensive experiments show
+that it consistently improves SLO attainment, aver-
+age/P95 latencies by up to 2.5×, and 3.6×/4.1× against
+the strongest baseline under a variety of workloads.
+2 Preliminary
+This section introduces the preliminary literature of our
+work. Frequently used notations are listed in Table 1.
+2.1 Diffusion Pipelines
+As sketched in §1 and Figure 1,Diffusion Pipelinescomprise
+three stages—Encode(𝐸),Diffuse( 𝐷), andDecode( 𝐶). Below,
+we summarize each stage’s architecture and workload.
+Architecture and Workload by Stage.The stages differ
+markedly in model arch and processing length [28, 63, 67, 76].
+Encodeuses a Transformer-based [ 70]Encoder[ 52] to em-
+bed lightweight guidance, with processing length𝑙𝐸
+𝑝𝑟𝑜𝑐≤ 500.
+Diffuseis the core ofDiffusion Pipeline, which iteratively
+denoises latent Gaussian noisex𝑇∼N( 0, I) for𝑇 steps under
+2
+Table 1.Frequently used notations.
+Notation Meaning
+𝐸, 𝐷,𝐶abbreviation forEncode,DiffuseandDecodestage
+G,𝐺,𝑔set of all GPUs, number of all GPUs, GPU index
+R,𝑟set of pending requests, request index
+S,𝑠S=[𝐸,𝐷,𝐶]is stages list,𝑠∈Sis one of the stage
+𝑘 parallel degree (specifically refers to SP degree),𝑘∈{ 1, 2, 4, 8}
+𝑙𝑠
+𝑝𝑟𝑜𝑐 the processing sequence length for stage𝑠.
+Table 2.Typical Diffusion Pipelines. We abbreviate Stable-
+Diffusion-3-medium as Sd3, CogVideoX1.5-5B as Cog, Hunyuan-
+Video as HYV; AE-KL-Cog/HYV denote model-specific variants of
+AutoEncoderKL. Model sizes in billions (B).
+Pipeline Enc. Diff. Dec.
+Name B𝑙 proc Name B𝑙 proc Name B𝑙 proc
+Sd3 T5-XXL 4.8 30–500 Sd3-DiT 2 100–60k AE-KL 0.1 100–60k
+Flux T5-XXL 4.8 30–500 Flux-DiT 12 100–60k AE-KL 0.1 100–60k
+Cog T5-XXL 0.35 30–500 Cog-DiT 4.2 1k–120k AE-KL-Cog 0.45 1k–120k
+HYV Llama3-8B 8 30–500 HYV-DiT 13 1k–120k AE-KL-HYV 0.5 1k–120k
+the embedded condition𝑐[19, 61]. At step𝑡, it updates
+𝜖𝑡 =𝜖𝜃(x𝑡, 𝑡,𝑐),x 𝑡−1 =Φ(x 𝑡, 𝑡, 𝜖𝑡),
+where𝜖𝜃 is theDiffusion model, 𝜖𝑡 the predicted noise, and
+Φ the denoising function. Its processing length𝑙𝐷
+𝑝𝑟𝑜𝑐 spans
+from hundreds to10 5 [11, 28, 67]; it is compute-bound and
+typically consumes>70%of end-to-end time [54] (§6.2).
+Decodeuses a memory-boundDecoder[ 26] to map the
+latent output to pixel output. It usually accounts for 15%–30%
+of execution time and can exhibit large activation-memory [22].
+Table 2 summarizes representative pipelines: Stable Diffu-
+sion 3 [63] and Flux.1 [28] (image), CogVideoX1.5-5B [76]
+and HunyuanVideo [67] (video), along with their stage-level
+traits. These architectural and workload distinctions directly
+induce heterogeneous resource demands, as detailed in §3.
+2.2 Resource Allocation inDiffusion Pipeline
+InDiffusion Pipelineserving, resource allocation has two
+facets: themodelside and therequestside.
+Resource Allocation for Models.This is primarily achieved
+viamodel replicationandmodel parallelism[ 37, 58] (MP),
+which jointly determine how models are placed and how
+many replicas are provisioned. Formodel replication, the
+goal, especially underdisaggregateddeployments [ 39], is to
+choose per-stage replica counts and placements to balance
+stage throughput while minimizing inter-stage communica-
+tion.Model parallelismpartitions parameters (layer/tensor)
+across devices to relieve computational and memory pres-
+sure. However, as will be shown in §3, it is typically less
+efficient forDiffusion Pipelines[ 13, 30]. Hence, a de facto
+512p 1024p 2048p 3072p
+2
+4
+8Speedup
+Diffuse
+1.1x
+1.0x
+1.6x
+1.0x
+1.8x
+1.0x
+1.6x
+1.2x
+2.6x
+1.7x
+3.7x
+2.3x
+1.6x
+1.5x
+3.2x
+2.5x
+3.6x
+2.6x
+1.7x
+1.5x
+3.4x
+2.8x
+6.3x
+5.1x
+512p 1024p 2048p 3072p
+2
+4
+8Speedup
+Decode
+0.9x
+0.6x
+0.3x
+1.1x
+1.7x
+2.1x
+1.3x
+2.3x
+3.3x
+1.5x
+2.7x
+4.1x
+Degree 2 Degree 4 Degree 8 SP MP Theoretical Speedup
+Figure 3.Parallelism effects onDiffuseandDecodestages of Flux.1,
+tested on NVIDIA L20.
+approach is to configure the MP degree to be the smallest
+number of GPUs that fits the model.1
+Resource Allocation for Requests.For each request, it’s
+possible to reduce inference latency by allocating more com-
+puting resources and splitting the sequence across devices.
+However, as we will show in §3, determining the resource
+allocation for each request (i.e., sequence parallelism [24, 33]
+(SP) degree) also requires considering the stage heterogene-
+ity.
+3 Analysis and Motivation
+We analyze how parallelism strategies and workload arrival
+patterns affect each stage, and introduce the key motivations
+for our system design.
+Impact of Parallelism Strategies.TheEncodestage has
+𝑙𝐸
+𝑝𝑟𝑜𝑐≤ 500and rarely benefits from parallelism; instead, it
+primarily gains from batching (Appendix E.1), so we focus
+onDiffuseandDecode. Using Flux.1 [ 29] as an example (more
+models in Appendix A), we observe markedly different scal-
+ing behavior for theDiffusion modeland theDecoder. Figure 3
+reports speedups as the degree of parallelism varies: at higher
+target resolutions, larger degrees are advantageous, whereas
+at lower resolutions, smaller degrees suffice. At a fixed resolu-
+tion, the two stages also scale differently.Diffusescales better
+thanDecodebecause decoding is memory -bound [23, 26], so
+increasing the degree yields limited gains. Meanwhile, MP
+exhibits worse scalability than SP consistently, suggesting
+that it is preferable to use a small MP degree and scale by SP.
+Insight 1: Resource needs (parallel degree) vary across re-
+quests as well as across stages within one request.
+Impact of Workload Arrival Pattern.Due to stages
+having different processing speeds, we must provision repli-
+cas asymmetrically to equalize throughput and prevent stage
+congestion, especially when using disaggregated deploy-
+ment. However, as workload arrival patterns vary, the replica
+counts that keep stage speeds balanced must also adapt. Us-
+ing Flux.1 (Figure 9), we profile per-stage demand across
+patterns and arrival rates and report the replica proportions
+required for throughput balance. These proportions shift
+continuously because stages differ in load elasticity.
+1For clarity of discussion, we mainly elaborate on the case when MP is
+not employed throughout this work, and introduce how to integrate our
+approach with MP in Appendix E.2.
+3
+0.5 1 2
+Request Rate (RPS)
+0
+20
+40
+60
+80
+100Percentage(%)10 6 4 9 5 3 10 2 2
+63 71 81 68 75 88 71 81 91
+27 23 15 23 20 9 19 17 7
+Encode Diffuse Decode Light Medium Heavy
+Figure 4.Model replica demands to achieve a balanced processing
+speed, tested on NVIDIA L20. Light/Medium/Heavy denote work-
+loads defined in §8.1
+Planning (§ 6) Execution (§ 5)
+Placement Plan Generation 
+(§ 6.1)
+Dispatch Plan Generation 
+(§ 6.2)
+Monitor (§ 5.1)
+Engine(§ 5.2-3)
+Profiler (§ 5.1)
+π 0 : EDC, 
+π 1 : ED,
+π 2 : C,
+Dispatch 
+Plan
+Placement 
+Plan
+Orchestrator
+Diagnose&Monitor
+Run Plans
+analyse statistics
+...
+ Cluster
+Info
+Reqs 
+Statistics
+Dispatcher
+Cluster
+Info
+Pending
+Reqs
+Reqs 
+Metadata
+E D C
+E D
+C
+π0 :
+π1 :
+π2 :
+g0
+g1
+g2
+...
+...
+...
+ Cluster
+Info
+Reqs 
+Metadata
+&Statistics
+E Encode model Diffuse modelD C Decode model π i : Placement on gigi : the i-th GPU PRLL : Parallel Strategy
+Figure 5.Overview ofTridentServe.
+Insight 2: Resource demands (stage model replicas) vary
+as the workload arrival pattern varies.
+Based on the above analysis, we distill two design princi-
+ples for efficientDiffusion Pipelineserving.
+Principle 1: Stage-level Dynamic Resource Alloca-
+tion for Requests.Because scalability varies both across
+requests and across the stages within a single request, re-
+source needs differ at the stage-level. Accordingly, allocation
+should be dynamic andstage-levelfor each request, rather
+than static andpipeline-level.
+Principle 2: Dynamic Resource Allocation for Stage
+Models.In real-world scenarios, workload arrival patterns
+fluctuate over time, and the resource demands of individual
+stages shift accordingly. Moreover, different pipelines have
+distinct architectures (Table 2), leading to heterogeneous de-
+ployment needs. Therefore, the system should automatically
+deploy and dynamically allocate resources to stage models,
+adapting to pipeline specifics and workload dynamics rather
+than relying on brittle, static manual configurations.
+Our Design.Motivated by these, we design a unified
+serving system,TridentServe, that supportsStage-level,
+dynamic resource allocationfor both requests (§6.2) and stage
+models (§6.1), which is all backed by aRuntime Engine(§5).
+4TridentServeOverview
+The overview ofTridentServeis shown in Figure 5. The
+system is structured around two tightly coordinated phases,
+planningandexecution:
+Planning: As shown in Figure 5, taking cluster information
+and request statistics as input, a dynamicOrchestratorgen-
+erates aplacement planto guide the resource allocation for
+stage models, whereP={𝜋 𝑔|𝑔∈[ 0,𝐺− 1]} is the place-
+ment plan for the worker cluster and 𝜋𝑔 ={⟨𝑠 1,...,𝑠 𝑘⟩ |
+1≤𝑘≤ 3, 𝑠𝑖 ∈ S}is the placement of g-th GPU. For
+example,𝜋2 =⟨𝐸 𝐷⟩ states that GPU #2 hosts the replica
+of stagesEncodeandDiffuse. A resource-awareDispatcher
+takes the cluster information of current placement and the re-
+quest metadata as input, producingdispatch plans {Γ𝑠
+𝑟} that,
+for each dispatched request𝑟’s stage𝑠, specify the GPU set
+and parallelism strategy used to execute it, thereby enabling
+stage-level resource allocation for requests.
+Execution:TridentServefeatures a high-performance
+Runtime Enginethat executes the corresponding plans
+efficiently. It is assisted by a comprehensiveProfilerand a
+lightweightMonitor, which continuously collect run-time
+statistics (e.g., cluster information, request statistics, and
+metadata) and inform the generation ofΓandP.
+4.1 Overall Routine
+Algorithm 1 shows the high-level workflow ofTridentServe:
+(1) Offline Profiling.TheProfileranalyzes each candi-
+date resolution (and duration) to collect latency–memory
+statistics, etc. (Line 1).
+(2) Bootstrap Placement.When the system starts, the
+Orchestratortakes the profiling results as input to gen-
+erate an initial placement planP𝑖𝑛𝑖𝑡 (§6.1), which the
+Runtime Enginethen materialises across the GPU clus-
+ter (Lines 2–3).
+(3) Online Serving.During serving, under the currentP,
+theDispatchercombines request metadata with cluster
+information reported by theMonitorandProfilerto
+produce dispatch plans set{Γ𝑠
+𝑖} (§6.2) and sends them
+to theRuntime Enginefor execution (§5) (Lines 9–10).
+(4) Adaptive Re-Placement.TheMonitorruns continu-
+ously. Once it detects arrival pattern changes causing
+congestion (detailed in §5.3), theOrchestratorpromptly
+derives a new placement planP𝑠𝑤𝑖𝑡𝑐ℎ (§6.1), and the
+Runtime Engineapplies it via anAdjust-on-Dispatch
+procedure, enabling live re-deployment without down-
+time (§5) (Lines 6–8).
+This routine sketches how, through the abstractions of Γ
+andP and an efficientRuntime Engine, the system supports
+dynamic, stage-level request processing, as well as automatic
+dynamic allocation of stage replicas. Then §5 and §6 detail
+plan execution by theRuntime Engineas well as the concrete
+methods used to generatePandΓ.
+5 Plan Execution
+In this section, we introduce the efficient execution ofP and
+Γ enabled by theRuntime Engine. We begin by describing
+theMonitorandProfiler, and then provide a detailed account
+of theRuntime Engine’s execution procedure.
+4
+Request
+Dispatch 
+Plan
+ ①    r0    g0   none   
+ID  R   G  PRLL
+④    r1    g3   none   
+ID  R   G  PRLL
+ ②   r0    g0    none   
+ ⑤  r1  g1,g2  SP2   
+ID  R   G  PRLL
+ ③    r0    g0   none   
+ ⑥    r1    g1   none   
+Runtime Engine
+E D C D C D C E
+1 2 3
+Merge Exec.
+4
+Dispatched
+ID  R   G  PRLL
+Dispatched
+ID  R   G  PRLL
+Dispatched
+ ⑤   r1  g1,g2  SP2   
+ID  R   G  PRLL
+Dispatched
+ ⑥    r1    g1   none   
+Runtime Engine
+E D C D C D C E
+1 2 3
+5
+Dynamic Reinst.: SP2
+4
+⑦    r2    g3   none    ⑧   r2    g2   none    ⑨    r2    g2   none   
+Dispatched
+ID  R   G  PRLL
+Dispatched
+ID  R   G  PRLL
+Dispatched
+Dispatched
+ID  R   G  PRLL
+Dispatched
+ ⑥    r1    g1   none   
+Runtime Engine
+E D C D C D C E
+Dispatched  ⑧   r2    g2   none    ⑨    r2    g2   none   
+7 6 8 9
+Merge Exec.
+7
+Finished 4 Finished 5
+1 2 3
+7
+Input
+Prepare
+Input
+Prepare
+Finished 1 2 3
+Model Replica
+Dispatch Plan
+Stage Output
+Encode Stage
+Diffuse Stage
+Decode Stage
+Symbol Meaning
+ID          Plan Index
+R             Request
+G           GPU Index
+PRLL   Parallel Strategy
+. . .
+Request
+Dispatch 
+Plan
+Request
+Dispatch 
+Plan
+New request #2 arrive
+g0 g1 g2 g3 g0 g1 g2 g3 g0 g1 g2 g3
+Figure 6.Example of the Execution of Dispatch Plans.
+Algorithm 1High-level Workflow ofTridentServe
+Input:Profiling dataD; GPU setG.
+1:ReqsInfo←Profiler(D)
+2:P 𝑖𝑛𝑖𝑡←Orchestrator(ReqsInfo,G)
+3:RuntimeEngine(P init,G)
+4:whilerunningdo
+5:R←new requests
+6:ifPatternChange(Monitor,R,D,P,G)then
+7:P 𝑠𝑤𝑖𝑡𝑐ℎ ←Orchestrator(ReqsInfo,R,G)
+8:RuntimeEngine(P switch,G)
+9:{Γ 𝑖}←Dispatcher(R,P,G,ReqsInfo)
+10:RuntimeEngine({Γ 𝑖},G)
+5.1 Profiler and Monitor
+Profiler.Leveraging the strong predictability [ 21, 47] of
+execution time and memory footprint in GVT workloads,
+TridentServeprovides a comprehensive offline profiler. On
+pre-supplied data, the profiler collects information at two
+levels of granularity:
+• Request Metadata.For each stage of a range of re-
+quests, it measures the expected running time and
+peak activation memory under each parallel strategy.
+• Request Statistics.Statistical information includes
+the processing length and peak memory distribution of
+all stages, which will be used to guide theOrchestrator
+andDispatcherin generating plans (§ 6).
+Monitor.Monitorruns in a periodic, clock-driven behav-
+ior, observes the GPU worker cluster information to furnish
+real-time planning feedback along two dimensions:
+• GPU-worker Status.For each GPU 𝑔, theMonitor
+reports whether it is idle, its current placement 𝜋𝑔,
+and residual memory capacity. If the worker is busy, it
+also reports the dispatch plan in execution, the start
+timestamp, and the estimated runtime.
+• Stage Throughput.TheMonitorrecords the process-
+ing rate for each placement type,𝑣𝜋, enabling theOr-
+chestratorto rebalance placements when throughput
+becomes skewed.
+5.2 Execution ofDispatch Plan
+TheResource-A ware Dispatchertriggers in a clock-driven
+manner and generates thedispatch plansto theRuntime
+Enginefor execution. For eachdispatch plan, once its re-
+quired GPU set is idle and the predecessor stage’s plan has
+completed, theRuntime Enginereserves the resources and
+executes it in three steps:Dynamic Reinstance,Stage Prepare,
+andMerging Execute. Below, we first introduce the three
+steps and then illustrate a concrete example in Figure 6.
+Dynamic Reinstance.Given adispatch plan, theRuntime
+Enginetemporarily groups the targeted GPU workers into
+an execution instance and activates the requisite commu-
+nication group. To avoid per-dispatch setup overhead and
+the excessive buffer footprint that would result from pre-
+initializing a communication group for every parallel strat-
+egy [49], we prepare only a small hot set ofintra-machine
+worker combinationsand reuse a single communication buffer
+within each combination. Other infrequent combinations
+are lazily initialized on first use. This hot-set and lazy-init
+design enables millisecond-scale reconfiguration without
+global pauses and keeps the memory footprint bounded, pre-
+venting communication-buffer accumulation.
+Stage Preparation.After forming the execution instance,
+the Runtime Engine prepares (i) the resident model replica for
+the target stage and (ii) the stage inputs. If theplacement plan
+has recently changed such that the required stage replicas
+aretemporarilynot resident on the selected workers, we
+invokeAdjust-on-Dispatchat this step (see §5.3 for details).
+Since dispatch is performed at the stage-level, the in-
+puts for the currentdispatch planmay not reside on the
+selected GPU set. To curb additional input-transfer latency,
+we employ aproactive pushscheme that maximizes compute–
+communication overlap without inflating device memory.
+Concretely, each GPU worker maintains a device-resident
+handoff buffer(HB) for temporarily staging inter-stage ten-
+sors. When a preceding dispatch plan completes and a suc-
+cessor exists, the preceding stage proactively enqueues its
+outputs into the successor stage’s HB so the successor can
+read them directly at launch; if the successor stage is still
+5
+Diffuse Compute0
+Enc. Comm1
+Enc. Compute1
+ proactive Push
+Enc. Compute2
+Diffuse Compute1
+Others ...
+ no stall
+Enc. Compute3
+Figure 7.TheComputeandCommOverlap ofproactive push.
+computing, the transfer overlaps its computation, as shown
+in Figure 7.
+To remain OOM-safe under bursts, every HB has a capacity
+limit𝐶𝑎𝑝ℎ𝑏. If the destination HB is full, tensors are buffered
+to pinned host memory, and the push completes via the host
+path; the successor stage then reads directly from the pinned
+host buffer at launch.
+GPU transfers follow a two-step, locality-aware policy:(i)
+inter-node: use GPUDirect RDMA [6, 9] to send to one worker
+in the destination set, then intra-set broadcast via the pre-
+initialized communicator;(ii) intra-node: directly broadcast
+via the shared communicator, avoiding unnecessary copies.
+Merging Execute.Once preparation is complete, theRun-
+time Engineinvokes the corresponding model to execute the
+target stage. To further improve efficiency, wemergecon-
+secutive Γ𝑠
+𝑟 for the same request 𝑟 that target an identical
+GPU set, executing them as a single atomic run to eliminate
+redundant CPU-side scheduling.
+Example.In Figure 6, ninedispatch plansacross three
+requests are executed as follows. Initially, only the dispatch
+plans for requests #0 and #1 have arrived, and the Engine
+must complete each request’s Γ𝐸
+𝑟 before subsequent stages,
+so it would run 1○ and 4○; however, the Engine detects that
+1○ 2○ 3○ are on the same EDC–resident worker and therefore
+merging executesthem. At the second tick, 4○ finishes and
+a new request #2 arrives; the predecessor of 5○ has com-
+pleted and GPUs #1/#2 are idle, so the Engine first performs
+Dynamic Reinstanceto form an SP2 instance on the two
+DC–resident GPUs, then, duringStage Preparation, receives
+from GPU #3 the output of the prior plan 4○, and runs 5○
+on this instance; meanwhile, request #2’s plan 7○ can also
+execute on GPU #3. At the third tick, 5○ and 7○ complete,
+GPUs #2/#3/#4 are idle, and the predecessors of 6○ and 8○ are
+done, so they are executed; for 8○, itmerge executeswith 9○
+on the same worker, and duringStage Preparationit receives
+from GPU #3 the output of 7○.
+5.3 Execution ofPlacement Plan
+TridentServeappliesplacement switcheswith anAdjust-
+on-Dispatchpolicy: the system updates placementmetadata
+immediately, while actual replica changes are deferred to
+the next dispatch that needs them. This enables seamless
+transitions without downtime.
+Stage Replica Management.Each node maintainsone
+shared CPU replica per stage. GPU workers host only the
+stages assigned by the current placement.
+Adjust-on-Dispatch.TheMonitortracks per-stage through-
+put over a sliding window of length𝑇win2. If the fastest stage
+is at least1.5× the slowest, theDynamic Orchestratorderives
+a new placement planPswitch.Runtime Engineimmediately
+updatesPswitch in its placement metadata; no replicas are
+actually changed yet. TheDispatchergenerates newdispatch
+plansaccording toPswitch. Since every worker executes plans
+in a FIFO strategy, the in-flight/queued dispatches created
+under the old placement will finish as planned before the
+new ones, which ensures the safety ofAdjust-on-Dispatch
+and will not cause erroneous execution. When a dispatch
+plan based on Pswitch finds that the required stage is not
+resident on GPU,Runtime Engineloads the needed stage
+replica onStage Preparationof the dispatch plan through a
+two-step efficient transfer manner: 1) it first tries an intra-
+node GPUDirect P2P from a peer GPU that already hosts
+the stage; 2) otherwise it loads the stage replica from the
+node’s pinned, shared CPU replica. Transfers use a block-
+wise streaming transfer to remain OOM-safe. These actions
+are asynchronous and only occur when a plan truly needs
+them.
+6 Generation of Plans
+In this section, we describe howPandΓare derived.
+6.1 Placement Plan
+Dynamic Orchestratorgenerates P following the two princi-
+ples:
+Principle 1: Eliminate avoidable inter-stage communica-
+tion. To eliminate unnecessary inter-stage communication,
+we should, whenever possible, try to execute as many stages
+of each request on the same GPU; if the placement ensures
+minimal communication per request, the global communica-
+tion is minimized.
+Principle 2: Balance the processing speeds of the three
+stages to avoid stage congestion. To balance processing speeds
+across stages, we estimate each stage’s processing rate and
+allocate resources to each stage in proportion to these rates.
+Guided by these principles, we later (i) further formalize
+placement, (ii) derive thesingle-request solutionthat mini-
+mizes communication for an individual request, and (iii) lift
+it to anoverall solutionby aligning per-request choices with
+observed stage processing speeds.
+Definition ofPlacementandPlacement Type.We have
+defined theplacementon 𝑔 as𝜋𝑔, with six types:𝜋∈{⟨𝐸𝐷𝐶⟩ ,
+⟨𝐷𝐶⟩ ,⟨𝐸𝐷⟩ ,⟨𝐷⟩,⟨𝐸⟩,⟨𝐶⟩} 3. Since theDiffusestage is cen-
+tral and the dominant bottleneck (§2), placements containing
+𝐷 are pivotal. We call these four typesPrimary Placements
+∈{⟨𝐸𝐷𝐶⟩,⟨𝐷𝐶⟩,⟨𝐸𝐷⟩,⟨𝐷⟩} , and define the GPU hosting
+2We set𝑇win perDiffusion Pipelinedue to differing average processing speeds
+of different pipelines; detailed settings see Appendix D.1
+3We omit⟨𝐸𝐶⟩ since𝐷 dominates and lies on the critical path, so co-
+locating𝐸 with𝐶 neither improves throughput nor reduces𝐷-bound traffic.
+6
+Table 3.Mapping betweenPrimary Replicas,Auxiliary Replicas,
+andVirtual Replicas
+Virtual Replica Primary Replica Auxiliary Replica(s) Comm.
+V0:⟨𝐸𝐷𝐶⟩P0:⟨𝐸𝐷𝐶⟩(none) 0
+V1:⟨𝐷𝐶⟩+⟨𝐸⟩P1:⟨𝐷𝐶⟩A0:⟨𝐸⟩𝑄 𝐸𝐷
+V2:⟨𝐸𝐷⟩+⟨𝐶⟩P2:⟨𝐸𝐷⟩A1:⟨𝐶⟩𝑄 𝐷𝐶
+V3:⟨𝐷⟩+⟨𝐸⟩+⟨𝐶⟩P3:⟨𝐷⟩A0:⟨𝐸⟩; A1:⟨𝐶⟩𝑄 𝐸𝐷+𝑄𝐷𝐶
+Algorithm 2Generation of Placement PlanP
+Input: request setR with per-request Peak Memory func
+peakMem(·) ;Virtual ReplicaType set T with per-type
+residual memory func cap(·) ; GPU numbers𝐺; process-
+ing speed set of different placement type{𝑣 𝜋}.
+Output:P={𝜋 𝑔|𝑔∈[0,𝐺−1]}
+1:for𝑟∈Rdo
+2:OptVR(𝑟)←min{𝑡∈T|peakMem(𝑡)≤cap(𝑡)}
+3:for𝑡∈Tdo
+4:𝛼 𝑡← |{𝑟∈R:OptVR(𝑟)=𝑡}|
+|R| 𝑁𝑡←⌊𝛼𝑡𝐺⌋
+5:for𝑡∈Tdo
+6:(𝑁 prim
+𝑡 , 𝑁aux
+𝑡 )←Split(𝑁 𝑡,{𝑣 𝜋},𝑡)
+7:P←PackPerMachine
+
+{(𝑡,𝑁 prim
+𝑡 ,𝑁 aux
+𝑡 )}𝑡∈T,𝐺
+
+one asPrimary Replica(PR). Placements excluding 𝐷 are
+Auxiliary Placements∈{⟨𝐸⟩,⟨𝐶⟩} , hosted onAuxiliary Repli-
+cas(AR). To execute a request, we select a set of GPUs whose
+resident stages jointly cover{𝐸,𝐷,𝐶} . We call such a GPU
+set aVirtual Replica(VR). As shown in Table 3, VRs also have
+four types, in one-to-one correspondence with PR.
+Single-Request Solution.For a given request 𝑟, inter-
+stage communication is minimized by choosing theVir-
+tual Replicatype that yields the smallest inter-stage trans-
+fer. Since𝑙𝐶
+proc >𝑙 𝐸
+proc and communication𝑄∝𝑙 , we have
+𝑄𝐷𝐶 >𝑄 𝐸𝐷 ; thus, as shown in Table 3, the communication
+of aVirtual Replicatype increases monotonically with its in-
+dex. Hence, for each request𝑟, select the firstfeasible Virtual
+Replicatype in the order 𝑉 0≺𝑉 1≺𝑉 2≺𝑉 3. We denote
+this minimal-communication choice byOptVR(𝑟).
+Overall Solution.When each request𝑟 runs on itsOptVR(𝑟) ,
+total inter-stage communication is minimized. To realize this
+under a finite GPU set G, theplacement planshould pro-
+visionVirtual Replicatypes in proportions that mirror the
+distribution ofOptVR(𝑟)observed inR.
+Concurrently, to prevent stage imbalances that lead to
+congestion, thePrimaryandAuxiliary Replicaswithin each
+Virtual Replicatype should be apportioned inversely to their
+respective processing speeds.
+Following this principle, we obtain the placement alloca-
+tion algorithm in Algorithm 2.
+Lines 1–2 scan requests and pick the OptVR(𝑟) based on
+their peak memory and the capacity of eachVirtual Replica
+type. Lines 3–4 determine the number𝑁𝑡 of each type ofVir-
+tual Replicaoccupying the GPU according to the proportion
+of OptVR(𝑟) . Lines 5–6 split each𝑁𝑡 into  𝑁 prim
+𝑡 ,𝑁 aux
+𝑡
+ using
+the monitored throughputs of the correspondingPrimary
+andAuxiliaryplacement types in {𝑣𝜋} to balance service
+rates within each type. Line 7 generatesP based on the re-
+sults and prioritizes assigning identical𝜋 types within each
+machine. Details of Split() and PackPerMachine() is shown
+in Appendix C.1
+6.2 Dispatch Plan
+TridentServeemploys aResource-A ware Dispatcherto pro-
+ducedispatch planswhose objective is to maximize the SLO-
+attainment, as SLO compliance is paramount in GVT serv-
+ing [2, 25].
+Discussion.We formalize the ideal objective as follows:
+for each request𝑟 with SLO deadline𝑑𝑟 , and a cluster of𝐺
+GPUs with placements{𝜋𝑔}𝐺−1
+𝑔=0 , select, for every stage𝑠, the
+dispatch plan Γ𝑠
+𝑟 and its dispatch time𝑡Γ𝑠𝑟 so as to maximize
+the number of requests that finish within their SLOs:
+max
+∑︁
+𝑟
+1
+h
+𝑇𝑟
+ {Γ𝑠
+𝑟,𝑡 Γ𝑠𝑟}𝑠
+≤𝑑𝑟
+i
+,
+As shown in Appendix B, this is a strengthened NP-complete
+Job-Shop Scheduling Problem[ 14] and is intractable for real-
+time decision making, rendering it impractical for online
+serving. Accordingly, wedissectthe problem into tractable
+parts and present atwo-stepsolution. We first further define
+thedispatch planand then detail the two-step solution.
+Definition ofDispatch Plan.Adispatch planfor re-
+quest𝑟’s stage 𝑠 is defined as: Γ𝑠
+𝑟 =  𝑟,G 𝑠
+𝑟,{𝑠 : 𝜙𝑠},
+where 𝑟∈ R is the dispatched request, G𝑠
+𝑟 ⊆ Gis the
+GPU worker set that this plan assigned to, 𝑠 is the stage
+that will execute,𝜙𝑠 is the parallel config of𝑠. For example,
+Γ𝐷
+2 =  𝑟2,{𝑔 0,𝑔 1,𝑔 2,𝑔 3},{𝐷 : SP4} means send request
+#2 to GPUs #0–3, then runDiffusestage with 4-degree se-
+quence parallel to the request.
+A request𝑟’sdispatch planis the set of all dispatch plans
+it participates in:Γ𝑟 ={Γ 𝐸
+𝑟 ,Γ 𝐷
+𝑟 ,Γ 𝐶
+𝑟 },
+Two-step Formulation.We dissect this long-range con-
+tinuous time scheduling problem into a two-step decision
+per tick: 1) for each pending request𝑟, we decide whether
+to dispatch itnowand first determine itsDiffusestage plan
+Γ𝐷
+𝑟 , 2) then we derive Γ𝐸
+𝑟 and Γ𝐶
+𝑟 from Γ𝐷
+𝑟 . We simplify the
+problem based on the following two insights:
+Insight 1: Because the pending requests evolve continu-
+ously and runtime estimates are jitter-prone, long-horizon
+decisions are brittle and slow [45]. A per-tick, myopic deci-
+sion yields responsive and robust online scheduling [10, 18].
+Insight 2: As shown in Figure 8, theDiffusestage domi-
+nates end-to-end latency. Meanwhile,Diffuseis highly sen-
+sitive to parallel degree, whereasEncodeandDecodestages
+contribute little to latency and are nearly insensitive to par-
+allelism (§3). Hence, we delicately decide Γ𝐷
+𝑟 first. Then, Γ𝐸
+𝑟
+and Γ𝐶
+𝑟 are then set directly on profiledoptimal parallelism
+7
+5%
+71%
+24%
+Medium
+3%
+73%
+24% 2%
+79%
+19% 2%
+74%
+25%
+3%
+75%
+22%
+High
+1%
+70%
+29% 1%
+68%
+31% 1%
+65%
+34%
+Sd3 Flux Cog Hunyuan
+Encode
+Diffuse
+Decode
+Figure 8.Time breakdown of different models tested on NVIDIA
+L20. High and Medium are the workloads that will be introduced
+in §8.1.
+strategy4 and thePrimary Placementtype whereG𝐷
+𝑟 assigned
+to: if𝐸 co-resides with𝐷, reuse theG𝐷
+𝑟 asG𝐸
+𝑟 since𝐸 takes
+almost no time, it can be directly merged and executed with
+D inRuntime Engine; if 𝐶 co-resides with𝐷, choose a subset
+G𝐶
+𝑟 ⊆G 𝐷
+𝑟 sinceDecodeusually needs less resource thanDif-
+fusestage (§3), which can avoid inter-stage communication;
+otherwise, assign𝐸 and/or𝐶 to idleAuxiliary Replicasusing
+the profiled optimal parallelism strategies.
+We therefore first solve for Γ𝐷
+𝑟 and subsequently instanti-
+ateΓ 𝐸
+𝑟 andΓ 𝐶
+𝑟 based onΓ 𝐷
+𝑟 .
+Solution for Γ𝐷 .We first formulate an Integer Linear
+Programming [38] (ILP) to solve the current dispatched Γ𝐷
+𝑟 :
+Sets and indices. Let𝑟∈R be request; 𝑖∈I={ 0, 1, 2, 3} be
+Primary types;𝑘∈K={1,2,4,8}be parallel degrees.
+Parameters. Let𝑑𝑟 be the SLO deadline of request 𝑟; 𝜏 be
+the current scheduling time; 𝑡𝑟,𝑖,𝑘 > 0be the pre-profiled
+runtime of𝑟, which runs the stages residing on type𝑖 with
+degree𝑘; 𝐵𝑖∈Z≥0 be the number of idlePrimary replicas
+of type𝑖;𝑄𝑟,𝑖≥ 0be the inter-stage communication penalty
+weight if type𝑖 is chosen; 𝑊𝑟 > 0be the SLO-aware reward
+weight;𝑀be a sufficiently large constant.
+Feasible Indicator. This indicator can be calculated in advance
+to filter and reduce the number of variables: 𝐸𝑟,𝑘 ∈{ 0, 1}
+filters the inefficient5 degree𝑘 for𝑟; 𝐹𝑟,𝑖,𝑘∈{ 0, 1} filters the
+unfeasiblePrimary Placementtype𝑖for𝑟;
+Decision variables.𝑥𝑟,𝑖,𝑘∈{ 0, 1} means if dispatch𝑟 now on
+Primary Replicaof type 𝑖 with degree𝑘; 𝐷𝑟∈{ 0, 1} means
+if𝑟is finished on time.
+Objective:
+max
+𝑥,𝐷
+∑︁
+𝑟∈R
+∑︁
+𝑖∈I
+∑︁
+𝑘∈K
+ 𝑊𝑟−𝑄𝑟,𝑖
+𝑥𝑟,𝑖,𝑘 (OBJ)
+4We define theoptimal parallelism strategyin a practical way: the highest
+degree parallelism whoseefficiency > 0.8. Efficiency = Actual Speedup
+Theoretical Speedup .
+5We set the inefficient threshold as 0.8 since it is widely used [16, 46].
+Constraints:
+𝑥𝑟,𝑖,𝑘≤𝐸 𝑟,𝑘𝐹𝑟,𝑖,𝑘 ∀𝑟,𝑖,𝑘,(C0)
+∑︁
+𝑖,𝑘
+𝑥𝑟,𝑖,𝑘≤1∀𝑟,(C1)
+∑︁
+𝑟∈R
+∑︁
+𝑘∈K
+𝑘𝑥𝑟,𝑖,𝑘≤𝐵 𝑖 ∀𝑖∈I,(C2)
+𝜏+
+∑︁
+𝑖,𝑘
+𝑡𝑟,𝑖,𝑘𝑥𝑟,𝑖,𝑘≤𝑑𝑟+𝑀(1−𝐷 𝑟) ∀𝑟,(C3a)
+𝐷𝑟≤
+∑︁
+𝑖∈I
+∑︁
+𝑘∈K
+𝑥𝑟,𝑖,𝑘, 𝐷 𝑟∈{0,1} ∀𝑟,(C3b)
+𝑥𝑟,𝑖,𝑘∈{0,1} ∀𝑟,𝑖,𝑘.(C4)
+(OBJ)maximizes an SLO-aware reward while penaliz-
+ing inter-stage communication:𝑊𝑟 is a pre-defined weight
+that favors on-time completion and discourages lateness. We
+also add an aging mechanism [ 59] to avoid starvation in
+the setting of𝑊𝑟 , detailed in Appendix C.2;𝑄𝑟,𝑖 is the pre-
+defined communication penalty that encourages choosing
+thePrimary Replicawith less communication, also detailed
+in Appendix C.2.
+(C0)prunes inefficient and infeasible degree/type pairs
+for each request.(C1)permits at most one assignment per
+request.(C2)enforces that the assignedPrimary Replicas
+do not exceed their total amount.(C3a)links the chosen
+runtime to the SLO using a big-𝑀 constraint with current
+time𝜏;(C3b)allows𝐷 𝑟 =1only if the batch is dispatched.
+Due to the filtering of preliminary variables and the fact
+that each cluster generally has 1-2Primary Placementtypes
+(§8.3), this method can achieve a solution in under a hundred
+milliseconds for larger-scale clusters, as detailed in §8.5.
+After solving this efficient ILP, we obtain an assignment
+𝑥𝑟,𝑖,𝑘 = 1for each dispatched request 𝑟, and select anintra-
+machineGPU setG𝐷
+𝑟 that provides𝑘 Primary Replicasof type
+𝑖 (to avoid cross-machine, if not found, stay undispatched
+for next round). From the profiler, we retrieve the best par-
+allelism strategy𝜙𝐷 for theDiffusestage at degree 𝑘, and
+form
+Γ𝐷
+𝑟 =  𝑟,G 𝐷
+𝑟 ,{𝐷:𝜙 𝐷} .
+Subsequent Γ𝐸
+𝑟 and Γ𝐶
+𝑟 follow directly from Γ𝐷
+𝑟 per the earlier
+insight.
+Solution for Γ𝐸 and Γ𝐶 .Given Γ𝐷
+𝑟 and the assignedPri-
+mary Replicatype:
+•Γ 𝐸
+𝑟 . Select the profiledoptimal parallelism𝜙𝐸. If thePri-
+mary Replicacontains 𝐸, reuseG𝐷
+𝑟 ; otherwise, choose
+an idle or earliest-to-finish—GPU set (reported by the
+Monitor)G 𝐸
+𝑟 from𝐸-typeAuxiliary Replicas.
+•Γ 𝐶
+𝑟 . Select the profiledoptimal parallelism 𝜙𝐶. If the
+Primary Replicacontains 𝐶, take a subsetG𝐶
+𝑟 ⊆G 𝐷
+𝑟 ;
+otherwise, choose an idle or earliest-to-finish—GPU set
+(reported by theMonitor) G𝐶
+𝑟 from𝐶-typeAuxiliary
+Replicas.
+8
+7 Implementation
+The core ofTridentServecomprises about 12K lines of
+Python/Triton [69] code in total: theRuntime Engineis 10K
+LOC and the Planners are 2K LOC. We have integrated pop-
+ular diffusion models (roughly 16K LOC in total), including
+Stable-Diffusion[ 11],PixArt[ 7, 8],Flux[ 29],Cogvideo[ 74],
+HunyuanVideo[ 27], andHunyuanDiT[ 31]. We also support
+a dynamic batching mechanism when there are multiple
+lightweight requests to be served. Besides, although our so-
+lution above concentrates onSP, it is compatible withMP
+by simply treating multiple devices as one. We leave more
+details of dynamic batching andMPintegration in Appen-
+dix E. In theRuntime Engine, we implement asynchronous
+concurrent execution withray[ 36] and coroutines [56], and
+useNCCL[ 43] andNIXL[ 3] as communication backends. To
+implement theDispatch plansolver, we use the PuLP [ 35]
+libraries for solving the ILP problem.
+8 Evaluation
+8.1 Experimental Setup
+Testbed.We conduct our experiments on a cluster of 16 GPU
+servers, each equipped with8× NVIDIA L20 [44] (48G), for a
+total of 128 GPUs. Within each server, GPUs connect to the
+host via PCIe 4.0 x16 and are mapped into a 4+4 dual-NUMA
+topology. The servers are interconnected using Mellanox
+ConnectX-5 adapters operating at 100 Gb/s Ethernet.
+Models.To demonstrate the generality of our approach,
+we evaluate four widely used generative vision pipelines:
+StableDiffusion3-Medium[ 63] (Sd3) andFlux.1[ 28] (Flux)
+for image generation,CogVideoX1.5-5B[ 76] (Cog), andHun-
+yuanVideo[ 67] (Hunyuan) for video generation. In particular,
+Sd3andCogcan be deployed in a fully co-located manner,
+whereasFluxandHunyuanrequire disaggregated deploy-
+ment to avoid OOM, thereby demonstrating that our method
+automatically adapts to diverse deployment scenarios. Their
+concrete configurations have been summarized in Table 2.
+Workloads.We use three classes of workloads: (1)Steady
+workloads were generated using a fixed arrival rate within
+30 min. We synthesize threeSteadytraces:light,medium,
+andheavy, with a bundle of mixed target resolution and du-
+rations. (2) TheDynamicworkload randomly interleave the
+threeSteadyworkloads above while varying the arrival pro-
+portion following the pattern in Figure 9. (3) TheProprietary
+workload is proportionally scaled to adapt to our cluster and
+model from real production traces whose pattern is shown
+in Figure 9, which exhibits pronounced diurnal/tidal effects.
+We leave the details of traces and inference settings in Ap-
+pendix D.1. At the same time, referring to Alpaserve’s [32]
+approach, we set the SLO to 2.5 × the latency when it is
+running under theoptimal parallelism strategy.
+Baselines.To the best of our knowledge, all existing
+works can only employ static, pipeline-level resource alloca-
+tion (B1). To comprehensively assess the effectiveness of our
+10 20 30
+Time Spans (mins)
+0.00
+0.01
+0.02
+0.03Propotion Ratio
+Light Medium Heavy
+0 15 30 45 60
+Time Spans (mins)
+300375450525600 Image
+0 15 30 45 60
+Time Spans (mins)
+0
+50
+100 Video
+Num. of Reqs
+Figure 9.Left: the pattern of theDynamicworkload, which is
+to distribute three different steady workloads according to the
+proportions in the diagram within a Time Span. Right: segments of
+proprietary traces for image and video generation.
+work, we further consider 5 variants of TridentServe (B2-
+B6), constituting 6 baselines in total. Further implementation
+details are deferred to Appendix D.2.
+B1: Static Pipeline-level Co-locate all stages, static par-
+allelism strategy (degree k is chosen to satisfy the SLO
+at the maximum length) for all requests, and use the
+same resources across stages within one request. FIFO
+scheduling. This is the scheme used by xDiT [12].
+B2: Bucketed Pipeline-level Co-locate all stages and use
+the same resources across stages within one request.
+We statically partition the cluster into disjoint buck-
+ets by degree𝑘; each request is routed to the bucket
+matching its optimal degree of theDiffusestage from
+the profiler. Bucket capacities are sized in proportion
+to demand and per-instance service rate. FIFO within
+each bucket.
+B3: Dynamic Pipeline-level (FIFO) Co-locate all stages.
+Per-request dynamic parallelism: upon arrival, use the
+optimal parallelism strategyof theDiffusestage, and all
+three stages use the same resource. FIFO scheduling.
+B4: Dynamic Pipeline-level (SRTF) As in B3, but sched-
+uled byShortest Remain Time First[55] (with aging).
+B5: Bucketed Stage-level Manual disaggregated stages
+deployment to enable stage-level resource allocation.
+Every disaggregated cluster uses the bucketed method
+inB2. FIFO scheduling.
+B6: Dynamic Stage-level (SRTF) Manual disaggregated
+stages deployment to enable stage-level resource allo-
+cation. Each stage selects itsoptimal parallelism strat-
+egydynamically from the profiler. SRTF scheduling.
+8.2 End-to-End Evaluation
+We evaluateTridentServeagainst the baselines in §8.1 on
+all workloads, reporting SLO attainment, mean latency, and
+P95 latency (Figure 10).
+Overall,TridentServeincreases SLO attainment and re-
+duces latency while eliminating OOMs: allB1–B4runs OOM
+onFluxandHunyuanVideoacross all workloads, whereas
+9
+0.0
+1.0SLO Attainment
+Sd3
+0.48
+0.24
+0.12
+0.21
+0.24
+0.55
+0.35
+0.20
+0.42
+0.29
+0.59
+0.53
+0.29
+0.50
+0.31
+0.70
+0.60
+0.40
+0.55
+0.44
+0.65
+0.33
+0.18
+0.32
+0.34
+0.67
+0.40
+0.30
+0.39
+0.36
+0.98
+0.95
+0.70
+0.93
+0.90
+0.0
+1.0
+Flux
+0.73
+0.60
+0.26
+0.30
+0.31
+0.69
+0.52
+0.30
+0.29
+0.37
+0.88
+0.86
+0.45
+0.70
+0.83
+OOM
+OOM
+OOM
+OOM
+OOM
+0.0
+1.0
+Cog
+0.18
+0.15
+0.11
+0.17
+0.14
+0.58
+0.28
+0.14
+0.18
+0.51
+0.11
+0.14
+0.10
+0.10
+0.13
+0.63
+0.51
+0.35
+0.41
+0.45
+0.60
+0.26
+0.16
+0.15
+0.32
+0.52
+0.40
+0.35
+0.33
+0.44
+0.88
+0.86
+0.68
+0.71
+0.90
+0.0
+1.0
+Hunyuan
+0.21
+0.22
+0.06
+0.09
+0.22
+0.42
+0.30
+0.13
+0.14
+0.33
+0.68
+0.40
+0.19
+0.32
+0.73
+OOM
+OOM
+OOM
+OOM
+OOM
+0.0
+1.0
+Average
+Latency(100s)
+0.27
+0.36
+1.2
+0.44
+0.52
+0.23
+0.31
+0.88
+0.36
+0.25
+0.18
+0.24
+0.85
+0.25
+0.41
+0.13
+0.19
+0.96
+0.22
+0.47
+0.27
+0.40
+0.90
+0.39
+0.60
+0.22
+0.24
+0.90
+0.44
+0.57
+0.07
+0.10
+0.48
+0.16
+0.22
+0.0
+2.0
+0.18
+0.22
+1.1
+0.91
+0.71
+0.21
+0.26
+1.6
+0.80
+0.80
+0.10
+0.14
+0.81
+0.31
+0.40
+OOM
+OOM
+OOM
+OOM
+OOM
+0
+10
+2.4
+3.2
+6.9
+5.3
+4.4
+0.95
+1.6
+4.2
+3.3
+2.6
+4.9
+4.9
+11
+8.1
+6.4
+1.7
+1.6
+4.4
+2.9
+2.1
+1.2
+1.1
+4.1
+2.9
+2.2
+1.4
+1.4
+4.2
+3.2
+2.6
+0.66
+0.78
+1.5
+1.1
+0.71
+0.0
+5.0
+2.7
+4.4
+7.0
+5.9
+4.9
+2.4
+4.1
+6.8
+5.1
+4.2
+1.4
+2.2
+4.1
+2.8
+1.6
+OOM
+OOM
+OOM
+OOM
+OOM
+Light
+MediumHeavyDynamicProprietary
+0
+10
+P95
+Latency(100s)
+0.89
+0.99
+8.9
+1.4
+2.3
+0.84
+0.79
+6.4
+0.97
+1.1
+0.46
+0.56
+3.4
+0.87
+1.6
+0.57
+0.65
+5.5
+1.1
+1.6
+0.93
+1.1
+9.5
+1.5
+1.6
+0.83
+0.93
+7.8
+1.1
+1.2
+0.27
+0.28
+2.9
+0.39
+0.65
+Light
+MediumHeavyDynamicProprietary
+0.0
+2.5
+0.74
+0.81
+1.9
+1.9
+3.2
+0.91
+0.87
+2.5
+1.7
+2.8
+0.46
+0.47
+1.6
+0.82
+1.1
+OOM
+OOM
+OOM
+OOM
+OOM
+Light
+MediumHeavyDynamicProprietary
+0
+20
+3.6
+5.5
+12
+8.2
+13
+2.2
+3.1
+7.6
+5.2
+8.9
+8.2
+8.7
+19
+13
+13
+9.1
+13
+17
+15
+16
+3.2
+4.0
+7.8
+6.8
+6.7
+5.6
+7.6
+14
+11
+11
+1.8
+2.3
+4.1
+2.9
+2.6
+Light
+MediumHeavyDynamicProprietary
+0
+20
+13
+14
+23
+18
+22
+16
+15
+21
+17
+20
+8.2
+8.5
+13
+9.5
+8.0
+OOM
+OOM
+OOM
+OOM
+OOM
+B1: Static-Pipeline B2: Bucketed-Pipeline B3: Dynamic-Pipeline (FIFO) B4: Dynamic-Pipeline (SRTF) B5: Bucketed-Stage B6: Dynamic-Stage TridentServe
+Figure 10.End-to-End Results.
+ours never OOMs via automatic dynamic deployment. Com-
+pared toB1(xDiT), we observe 2.1×-6.6× higher SLO attain-
+ment, mean-latency speedups of 2.4×-6.2×, and P95-latency
+speedups of 2.0×-4.8×. Versus other colocated and pipeline-
+level methods (B2–B4), we improve SLO by 1.4×-8.3×, and
+reduce mean and P95 latency by 1.1×-9.0× and 1.2×-6.1×,
+respectively. Against stage-level baselines, we achieve 1.2×-
+4.6× higher SLO attainment, 1.4×-4.0× and 1.2×-4.1× lower
+mean and P95 latency thanB5, and 1.3×-2.5× higher SLO
+attainment, 1.7×-3.6× and 1.5×-4.1× lower mean and P95
+latency thanB6. We detail the observations below.
+Static Pipeline-level Baselines (B1 & B2). B1uses a
+single global parallelism strategy for all requests, which mis-
+matches heterogeneous demand (§3), lowering efficiency and
+performance.B2improves on B1 by routing each request to
+a fixed𝑘 bucket, but arrival randomness creates structural
+imbalance across buckets—some are idle while others queue.
+The imbalance is mild on steady traces but pronounced on
+dynamic ones. Our method employs stage-level parallelism
+and accounts for cluster utilization, outperforming B1 & B2
+via higher resource efficiency.
+Dynamic Pipeline-level Baselines (B3 & B4). B3uses
+a per-request dynamic parallelism yet schedules with FIFO,
+which induces head-of-line blocking and under-utilization.
+B4switches to SRTF, which improves utilization and priori-
+tizes near-deadline requests, thus improving performance.
+However, it still uses a fixedoptimal parallelism strategy,
+which lacks flexibility and therefore limits its upper bound.
+Stage-level Baseline (B5 & B6). B5andB6adopt disag-
+gregated deployment for stage-level allocation, effectively
+eliminating OOMs. Yet their manually designed,staticplace-
+ments introduce extra inter-stage transfers and drift out of
+alignment as arrival patterns change. For relatively stable
+workloads, our method yields, on average, a 2.1× increase
+0 3 6 9 12 15 18 21 24 27 30
+Time Span
+100
+200
+300
+400Requests
+init
+EDC: 96
+ED: 24
+C: 8
+switch1
+EDC: 112
+ED: 12
+C: 4
+switch2
+EDC: 80
+ED: 32
+C: 16
+B5:Bucketed-Stage B6:Dynamic-Stage TridentServe
+Figure 11.The throughput per time span and placement switch
+ofFluxonDynamicworkload.
+in SLO satisfaction and 2.1×/2.3× reductions in mean/P95
+latency overB5andB6. Under more dynamic loads—e.g.,
+DynamicandProprietary—the gains are larger: 2.7 × higher
+SLO satisfaction and 2.6×/2.6× faster mean/P95 latency, ex-
+ceeding the improvements on stable traces.
+8.3 Case Study
+We analyze the distribution ofVirtual Replicas(VR) used by
+requests and placement shifts under theDynamicworkload.
+Virtual Replica StatisticsFigure 12 reports the VR dis-
+tribution forFluxandHunyuanVideo. Most requests run
+on V0 (least inter-stage communication); requests that ex-
+ceed V0 memory are placed on V1 or V2. InFlux, 84% of
+requests are V0-eligible, and our scheduler dispatches 80% to
+V0; inHunyuanVideo, 87% are eligible, and we dispatch 84%.
+Thus, the method steers nearly all requests to the lowest-
+communication plan. The small remainder reflects transient
+congestion of the corresponding optimal VR during schedul-
+ing, which will soon be eliminated by our placement switch.
+Placement Switching under Dynamic Workloads.
+TakingFluxas an example, Figure 11 visualizes placement
+switching under theDynamicworkload. At around 12 min, as
+manyLightrequests arrive, ourorchestratorswitches more
+placements toEDCto accommodate the surge, recovering
+10
+throughput during a downturn; around 20 min, when a large
+number ofHeavyrequests arrive, we increase the number of
+EDplacements, preventing throughput from continuing to
+decline. In contrast,B5andB6use static placements, which
+lead to a sustained decrease in throughput.
+V0 V1 V2
+020406080100120Seq. Lengths(k)
+80%
+20%
+84%
+16%Flux Hunyuan
+Figure 12.Distribution of Vir-
+tual Replica types. The white cir-
+cle indicates the median.
+Shutdown
+Adjust
+Adjust on
+Dispatch
+0
+10Time (s)5.1s
+12.7s
+0.34x
+5.0s1.0s
+Adjust
+Execution
+Figure 13.Comparison be-
+tween shutdown adjust and
+Adjust-on-Dispatch.
+8.4 Ablation Study
+E2E AblationWe conduct ablations onHunyuanVideoand
+Fluxusing thedynamicandsteady (medium)workloads,
+removing one component at a time:
+•wo-switch: disable placement switch, only useP 𝑖𝑛𝑖𝑡 .
+• wo-stageAware: disable stage-level resource alloca-
+tion, and align all GPU demand with theDiffusestage.
+• wo-scheduler: replace ourResource-A ware Dispatcher
+with a simple greedy SRTF policy; each stage still uses
+profiled-optimal parallelism strategy.
+Results (Figure 14) show: (i)placement switchingis crucial
+under dynamic load shifts, reducing latency by 33.1% and
+17.6% inFluxandHunyuanVideo; under theSteadyworkload,
+the gains are more modest—11.7% and 6.2% respectively. It
+also improves SLO attainment by mitigating stage-rate im-
+balance. (ii) on average,stage-level allocationconsistently
+reduces latency by 22.3% and 25.3% and improves SLO at-
+tainment by 10.0% and 24.2% inFluxandHunyuanVideo,
+regardless of workload, owing to more efficient resource use;
+(iii) theglobal schedulersubstantially boosts SLO attainment
+up to 36.8% and 42.4% inFluxandHunyuanVideo, while also
+yielding a certain reduction in latency.
+Ablation forAdjust-on-Dispatch.To assess the effec-
+tiveness ofAdjust-on-Dispatch, we use Flux’sDynamicwork-
+load and monitor a certain request (1024p) that completes
+immediately before an adjustment is required. We compare
+its completion time under two scenarios—naïve downtime ad-
+justment andAdjust-on-Dispatch, with the breakdown shown
+in Figure 13. The results show that downtime adjustment
+incurs substantial overhead because the system must shut
+down for an extended interval during which no requests are
+processed, whereas our approach amortizes the adjustment
+by performing it concurrently between dispatches, adding
+virtually no runtime.
+8.5 Sensitivity and Scalability
+SLO Sensitivity.To factor out the effect of SLO settings on
+SLO attainment, following AlpaServe [32], we reportSLO
+250
+375
+500
+285
+346(  17.6%)
+400(  28.9%)
+ 404(  29.5%)
+200
+300
+400
+222
+237(  6.2%)
+284(  21.7%)
+302(  26.4%)
+0.150.250.35 0.32 0.26(  16.5%)
+ 0.23(  26.8%)
+ 0.19(  38.3%)
+0.200.330.450.40 0.38(  4.9%)
+ 0.32(  21.6%)
+ 0.23(  42.4%)
+30
+45
+60
+31
+47(  33.1%)
+ 41(  24.2%)
+45(  30.0%)
+10
+17
+25
+14
+16(  11.7%)
+18(  20.5%)
+22(  35.1%)
+0.450.600.75 0.70 0.53(  23.7%)
+0.63(  9.3%)
+ 0.46(  33.6%)
+0.450.650.850.86 0.80(  6.3%)
+ 0.77(  10.6%)
+ 0.54(  36.8%)
+Dynamic Steady (Medium)
+HunyuanVideo
+Flux
+TridentServe (full)
+wo-switch
+wo-stageAware
+wo-scheduler
+SLO Attainment
+Avg. Latency(s)
+Figure 14.Ablation Study forTridentServe.
+2 4 6 8 100.0
+0.2
+0.4
+0.6
+0.8
+1.0SLO Attainment
+95% @ 4×
+Sd3
+2 4 6 8 10
+Others OOM
+95% @ 10×
+Flux
+2 4 6 8 10
+95% @ 6×
+Cog
+2 4 6 8 10
+Others OOM
+95% @ 10×
+Hunyuan
+B1: Static-Pipeline
+B2: Bucketed-Pipeline
+B3: Dynamic-Pipeline
+B4: Dynamic-Pipeline
+B5: Bucketed-Stage
+B6: Dynamic-Stage
+TridentServe
+Figure 15.SLO sensitivity: the x-axis is the scale factor𝛼; for each
+𝛼, we set the SLO to𝛼× the latency under the optimal parallelism.
+Table 4.Dispatcherscalability: solver time per scheduling tick.
+#GPUs128 256 512 1024 4096
+Time (ms)25 26 36 45 98
+scalingon theDynamicworkload (Figure 15).TridentServe
+consistently achieves higher SLO attainment than all base-
+lines, demonstrating robustness across varying SLO targets.
+DispatcherScalability.We validate scalability by timing
+a singledispatchersolve, which is the system’s most time-
+consuming step. We emulate larger clusters by scaling the
+average number of pending requests in proportion to the
+GPU count, keeping the request/GPU ratio fixed and extrapo-
+lating our 128-GPU cluster to thousands of GPUs. As shown
+in Table 4, the per tick solve time remains within hundreds
+of milliseconds, demonstrating strong scalability.
+9 Related Work
+Diffusion Pipeline Serving.With the rapid rise ofDiffu-
+sion Pipelines, several works target serving optimization. NIR-
+VANA [1] reuses intermediate noise across requests to reduce
+denoising steps; DIFFSERVE [ 2] cascades small and large
+models to balance speed and quality; PATCHEDSERVE [65]
+caches at the patch-level to exploit diffusion redundancy;
+FlexCache [64] stores and compresses intermediate states by
+leveraging step similarity for acceleration. All of the above
+arelossy, algorithmic accelerations and thus orthogonal to
+our approach. To the best of our knowledge, we are the first
+to deliver alosslessacceleration from a systems perspective.
+Disaggregated Serving.Disaggregated serving [ 50, 51,
+78] targets pipelines whose stages have contrasting resource
+11
+profiles. In LLM inference,prefillis compute-bound while
+decodeis memory-bound; co-locating them degrades TTFT
+and TPOP, so systems such asMooncakeandDistServe
+separate these stages [50, 78]. As multimodal inference ma-
+tures, frameworks analogously isolate theencodestage from
+prefill/decodeto raise throughput, e.g.,EPD[60].
+10 Conclusion and Future Works
+This work analyzes diffusion pipelines from both architec-
+tural and workload perspectives, revealing a pronounced
+imbalance in resource demands across requests and stages.
+To address this, we presentTridentServe, the first system to
+support dynamic, stage-level resource allocation for both re-
+quest processing and model deployment, jointly optimizing
+them to efficiently serve complex workloads.
+As a future direction, we plan to adapt our system to
+heterogeneousGPU pools, exploiting each stage’s distinct
+compute–memory profile to map it to the most cost-effective
+GPU tier. We also plan to extend this stage-level architecture
+tomulti-modelserving. Lastly, although this work is the first
+to articulate the problem of stage-level resource allocation,
+our current solution relies on certain heuristics (e.g., fixed
+model parallelism E.2), which we aim to refine in future
+work.
+References
+[1] Shubham Agarwal, Subrata Mitra, Sarthak Chakraborty, Srikrishna
+Karanam, Koyel Mukherjee, and Shiv Kumar Saini. 2024. Approximate
+caching for efficiently serving{Text-to-Image} diffusion models. In
+21st USENIX Symposium on Networked Systems Design and Implemen-
+tation (NSDI 24). 1173–1189.
+[2] Sohaib Ahmad, Qizheng Yang, Haoliang Wang, Ramesh K Sitaraman,
+and Hui Guan. 2024. DiffServe: Efficiently Serving Text-to-Image
+Diffusion Models with Query-Aware Model Scaling.arXiv preprint
+arXiv:2411.15381(2024).
+[3] AI-Dynamo. 2025. NVIDIA Inference Xfer Library (NiXL). GitHub
+repository.https://github.com/ai-dynamo/nixl.
+[4] AI@Meta. 2024. Llama 3 Model Card. (2024).https://github.com/meta-
+llama/llama3/blob/main/MODEL_CARD.md
+[5] Black Forest Labs. [n. d.]. FLUX.1 [schnell].https://huggingface.co/
+black-forest-labs/FLUX.1-schnell. License: Apache-2.0. Accessed:
+2025-08-20.
+[6] NVIDIA Technical Blog. [n. d.]. Benchmarking GPUDirect RDMA
+on Modern Server Platforms.https://developer.nvidia.com/blog/
+benchmarking-gpudirect-rdma-on-modern-server-platforms/. Ac-
+cessed: 2025-08-19.
+[7] Junsong Chen, Yue Wu, Simian Luo, Enze Xie, Sayak Paul, Ping
+Luo, Hang Zhao, and Zhenguo Li. 2024. PIXART: Fast and
+Controllable Image Generation with Latent Consistency Models.
+arXiv:2401.05252 [cs.CV]
+[8] Junsong Chen, Jincheng Yu, Chongjian Ge, Lewei Yao, Enze Xie, Yue
+Wu, Zhongdao Wang, James Kwok, Ping Luo, Huchuan Lu, and Zhen-
+guo Li. 2023. PixArt: Fast Training of Diffusion Transformer for Pho-
+torealistic Text-to-Image Synthesis. arXiv:2310.00426 [cs.CV]
+[9] NVIDIA Corporation. [n. d.]. Overview NVIDIA GPUDirect RDMA.
+https://docs.nvidia.com/cuda/gpudirect-rdma/. Accessed: 2025-08-19.
+[10] Jeffrey Dean and Luiz André Barroso. 2013. The Tail at Scale.Commun.
+ACM56, 2 (2013), 74–80. doi:10.1145/2408776.2408794
+[11] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas
+Müller, Harry Saini, Yam Levi, Dominik Lorenz, Axel Sauer, Fred-
+eric Boesel, et al. 2024. Scaling rectified flow transformers for high-
+resolution image synthesis. InForty-first international conference on
+machine learning.
+[12] Jiarui Fang, Jinzhe Pan, Xibo Sun, Aoyu Li, and Jiannan Wang. 2024.
+xDiT: an Inference Engine for Diffusion Transformers (DiTs) with
+Massive Parallelism.arXiv preprint arXiv:2411.01738(2024).
+[13] Jiarui Fang, Jinzhe Pan, Jiannan Wang, Aoyu Li, and Xibo Sun. 2024.
+Pipefusion: Patch-level pipeline parallelism for diffusion transformers
+inference.arXiv preprint arXiv:2405.14430(2024).
+[14] Michael R. Garey, David S. Johnson, and Ravi Sethi. 1976. The Complex-
+ity of Flowshop and Jobshop Scheduling.Mathematics of Operations
+Research1, 2 (1976), 117–129. doi:10.1287/moor.1.2.117
+[15] Ian J Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David
+Warde-Farley, Sherjil Ozair, Aaron Courville, and Yoshua Bengio. 2014.
+Generative adversarial nets.Advances in neural information processing
+systems27 (2014).
+[16] Ananth Grama, Anshul Gupta, George Karypis, and Vipin Kumar. 2003.
+Introduction to Parallel Computing(2 ed.). Addison-Wesley, Boston,
+MA.
+[17] Hao AI Lab and FastVideo. [n. d.]. FastHunyuan.https://huggingface.
+co/FastVideo/FastHunyuan. License: tencent-hunyuan-community.
+Accessed: 2025-08-20.
+[18] Mor Harchol-Balter. 2013.Performance Modeling and Design of Com-
+puter Systems: Queueing Theory in Action. Cambridge University Press.
+[19] Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising diffusion
+probabilistic models.Advances in neural information processing systems
+33 (2020), 6840–6851.
+[20] Jonathan Ho, Tim Salimans, Alexey Gritsenko, William Chan, Moham-
+mad Norouzi, and David J Fleet. 2022. Video diffusion models.Advances
+in neural information processing systems35 (2022), 8633–8646.
+[21] Hugging Face. [n. d.].Speed up Stable Diffusion and memory us-
+age.https://huggingface.co/docs/diffusers/main/en/tutorials/stable_
+diffusion#speed-and-memory-for-stable-diffusionAccessed: 2025-08-
+19.
+[22] Hugging Face. 2024. AutoencoderKL — Diffusers.https://huggingface.
+co/docs/diffusers/main/en/api/models/autoencoder_kl. Accessed:
+2025-08-19.
+[23] Hugging Face. 2024.Stable Diffusion 3 Memory Optimisa-
+tions.https://huggingface.co/docs/diffusers/main/en/using-diffusers/
+sdxl#memory-optimisations
+[24] Sam Ade Jacobs, Masahiro Tanaka, Chengming Zhang, Minjia
+Zhang, Shuaiwen Leon Song, Samyam Rajbhandari, and Yuxiong He.
+2023. Deepspeed ulysses: System optimizations for enabling train-
+ing of extreme long sequence transformer models.arXiv preprint
+arXiv:2309.14509(2023).
+[25] Chris Jones, John Wilkes, Niall Murphy, and Cody Smith. 2016. Ser-
+vice Level Objectives. InSite Reliability Engineering: How Google
+Runs Production Systems, Betsy Beyer, Chris Jones, Jennifer Petoff, and
+Niall Richard Murphy (Eds.). O’Reilly Media.https://sre.google/sre-
+book/service-level-objectives/
+[26] Diederik P Kingma and Max Welling. 2013. Auto-encoding variational
+bayes.arXiv preprint arXiv:1312.6114(2013).
+[27] Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo Dai, Jin Zhou,
+Jiangfeng Xiong, Xin Li, Bo Wu, Jianwei Zhang, et al . 2024. Hun-
+yuanvideo: A systematic framework for large video generative models.
+arXiv preprint arXiv:2412.03603(2024).
+[28] Black Forest Labs. 2024. FLUX.https://github.com/black-forest-labs/
+flux.
+[29] Black Forest Labs, Stephen Batifol, Andreas Blattmann, Frederic Boesel,
+Saksham Consul, Cyril Diagne, Tim Dockhorn, Jack English, Zion
+English, Patrick Esser, Sumith Kulal, Kyle Lacey, Yam Levi, Cheng
+Li, Dominik Lorenz, Jonas Müller, Dustin Podell, Robin Rombach,
+12
+Harry Saini, Axel Sauer, and Luke Smith. 2025. FLUX.1 Kontext: Flow
+Matching for In-Context Image Generation and Editing in Latent Space.
+arXiv:2506.15742 [cs.GR]https://arxiv.org/abs/2506.15742
+[30] Muyang Li, Tianle Cai, Jiaxin Cao, Qinsheng Zhang, Han Cai, Junjie
+Bai, Yangqing Jia, Kai Li, and Song Han. 2024. Distrifusion: Distributed
+parallel inference for high-resolution diffusion models. InProceedings
+of the IEEE/CVF Conference on Computer Vision and Pattern Recognition.
+7183–7193.
+[31] Zhimin Li, Jianwei Zhang, Qin Lin, Jiangfeng Xiong, Yanxin Long,
+Xinchi Deng, Yingfang Zhang, Xingchao Liu, Minbin Huang, Zedong
+Xiao, et al. 2024. Hunyuan-dit: A powerful multi-resolution diffusion
+transformer with fine-grained chinese understanding.arXiv preprint
+arXiv:2405.08748(2024).
+[32] Zhuohan Li, Lianmin Zheng, Yinmin Zhong, Vincent Liu, Ying Sheng,
+Xin Jin, Yanping Huang, Zhifeng Chen, Hao Zhang, Joseph E Gon-
+zalez, et al. 2023. {AlpaServe}: Statistical multiplexing with model
+parallelism for deep learning serving. In17th USENIX Symposium on
+Operating Systems Design and Implementation (OSDI 23). 663–679.
+[33] Hao Liu, Matei Zaharia, and Pieter Abbeel. 2023. Ring attention
+with blockwise transformers for near-infinite context.arXiv preprint
+arXiv:2310.01889(2023).
+[34] Yixin Liu, Kai Zhang, Yuan Li, Zhiling Yan, Chujie Gao, Ruoxi Chen,
+Zhengqing Yuan, Yue Huang, Hanchi Sun, Jianfeng Gao, et al. 2024.
+Sora: A review on background, technology, limitations, and opportu-
+nities of large vision models.arXiv preprint arXiv:2402.17177(2024).
+[35] Stuart Mitchell, Michael O’Sullivan, and Iain Dunning. 2011. PuLP: A
+Linear Programming Toolkit for Python.Optimization Online(Sept.
+2011).https://optimization-online.org/2011/09/3178/
+[36] Philipp Moritz, Robert Nishihara, Stephanie Wang, Alexey Tumanov,
+Richard Liaw, Eric Liang, Melih Elibol, Zongheng Yang, William Paul,
+Michael I. Jordan, and Ion Stoica. 2018. Ray: A Distributed Framework
+for Emerging AI Applications. InProceedings of the Symposium on
+Operating Systems Design and Implementation (OSDI).
+[37] Deepak Narayanan, Aaron Harlap, Amar Phanishayee, Vivek Seshadri,
+Nikhil R Devanur, Gregory R Ganger, Phillip B Gibbons, and Matei
+Zaharia. 2019. PipeDream: Generalized pipeline parallelism for DNN
+training. InProceedings of the 27th ACM symposium on operating sys-
+tems principles. 1–15.
+[38] George L. Nemhauser and Laurence A. Wolsey. 1988.Integer and
+Combinatorial Optimization. John Wiley & Sons, New York, NY, USA.
+[39] NVIDIA. 2025.Building Complex Pipelines: Stable Diffusion — NVIDIA
+Triton Inference Server.https://docs.nvidia.com/deeplearning/triton-
+inference-server/user-guide/docs/tutorials/Conceptual_Guide/Part_
+6-building_complex_pipelines/README.htmlAccessed: 2025-08-19.
+[40] NVIDIA Corporation. [n. d.]. NVIDIA L40 GPU for Data Center.https:
+//www.nvidia.com/en-us/data-center/l40/. Accessed: 2025-08-19.
+[41] NVIDIA Corporation. 2020. NVIDIA A100 Tensor Core GPU.https:
+//www.nvidia.com/en-us/data-center/a100/. Accessed: 2025-08-19.
+[42] NVIDIA Corporation. 2022. GeForce RTX 4090.https://www.nvidia.
+com/en-us/geforce/graphics-cards/40-series/rtx-4090/. Accessed:
+2025-08-19.
+[43] NVIDIA Corporation. 2025. NVIDIA Collective Communication Li-
+brary (NCCL).https://developer.nvidia.com/nccl. NCCL 2.x documen-
+tation, accessed 2025-08-19.
+[44] NVIDIA Corporation. 2025. NVIDIA Virtual GPU Software Supported
+GPUs — NVIDIA L20.https://docs.nvidia.com/vgpu/gpus-supported-
+by-vgpu.html. Lists NVIDIA L20 and L20 Liquid-Cooled as supported
+GPUs; accessed 2025-08-19.
+[45] Kay Ousterhout, Patrick Wendell, Matei Zaharia, and Ion Stoica. 2013.
+Sparrow: Distributed, Low Latency Scheduling. InProceedings of the
+4th ACM European Conference on Computer Systems (EuroSys ’13). 69–
+84. doi:10.1145/2465351.2465368
+[46] Peter S. Pacheco. 2011.An Introduction to Parallel Programming. Mor-
+gan Kaufmann, Burlington, MA.
+[47] William Peebles and Saining Xie. 2023. Scalable diffusion models with
+transformers. InProceedings of the IEEE/CVF international conference
+on computer vision. 4195–4205.
+[48] Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim
+Dockhorn, Jonas Müller, Joe Penna, and Robin Rombach. 2023. Sdxl:
+Improving latent diffusion models for high-resolution image synthesis.
+arXiv preprint arXiv:2307.01952(2023).
+[49] PyTorch Team. 2024.Applying Fully Sharded Data Parallel (FSDP) with
+Tensor Parallelism.https://pytorch.org/tutorials/intermediate/FSDP_
+tutor_with_tp.htmlAccessed: 2025-08-19.
+[50] Ruoyu Qin, Zheming Li, Weiran He, Mingxing Zhang, Yongwei Wu,
+Weimin Zheng, and Xinran Xu. 2024. Mooncake: A kvcache-centric dis-
+aggregated architecture for llm serving.arXiv preprint arXiv:2407.00079
+(2024).
+[51] Haoran Qiu, Anish Biswas, Zihan Zhao, Jayashree Mohan, Alind Khare,
+Esha Choukse, Íñigo Goiri, Zeyu Zhang, Haiying Shen, Chetan Bansal,
+et al. 2025. Modserve: Scalable and resource-efficient large multimodal
+model serving.arXiv preprint arXiv:2502.00937(2025).
+[52] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan
+Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J Liu. 2020.
+Exploring the limits of transfer learning with a unified text-to-text
+transformer.Journal of machine learning research21, 140 (2020), 1–67.
+[53] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser,
+and Björn Ommer. 2022. High-resolution image synthesis with latent
+diffusion models. InProceedings of the IEEE/CVF conference on computer
+vision and pattern recognition. 10684–10695.
+[54] Félix Sanz. 2024. How Stable Diffusion Works: A Guide to SDXL.
+https://how-sdxl-works.com/how-stable-diffusion-works/. Accessed:
+2025-08-19.
+[55] Linus Schrage. 1968. Letter to the Editor—A Proof of the Optimality
+of the Shortest Remaining Processing Time Discipline.Operations
+Research16, 3 (1968), 687–690. doi:10.1287/opre.16.3.687
+[56] Yury Selivanov. 2015. PEP 492 – Coroutines with async and await
+syntax.https://peps.python.org/pep-0492/. Python Enhancement
+Proposal, accessed 2025-08-19.
+[57] Mohammad Shahrad, Rodrigo Fonseca, Inigo Goiri, Gohar Chaudhry,
+Paul Batum, Jason Cooke, Eduardo Laureano, Colby Tresness, Mark
+Russinovich, and Ricardo Bianchini. 2020. Serverless in the wild:
+Characterizing and optimizing the serverless workload at a large cloud
+provider. In2020 USENIX annual technical conference (USENIX ATC 20).
+205–218.
+[58] Mohammad Shoeybi, Mostofa Patwary, Raul Puri, Patrick LeGresley,
+Jared Casper, and Bryan Catanzaro. 2019. Megatron-lm: Training multi-
+billion parameter language models using model parallelism.arXiv
+preprint arXiv:1909.08053(2019).
+[59] Abraham Silberschatz, Peter B. Galvin, and Greg Gagne. 2018.Operat-
+ing System Concepts(10 ed.). John Wiley & Sons, Hoboken, NJ. See
+priority scheduling andagingto prevent starvation.
+[60] Gursimran Singh, Xinglu Wang, Yifan Hu, Timothy Yu, Linzi Xing, Wei
+Jiang, Zhefeng Wang, Xiaolong Bai, Yi Li, Ying Xiong, et al. 2024. Effi-
+ciently Serving Large Multimodal Models Using EPD Disaggregation.
+arXiv preprint arXiv:2501.05460(2024).
+[61] Jiaming Song, Chenlin Meng, and Stefano Ermon. 2020. Denoising
+diffusion implicit models.arXiv preprint arXiv:2010.02502(2020).
+[62] Yang Song, Jascha Sohl-Dickstein, Diederik P Kingma, Abhishek Ku-
+mar, Stefano Ermon, and Ben Poole. 2020. Score-based generative
+modeling through stochastic differential equations.arXiv preprint
+arXiv:2011.13456(2020).
+[63] Stability AI. [n. d.].stabilityai/stable-diffusion-3-medium-diffusers.
+Hugging Face.https://huggingface.co/stabilityai/stable-diffusion-
+3-medium-diffusersModel card.
+[64] Desen Sun, Henry Tian, Tim Lu, and Sihang Liu. 2024. FlexCache:
+Flexible approximate cache system for video diffusion.arXiv preprint
+arXiv:2501.04012(2024).
+13
+[65] Desen Sun, Zepeng Zhao, and Yuke Wang. 2025. PATCHEDSERVE: A
+Patch Management Framework for SLO-Optimized Hybrid Resolution
+Diffusion Serving.arXiv preprint arXiv:2501.09253(2025).
+[66] VideoSys Team. 2024. VideoSys: An Easy and Efficient System for
+Video Generation.https://github.com/NUS-HPC-AI-Lab/VideoSys
+[67] Tencent. [n. d.].tencent/HunyuanVideo - Hugging Face.https:
+//huggingface.co/tencent/HunyuanVideoModel card.
+[68] Hansi Teng, Hongyu Jia, Lei Sun, Lingzhi Li, Maolin Li, Mingqiu Tang,
+Shuai Han, Tianning Zhang, WQ Zhang, Weifeng Luo, et al . 2025.
+MAGI-1: Autoregressive Video Generation at Scale.arXiv preprint
+arXiv:2505.13211(2025).
+[69] Philippe Tillet, Hsiang-Tsung Kung, and David Cox. 2019. Triton: an
+intermediate language and compiler for tiled neural network computa-
+tions. InProceedings of the 3rd ACM SIGPLAN International Workshop
+on Machine Learning and Programming Languages. 10–19.
+[70] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion
+Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. 2017. At-
+tention is all you need.Advances in neural information processing
+systems30 (2017).
+[71] Team Wan, Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie,
+Di Chen, Feiwu Yu, Haiming Zhao, Jianxiao Yang, Jianyuan Zeng, Jiayu
+Wang, Jingfeng Zhang, Jingren Zhou, Jinkai Wang, Jixuan Chen, Kai
+Zhu, Kang Zhao, Keyu Yan, Lianghua Huang, Mengyang Feng, Ningyi
+Zhang, Pandeng Li, Pingyu Wu, Ruihang Chu, Ruili Feng, Shiwei
+Zhang, Siyang Sun, Tao Fang, Tianxing Wang, Tianyi Gui, Tingyu
+Weng, Tong Shen, Wei Lin, Wei Wang, Wei Wang, Wenmeng Zhou,
+Wente Wang, Wenting Shen, Wenyuan Yu, Xianzhong Shi, Xiaoming
+Huang, Xin Xu, Yan Kou, Yangyu Lv, Yifei Li, Yijing Liu, Yiming Wang,
+Yingya Zhang, Yitong Huang, Yong Li, You Wu, Yu Liu, Yulin Pan,
+Yun Zheng, Yuntao Hong, Yupeng Shi, Yutong Feng, Zeyinzi Jiang,
+Zhen Han, Zhi-Fan Wu, and Ziyu Liu. 2025. Wan: Open and Advanced
+Large-Scale Video Generative Models.arXiv preprint arXiv:2503.20314
+(2025).
+[72] Xinlong Wang, Xiaosong Zhang, Zhengxiong Luo, Quan Sun, Yufeng
+Cui, Jinsheng Wang, Fan Zhang, Yueze Wang, Zhen Li, Qiying Yu, et al.
+2024. Emu3: Next-token prediction is all you need.arXiv preprint
+arXiv:2409.18869(2024).
+[73] Tao Xu, Pengchuan Zhang, Qiuyuan Huang, Han Zhang, Zhe Gan,
+Xiaolei Huang, and Xiaodong He. 2018. Attngan: Fine-grained text to
+image generation with attentional generative adversarial networks.
+InProceedings of the IEEE conference on computer vision and pattern
+recognition. 1316–1324.
+[74] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu Huang,
+Jiazheng Xu, Yuanming Yang, Wenyi Hong, Xiaohan Zhang, Guanyu
+Feng, et al. 2024. CogVideoX: Text-to-Video Diffusion Models with
+An Expert Transformer.arXiv preprint arXiv:2408.06072(2024).
+[75] Tianwei Yin, Michaël Gharbi, Richard Zhang, Eli Shechtman, Fredo Du-
+rand, William T Freeman, and Taesung Park. 2024. One-step diffusion
+with distribution matching distillation. InProceedings of the IEEE/CVF
+conference on computer vision and pattern recognition. 6613–6623.
+[76] zai-org. [n. d.].CogVideoX1.5-5B. Hugging Face.https://huggingface.
+co/zai-org/CogVideoX1.5-5BModel card.
+[77] Han Zhang, Tao Xu, Hongsheng Li, Shaoting Zhang, Xiaogang Wang,
+Xiaolei Huang, and Dimitris N Metaxas. 2017. Stackgan: Text to photo-
+realistic image synthesis with stacked generative adversarial networks.
+InProceedings of the IEEE international conference on computer vision.
+5907–5915.
+[78] Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xu-
+anzhe Liu, Xin Jin, and Hao Zhang. 2024.{DistServe}: Disaggregating
+prefill and decoding for goodput-optimized large language model
+serving. In18th USENIX Symposium on Operating Systems Design and
+Implementation (OSDI 24). 193–210.
+14
+A Impact of parallelism for other models.
+Due to space limitations, we have only shown the impact of the parallelism strategy on the Flux.1 model in the main text.
+Here, we will demonstrate the impact of the parallelism strategy forDiffusestage on Stable-Diffusion-3, CogVideoX1.5-5B, and
+HunyuanVideo, As shown in Figure 16.
+B Optimal Scheduling
+In the main text (§6.2) we stated that a theoretical optimal scheduling is atime-indexed, stage-levelscheduling problem, which
+is computationally intractable and thus impractical for online serving. We now give a complete formalization of it and followed
+by the linear programming equation. Then, we will prove that it is NP-completeness via a reduction toJob–Shop scheduling,
+and analyze the model size to show that even modest instances are far beyond real-time solvability.
+B.1 Problem Formulation and Solution
+Problem data and notation. LetG={ 0,...,𝐺− 1} be the GPU set, and let𝜋𝑔∈{⟨𝐸𝐷𝐶⟩,⟨𝐷𝐶⟩,⟨𝐸𝐷⟩,⟨𝐷⟩,⟨𝐸⟩,⟨𝐶⟩} denote the
+placementon GPU 𝑔 (§6.1). LetR be the set of request batches; each𝑟∈R executes the fixed stage chain{𝐸→𝐷→𝐶} and
+carries an SLO deadline𝑑𝑟 . For every𝑟∈R ,𝑠∈S , and parallel degree𝑘∈{ 1, 2, 4, 8}, a profiled processing time𝑡𝑟,𝑠,𝑘 > 0is
+known (§5.1). Following §5, letW be the catalog of pre-initializedintra-machine worker teams(GPU combinations); each
+team𝑤∈W is a subset GPU(𝑤)⊆G with|GPU(𝑤)| GPUs and iscompatiblewith stage 𝑠 iff𝑠∈𝜋 𝑔 for all𝑔∈GPU(𝑤) .
+WriteW𝑠 ={𝑤∈W : 𝑠compatible with𝑤} and define the stage–team processing time𝑡𝑟,𝑠(𝑤) :=𝑡𝑟,𝑠,|GPU(𝑤)| . Inter-stage
+communication times are known per request:𝑄𝑟,𝐸𝐷≥ 0for 𝐸→𝐷 and𝑄𝑟,𝐷𝐶≥ 0for 𝐷→𝐶 when the two stages do not run on
+the identical worker team; otherwise the comm. time is0.
+Decision variables. For every𝑟∈R ,𝑠∈S , and𝑤∈W 𝑠: assignment𝑣𝑟,𝑠,𝑤 ∈{ 0, 1} (choose exactly one team per stage);
+start/completion times𝑆𝑟,𝑠 ≥ 0and 𝐶𝑟,𝑠 ≥ 0. For co-location of consecutive stages, introduce 𝑧𝑟,𝐸𝐷,𝑤,𝑧𝑟,𝐷𝐶,𝑤 ∈{ 0, 1} and
+define𝑒𝑟,𝐸𝐷 := Í
+𝑤∈W𝐸∩W𝐷𝑧𝑟,𝐸𝐷,𝑤 and𝑒𝑟,𝐷𝐶 := Í
+𝑤∈W𝐷∩W𝐶𝑧𝑟,𝐷𝐶,𝑤 (value1iff the two stages pick the same team). To prevent
+overlap on each GPU, use standard disjunctive ordering with binaries 𝑜(𝑟,𝑠),(𝑟 ′,𝑠′),𝑔∈{ 0, 1} for distinct operations and any
+𝑔∈G. Finally𝑦 𝑟∈{0,1}indicates whether request𝑟finishes before its deadline.
+Objective.
+max
+ ∑︁
+𝑟∈R
+𝑦𝑟 ,−
+∑︁
+𝑟∈R
+
+𝑄𝑟,𝐸𝐷(1−𝑒 𝑟,𝐸𝐷)+𝑄 𝑟,𝐷𝐶(1−𝑒 𝑟,𝐷𝐶)
+ 
+(OBJ′)
+Constraints.
+∑︁
+𝑤∈W𝑠
+𝑣𝑟,𝑠,𝑤 =1∀𝑟∈R,∀𝑠∈S,(C ′0a)
+𝐶𝑟,𝑠 =𝑆𝑟,𝑠+
+∑︁
+𝑤∈W𝑠
+𝑡𝑟,𝑠(𝑤)𝑣 𝑟,𝑠,𝑤 ∀𝑟,𝑠,(C ′0b)
+𝑆𝑟,𝐷 ≥𝐶 𝑟,𝐸 +𝑄 𝑟,𝐸𝐷(1−𝑒 𝑟,𝐸𝐷) ∀𝑟,(C ′1a)
+𝑆𝑟,𝐶 ≥𝐶 𝑟,𝐷 +𝑄 𝑟,𝐷𝐶(1−𝑒 𝑟,𝐷𝐶) ∀𝑟,(C ′1b)
+𝑧𝑟,𝐸𝐷,𝑤 ≤𝑣 𝑟,𝐸,𝑤 ∀𝑟, 𝑤∈W 𝐸∩W𝐷,(C ′2a)
+𝑧𝑟,𝐸𝐷,𝑤 ≤𝑣 𝑟,𝐷,𝑤 ∀𝑟, 𝑤∈W 𝐸∩W𝐷,(C ′2b)
+𝑧𝑟,𝐸𝐷,𝑤 ≥𝑣 𝑟,𝐸,𝑤+𝑣𝑟,𝐷,𝑤−1∀𝑟, 𝑤∈W 𝐸∩W𝐷,(C ′2c)
+𝑧𝑟,𝐷𝐶,𝑤≤𝑣 𝑟,𝐷,𝑤 ∀𝑟, 𝑤∈W 𝐷∩W𝐶,(C ′3a)
+𝑧𝑟,𝐷𝐶,𝑤≤𝑣 𝑟,𝐶,𝑤 ∀𝑟, 𝑤∈W 𝐷∩W𝐶,(C ′3b)
+𝑧𝑟,𝐷𝐶,𝑤≥𝑣 𝑟,𝐷,𝑤+𝑣𝑟,𝐶,𝑤−1∀𝑟, 𝑤∈W 𝐷∩W𝐶,(C ′3c)
+𝑆𝑟′,𝑠′ ≥𝐶 𝑟,𝑠 −𝑀
+
+3−𝑜 (𝑟,𝑠),(𝑟 ′,𝑠′),𝑔
+−
+∑︁
+𝑤∋𝑔
+𝑣𝑟,𝑠,𝑤 −
+∑︁
+𝑤′∋𝑔
+𝑣𝑟′,𝑠′,𝑤′
+
+∀𝑔∈G,∀(𝑟,𝑠)≠(𝑟 ′,𝑠′),(C ′4a)
+𝑆𝑟,𝑠 ≥𝐶 𝑟′,𝑠′ −𝑀
+
+2−𝑜 (𝑟,𝑠),(𝑟 ′,𝑠′),𝑔
+−
+∑︁
+𝑤′∋𝑔
+𝑣𝑟′,𝑠′,𝑤′
+
+∀𝑔∈G,∀(𝑟,𝑠)≠(𝑟 ′,𝑠′),(C ′4b)
+𝐶𝑟,𝐶 ≤𝑑 𝑟+𝑀(1−𝑦 𝑟) ∀𝑟,(C ′5)
+𝑣𝑟,𝑠,𝑤, 𝑧𝑟,𝐸𝐷,𝑤, 𝑧𝑟,𝐷𝐶,𝑤, 𝑜(𝑟,𝑠),(𝑟 ′,𝑠′),𝑔, 𝑦𝑟∈{0,1}.(C ′6)
+15
+256p 512p 1024p 1536p
+2
+4
+8Speedup
+Stable Diffusion 3
+1.0x0.6x1.0x0.7x1.0x0.7x
+0.9x0.6x0.9x0.6x0.9x0.6x
+1.4x0.8x1.5x1.0x1.6x1.1x
+1.6x1.1x2.0x1.2x 3.4x2.3x
+480p-2s 720p-4s 720p-8s 720p-10s
+2
+4
+8Speedup
+CogVideoX
+1.6x1.2x 2.6x2.0x 4.0x3.2x
+1.7x1.3x 3.1x2.3x 6.0x4.7x
+1.7x1.3x 3.3x2.5x 6.2x4.8x
+1.7x1.3x 3.4x2.5x 6.4x5.1x
+540p-0s 540p-2s 720p-2s 720p-8s
+2
+4
+8Speedup
+HunyuanVideo
+1.2x1.0x1.4x1.2x1.8x1.6x
+1.6x1.4x 3.0x2.5x 6.0x5.0x
+1.7x1.4x 3.3x2.8x 5.8x4.8x
+1.8x1.4x 3.7x3.2x 7.2x6.0x
+Degree 2 Degree 4 Degree 8 SP MP Theoretical Speedup
+Figure 16.Impact of parallelism for other models.
+(OBJ′)Lexicographically maximizes the number of on-time completionsÍ
+𝑟∈R 𝑦𝑟 and, among maximizers, minimizes inter-stage
+communication cost via𝑄𝑟,𝐸𝐷(1−𝑒 𝑟,𝐸𝐷)+𝑄 𝑟,𝐷𝐶(1−𝑒 𝑟,𝐷𝐶).
+(C′0a)Assigns exactly one compatible worker team to each stage of each request.
+(C′0b)Defines each stage’s completion time as its start time plus the profiled duration𝑡 𝑟,𝑠(𝑤)of the chosen team.
+(C′1a–C′1b)Enforce the stage precedence 𝐸→𝐷→𝐶 and add the corresponding inter-stage delay𝑄𝑟,·· whenever the two
+consecutive stages are not co-located (i.e.,𝑒𝑟,·· ≠1).
+(C′2a–C′2c)Linearize co-location for 𝐸 and𝐷 so that𝑧𝑟,𝐸𝐷,𝑤 = 1if and only if both stages select the same team 𝑤, which
+yields𝑒𝑟,𝐸𝐷 = Í
+𝑤𝑧𝑟,𝐸𝐷,𝑤 .
+(C′3a–C′3c)Apply the analogous co-location linearization to𝐷and𝐶, giving𝑒 𝑟,𝐷𝐶 = Í
+𝑤𝑧𝑟,𝐷𝐶,𝑤 .
+(C′4a–C′4b)Impose big-𝑀 disjunctive no-overlap on every GPU by ordering any pair of operations that may require that
+GPU.
+(C′5)Link the on-time indicator𝑦 𝑟 to the deadline𝑑𝑟 by permitting𝑦𝑟 =1only if the request finishes no later than𝑑 𝑟 .
+(C′6)Declare all assignment, co-location, ordering, and deadline indicators to be binary variables.
+The constant𝑀upper-bounds the planning horizon; for example, one may take𝑀≥ Í
+𝑟,𝑠 max𝑤∈W𝑠𝑡𝑟,𝑠(𝑤)+max 𝑟𝑑𝑟 .
+B.2 NPC Proof
+We prove that the decision version of the stage-aware scheduling model defined in Appendix B.1 is NP-complete.
+SADP-Deadline (decision).Given the data and notation in Appendix B.1, we consider the following decision problem: Given a
+common deadline𝑇> 0(i.e., set 𝑑𝑟 :=𝑇 for all𝑟∈R ), decide whether there exist assignments of the variables that satisfy the
+feasibility constraints (assignment, duration, precedence with inter-stage time, no-overlap per GPU, integrality—cf. constraints
+(C′0a)–(C′6)) and achieve𝐶𝑟,𝐶≤𝑇for all𝑟∈R(equivalently,𝑦 𝑟 =1for all𝑟under (C ′5)).
+Proposition B.1(NP-completeness).SADP-Deadlineis NP-complete. The hardness holds even under the restricted setting
+in which (i)W𝐸,W𝐷,W𝐶 each contain only single-GPU teams, (ii) 𝑄𝑟,𝐸𝐷 =𝑄𝑟,𝐷𝐶 = 0for all 𝑟 , and (iii) placements 𝜋𝑔 forbid
+co-location of different stages on the same GPU (i.e.,𝜋 𝑔∈{⟨𝐸⟩,⟨𝐷⟩,⟨𝐶⟩}).
+Proof. Membership in NP.Given a candidate solution {𝑣𝑟,𝑠,𝑤 ,𝑆𝑟,𝑠 ,𝐶𝑟,𝑠 ,𝑧𝑟,𝐸𝐷,𝑤 ,𝑧𝑟,𝐷𝐶,𝑤 ,𝑜(𝑟,𝑠),(𝑟 ′,𝑠′),𝑔,𝑦𝑟 }, verification of(C′0a)–(C′6)
+is polynomial in the input size: one checks per-stage assignment ((C′0a)), durations ((C′0b)), precedence with inter-stage time
+((C′1a)–(C′1b)), co-location linearization ((C′2a)–(C′3c)), no-overlap on each GPU via the disjunctive constraints ((C′4a)–(C′4b)),
+and deadlines ((C′5)). Hence the problem is in NP.
+NP-hardness via reduction from three-machine flow shop.Reduce from the following decision problem: given 𝑛
+jobs that must be processed non-preemptively on three machines in the fixed order𝑀1→𝑀 2→𝑀 3 with processing times
+(𝑎𝑗,1,𝑎𝑗,2,𝑎𝑗,3) for job 𝑗∈{ 1,...,𝑛} and a threshold𝑇> 0, decide whether there exists a schedule with makespan at most𝑇 .
+This problem is a special case of job shop scheduling and is NP-complete.
+Construction of theSADP-Deadlineinstance.From the flow-shop instance, build an instance using the objects already defined
+in Appendix B.1 as follows:
+• Placements and teams.Create exactly three GPUs: 𝑔𝐸,𝑔𝐷,𝑔𝐶 with𝜋𝑔𝐸 =⟨𝐸⟩ ,𝜋𝑔𝐷 =⟨𝐷⟩ ,𝜋𝑔𝐶 =⟨𝐶⟩ . DefineW𝐸 =
+{{𝑔𝐸}},W𝐷 ={{𝑔 𝐷}},W𝐶 ={{𝑔 𝐶}} andW𝑠 =∅ for any other𝑠 (none). Thus each stage type has unit capacity and
+only single-GPU teams are available.
+• Requests and processing times.SetR={𝑟 1,...,𝑟 𝑛}. For each𝑟𝑗 and the unique compatible team𝑤𝐸∈W𝐸,𝑤𝐷∈W𝐷,
+𝑤𝐶∈W𝐶, set
+𝑡𝑟𝑗,𝐸(𝑤𝐸):=𝑎 𝑗,1, 𝑡 𝑟𝑗,𝐷(𝑤𝐷):=𝑎 𝑗,2, 𝑡 𝑟𝑗,𝐶(𝑤𝐶):=𝑎 𝑗,3.
+16
+(Since𝑡𝑟,𝑠(𝑤)=𝑡 𝑟,𝑠,|GPU(𝑤)| by definition, this pins the times for the only admissible𝑤per stage.)
+•Inter-stage times and deadlines.Set𝑄 𝑟,𝐸𝐷 =𝑄𝑟,𝐷𝐶 =0for all𝑟∈Rand let𝑑 𝑟 :=𝑇for all𝑟(common deadline).
+Correctness of the reduction.Under this construction, any feasible solution to (C′0a)–(C′6) selects for each𝑟 exactly one team
+per stage (the unique available one), enforces the fixed precedence𝐸→𝐷→𝐶 , and prevents overlap on each of the three
+single-capacity stage resources via (C′4a)–(C′4b). Because𝑄𝑟,𝐸𝐷 =𝑄𝑟,𝐷𝐶 = 0and stages cannot co-locate (by placement), each
+request’s completion time is exactly the finish time of its𝐶 stage, with per-stage durations matching(𝑎𝑗,1,𝑎𝑗,2,𝑎𝑗,3). Therefore,
+the machine sequence(𝑀1,𝑀 2,𝑀 3) in the flow shop is faithfully represented by the stage resources(𝐸,𝐷,𝐶) here, each with
+unit capacity and identical processing times.
+Consequently, there exists a flow-shop schedule with makespan≤𝑇 if and only if there exist variables satisfying(C′0a)–(C′6)
+with𝐶𝑟,𝐶≤𝑇 for all𝑟∈R in the constructed instance (equivalently,𝑦𝑟 = 1for all 𝑟 by (C′5)). The transformation is clearly
+polynomial in the input size.
+Conclusion.SADP-Deadlineis NP-hard by the reduction above and in NP by the verification argument; hence it is
+NP-complete. Moreover, hardness holds already under the restricted setting specified in the statement, and therefore a fortiori
+for the full model with generalW, nonzero𝑄 ·,·, and richer placements𝜋𝑔∈{⟨𝐸𝐷𝐶⟩,⟨𝐷𝐶⟩,⟨𝐸𝐷⟩,⟨𝐷⟩,⟨𝐸⟩,⟨𝐶⟩}.□
+Relation to job shop scheduling.The three-machine flow shop is a special case of job shop scheduling in which all
+jobs share the same route; the reduction above embeds that special case into our model using the already-defined objects
+(G,𝜋,R,W,𝑡 𝑟,𝑠(·),𝑄·,·), thereby establishing NP-hardness relative to job shop as well.
+B.3 Complexity Analysis
+We size the exact optimal ILP model in Appendix B.1 and show that, even at very small scales, it is already unacceptable in the
+online service scenario.
+Where the blow-up comes from.Let 𝑅 :=|R| be the number of (pending) request batches at a tick,𝑆 :=|S|= 3the number
+of stages (𝐸,𝐷,𝐶 ), and𝐺 :=|G| the number of GPUs. The formulation (C′0a)–(C′6) includes, for everyorderedpair of distinct
+stage-operations and for every GPU𝑔∈G , the disjunctive no-overlap binaries and constraints (C′4a)–(C′4b). The number of
+stage-operations is𝑅𝑆; the number of unordered pairs is  𝑅𝑆
+2
+. Hence the disjunctive layer alone contributes
+𝐺
+𝑅𝑆
+2
+
+|  {z  }
+binaries𝑜(·),(·),𝑔
+and2𝐺
+𝑅𝑆
+2
+
+|   {z   }
+linear constraints
+,
+which scales as Θ(𝐺𝑅 2𝑆 2) and dominates the model size. In comparison, the remaining blocks—assignment variables𝑣𝑟,𝑠,𝑤 ,
+co-location linearizations𝑧𝑟,·,𝑤 (cf. (C′2a)–(C′3c)), and timing/deadline constraints (C′0b), (C′1a)–(C′1b), (C′5)—grow only
+linearly in𝑅(and in the team catalogs|W 𝑠|) and are negligible next to the quadratic disjunctive term.
+A small numeric instance.Take a modest online tick with 𝑅= 20pending batches on a common evaluation cluster of size
+𝐺=128, and𝑆=3. Then𝑅𝑆=60and𝑅𝑆
+2
+
+=
+60
+2
+
+= 60·59
+2 =1770,𝐺
+𝑅𝑆
+2
+
+=128×1770=226,560.
+Thus, the disjunctive layer already yields226,560binary variables 𝑜(·),(·),𝑔 and2× 226,560 = 453,120linear constraints—before
+counting any assignment/co-location binaries𝑣,𝑧 , start/finish times𝑆𝑟,𝑠,𝐶𝑟,𝑠 , or deadlines𝑦𝑟 . Even if|W𝑠| is small, the root
+LP at this scale contains several hundred thousand rows/columns; in practice, presolve and the first LP relaxation typically
+take on the order of 0.5–3 s on commodity servers, while the full MILP (with branch-and-bound and cuts) often ranges from
+several secondstominutesdepending on𝑅,𝐺.
+Consequence for online scheduling.Besides NPC and the sheer model size, there are two practical blockers for online
+serving:
+1. Solve time.Building and solving the exact MILP per tick cannot meet a O( 102) ms budget: even for𝑅≈ 20, the root
+relaxation already incurs≳sub-second latency, and end-to-end MILP solve time is typically seconds to minutes.
+2. Brittleness of time-index decisions.The optimal model commits toconcrete start times 𝑆𝑟,𝑠 for all stages. In online
+serving, runtime jitter from GPU contention, network variation, kernel variability, and queueing introduces non-negligible
+timing noise; long-horizon, time-coupled decisions thus become quickly inaccurate. This causes error accumulation
+(mis-ordered plans and infeasible overlaps) and poor realized performance when the system state deviates from the
+assumed schedule.
+17
+These observations motivate our design in the main text: (i)decoupleplacement and dispatch, (ii) adopt amyopic, Diffuse-first
+ILP with aggressive feasibility filtering to keep per-tick solve time in the sub-second regime.
+C Implementation detail of Planner
+C.1 Placement Plan
+Split(). For each Virtual-Replica type 𝑡∈{EDC,ED,DC, D} with GPU budget 𝑁𝑡 and per-replica service rates of the rel-
+evantPrimaryandAuxiliaryroles under this type ( 𝑣 prim
+𝑡 , and when applicable 𝑣 auxE
+𝑡 , 𝑣 auxC
+𝑡 ), we produce integer counts
+(𝑛prim
+𝑡 ,𝑛 auxE
+𝑡 ,𝑛 auxC
+𝑡 )summing to𝑁 𝑡 so that auxiliary capacity is sufficient for what the primary processes.
+•ForEDCthe split is trivial: all𝑁 𝑡 go to the primary (𝑛prim
+𝑡 =𝑁𝑡).
+• For ED we match⟨C⟩ to the primary by inverse-proportion: with𝜌=𝑣 prim
+𝑡 /𝑣auxC
+𝑡 , set𝑛prim
+𝑡 =⌊𝑁𝑡/(1+𝜌)⌋ and𝑛auxC
+𝑡 =
+𝑁𝑡−𝑛 prim
+𝑡 (and𝑛 auxE
+𝑡 =0), which guarantees𝑛 auxC
+𝑡 𝑣 auxC
+𝑡 ≥𝑛 prim
+𝑡 𝑣 prim
+𝑡 .
+•ForDCwe do the symmetric construction with𝜌=𝑣 prim
+𝑡 /𝑣auxE
+𝑡 .
+• ForDwe need both auxiliaries; we allocate proportionally to the rate ratios 𝑎=𝑣 prim
+𝑡 /𝑣auxE
+𝑡 and𝑏=𝑣 prim
+𝑡 /𝑣auxC
+𝑡 by forming
+the real vector 𝑁𝑡
+1+𝑎+𝑏(1,𝑎,𝑏)for(prim,auxE,auxC)and rounding to integers.
+If rounding creates a budget overflow or violates the obvious lower bounds (𝑛auxE
+𝑡 𝑣 auxE
+𝑡 ≥𝑛 prim
+𝑡 𝑣 prim
+𝑡 and𝑛auxC
+𝑡 𝑣 auxC
+𝑡 ≥𝑛 prim
+𝑡 𝑣 prim
+𝑡 ),
+we decrease𝑛prim
+𝑡 by one and reassign the remaining unit to the auxiliary with the largest deficit; tiny budgets fall back to
+assigning the available units to the roles present, prioritising feasibility over exact proportionality.
+PackPerMachine(). After all types are split, we first align the number ofPrimaryreplicasthat containDto multiples of8so
+as not to cap sequence-parallel choices (𝑘≤ 8): for each𝑡∈{EDC,ED,DC, D} we increase𝑛prim
+𝑡 up to the next multiple of8by
+borrowing from its auxiliaries while keeping theSplitfeasibility bounds; if the borrow is infeasible we leave𝑛 prim
+𝑡 as is.
+We then place replicas onto 8-GPU nodes by packing homogeneous blocks: primaries of the same𝜋𝑔∈{⟨EDC⟩,⟨DC⟩,⟨ED⟩,⟨ D⟩}
+fill whole nodes whenever possible, auxiliaries⟨E⟩ and⟨C⟩ are packed next in the same manner, and any remainders are
+assigned by a simple first -fit that prefers nodes already hosting the same 𝜋𝑔. This producesP with D-carrying primaries
+padded to8and high intra-node homogeneity.
+C.2 Dispatch Plan
+In solving the ILP for the dispatch plan, our goal is to maximize the SLO satisfaction rate while try to minimize inter-stage
+communication. To achieve this, we set a reward weight for task completion𝑊 and a communication penalty weight𝑄. Below,
+we will detail the settings for these two parameters.
+We instantiate the objective weights to strongly prioritize SLO attainment and only then prefer lower inter-stage communi-
+cation. Let
+b𝑇𝑟 ≜min
+𝑖∈I,𝑘∈K:
+𝐸𝑟,𝑘𝐹𝑟,𝑖 =1
+ 𝜏+𝑡 𝑟,𝑖,𝑘
+,scale 𝑟 ≜max
+n
+1,
+b𝑇𝑟
+𝑑𝑟
+o
+,(1)
+be, respectively, the best predicted completion time if𝑟 were dispatched now and its overtime factor. The completion reward is
+𝑊𝑟 =
+(
+𝐶on, b𝑇𝑟≤𝑑𝑟 (on time),
+𝐶late·max
+
+1,scale 𝑟−𝛼+1
+	
+, b𝑇𝑟 >𝑑 𝑟 (late),
+(2)
+where𝛼 is the starvation threshold. This realizes the intended behavior: for example, with𝛼=5, if scale𝑟 =5the reward remains
+𝐶late; ifscale𝑟 =6it becomes2𝐶 late; ifscale𝑟 =2it stays𝐶 late.
+The communication penalty depends on the Primary type𝑖and scales linearly with the batch’s processing length𝑙 𝑟 :
+𝑄𝑟,𝑖 =
+ 
+
+𝛽0𝑙𝑟, 𝑖=0(⟨𝐸𝐷𝐶⟩),
+𝛽1𝑙𝑟, 𝑖=1(⟨𝐷𝐶⟩),
+𝛽2𝑙𝑟, 𝑖=2(⟨𝐸𝐷⟩),
+𝛽3𝑙𝑟, 𝑖=3(⟨𝐷⟩).
+(3)
+By construction, the communication penalty is intentionally orders of magnitude smaller than the completion reward so
+that the solver first maximizes the SLO satisfaction rate; among choices with comparable on-time prospects, it then prefers
+placements that incur less inter-stage transfer.
+Constant values.Unless otherwise stated, we use 𝐶on=1000,𝐶late=200,𝛼=5, and(𝛽 0,𝛽 1,𝛽 2,𝛽 3)= 0, 10−6, 5×10−6, 6×10−6.
+18
+Table 5.Resolutions, video length mixed ratios in differentsteadyworkload types, and request rates, denoising steps, 𝑇win for
+different models. “𝑘×{·}” are relative weights (normalized when sampling).
+Model Rate (req/s) Steps𝑇 win Type Resolution/Duration mix ratio (compact weights)
+StableDiffusion3-Medium 20 203 min
+Light 2×{128 2,256 2};
+1×{512 2,1024 2,1536 2}
+Medium 4×{512 2};
+1×{128 2,256 2,1024 2,1536 2}
+Heavy 2×{1024 2,1536 2};
+1×{128 2,256 2,512 2}
+Flux.1 1.5 45 min
+Light 2×{128 2,256 2,512 2};
+1×{1024 2,2048 2,3072 2,4096 2}
+Medium 2×{1024 2,2048 2};
+1×{128 2,256 2,512 2,3072 2,4096 2}
+Heavy 2×{3072 2,4096 2};
+1×{128 2,256 2,512 2,1024 2,2048 2}
+CogVideoX1.5-5B 1 65 min
+Light 3×{480p−−2s,720p−−2s};
+1×{480p−−{4,8,10}s,720p−−{4,8,10}s}
+Medium 2×{480p−−{4,8,10}s};
+1×{480p−−2s,720p−−2s,720p−−{4,8,10}s}
+Heavy 2×{720p−−{4,8,10}s};
+1×{480p−−2s,720p−−2s,480p−−{4,8,10}s}
+HunyuanVideo 0.5 610 min
+Light 3×{540p−−1s,720p−−1s};
+1×{540p−−{2,4,8}s,720p−−{2,4,8}s}
+Medium 2×{540p−−{2,4}s,720p−−2s};
+1×{540p−−1s,720p−−1s,720p−−4s,540/720p−−8s}
+Heavy 2×{720p−−4s,540/720p−−8s};
+1×{540p−−1s,720p−−1s,540p−−{2,4}s,720p−−2s}
+D Details in Experiments Settings
+D.1 Workload Setting
+We also use the number of denoising steps per model to the officially recommended [5, 11, 17, 76] or commonly used value [75]
+in real scene. Because different models have different compute demands, we also set model-specific request rates so that the
+workloads fit our128-GPU cluster. The full configuration is summarized in Table 5.
+Steady Workload.Based on each model’s recommended output resolutions and (for video) duration limits, we construct
+threesteadyworkloadLight,Medium, andHeavy—tailored to every model. Details is also shown in Table 5.
+Proprietary Workload Scaling.In addition to the synthetic workload above, we use twoproprietarytraces (one for image
+generation and one for video generation), whose patterns have been shown in Figure 9. Applying these traces directly in
+our experiments would either overprovision or overload our evaluation setup due to differences in real case cluster/model
+and ours. Therefore, we scale eachproprietarytrace to match the total number of requests in a30 min window to that of
+the correspondingSteadyworkload while preserving the temporal pattern. Concretely, if theproprietarytrace contains too
+many requests, we uniformly subsample according to its native distribution; if it contains too few, we replicate requests
+proportionally and round up to integers.
+D.2 Baselines Implementation
+B1 (Static Pipeline-level).We set a single, global sequence-parallel degree 𝑘 per model to half of the model’s optimal degree
+at itsmaximumload length. This choice is consistent with our SLO definition (SLO = 2.5× the latency at the optimal degree):
+using𝑘max/2ensures even longest requests still meet the SLO while avoiding the resource waste of always running at the
+highest feasible degree. Concretely, we use𝑘=2forSd3and 𝑘=4forFlux,Cog, andHunyuan. The concrete parallelism strategy
+we choose is Ulysses-k.
+B2/B5 (Bucketed).We pre-partition the cluster into degree buckets (e.g., 𝑘∈{ 1, 2, 4, 8} as supported by each model) and
+route each request to the bucket matching its profiled-optimal degree. Let𝑟𝑘 be the target share for degree𝑘(per model and
+19
+Table 6.Bucketed GPU allocations 𝑁𝑘 for B2/B5 with total 𝑁=128GPUs per model & workload. Each 𝑁𝑘 is padded to a
+multiple of its degree𝑘; the𝑘=1bucket is adjusted last so that rows sum to128.
+Model Workload GPUs @ degree𝑘 Total
+𝑘=8𝑘=4𝑘=2𝑘=1
+SD3-M
+Light 0 16 18 94 128
+Medium 0 16 16 96 128
+Heavy 0 36 36 56 128
+CogVideoX1.5-5B
+Light 8 12 64 44 128
+Medium 8 12 70 38 128
+Heavy 24 24 58 22 128
+Flux.1
+Light 16 12 12 88 128
+Medium 16 16 28 68 128
+Heavy 32 28 14 54 128
+HunyuanVideo
+Light 40 12 44 32 128
+Medium 56 24 36 12 128
+Heavy 72 12 32 12 128
+Table 7.Stage-level GPU splits𝐺 𝑠 for B5/B6 with𝐺=128GPUs. Values are rounded to integers and adjusted to sum to128.
+Model GPUs per stage Total
+Encode(𝐺 𝐸)Diffuse(𝐺 𝐷)Decode(𝐺 𝐶)
+SD3-M 12 88 28 128
+Flux.1 6 96 26 128
+CogVideoX1.5-5B 4 102 18 128
+HunyuanVideo 4 112 12 128
+workload level) and let𝑁=128be the total available GPUs; we allocateGPU counts 𝑁𝑘 by𝑁𝑘 =round_to_mult(𝑁·𝑟 𝑘, 𝑘),
+where round_to_mult(𝑥,𝑘) rounds𝑥 to the nearest multiple of𝑘 (ties downward). Finally we adjust𝑁1←𝑁− Í
+𝑘∈{2,4,8} 𝑁𝑘 so
+that Í
+𝑘𝑁𝑘 =128. We show the example forSteadyworkloadGPUallocations in Table 6.
+B4/B6 (SRTF with aging).We schedule ready requests by Shortest-Remaining-Time-First (SRTF) using profiler estimates,
+while aging overdue requests to avoid starvation. For request𝑟 with deadline𝑑𝑟 and estimated completion b𝑇𝑟 , if b𝑇𝑟≤𝑑𝑟 it goes
+to the top-priority queue; otherwise we compute an integer overtime scale scale𝑟 =
+
+(b𝑇𝑟−𝑑𝑟)/𝑡∗
+𝑟
+
+where𝑡∗
+𝑟 is the profiled
+runtime at the optimal degree, and assign priority𝑝𝑟 =max 1, 5−scale𝑟
+ (smaller𝑝𝑟 is higher priority). Within each priority
+we still pick by SRTF and refresh b𝑇𝑟 when𝑘 or placement changes. B4 applies this to colocated instances; B6 applies it within
+disaggregated clusters.
+B5/B6 (Stage-cluster sizing).For disaggregated serving, we split the 𝐺=128GPUs in inverse proportion to their measured
+per-instance service rates. With stage throughputs ˆ𝑣𝐸, ˆ𝑣𝐷, ˆ𝑣𝐶 and optional demand weights𝑤𝑠 (default1), we set
+𝑝𝑠 = 𝑤𝑠/ˆ𝑣𝑠Í
+𝑠′∈{𝐸,𝐷,𝐶} 𝑤𝑠′/ˆ𝑣𝑠′
+, 𝐺 𝑠 =round(𝐺·𝑝 𝑠),
+then adjust the largest𝐺𝑠 by±1if needed to ensure Í
+𝑠𝐺𝑠 =128. The concreteGPUsplits used are in Table 7.
+20
+E Extend for our method in using Batch Size and Model Parallel.
+E.1 Batch Size
+Our method can be directly integrated with dynamic batch without any changes. We first analyze the impact of different batch
+sizes on requests and stages, and then briefly explain how our method can be integrated with dynamic batch size with minimal
+changes.
+Impact of Batch Size.As shown in Figure 17, theencoderhandles lightweight inputs, so it can be run with very large
+batches almost without slowing down. Thediffusion modelis compute-bound, batching helps only when low-resolution images
+are generated. Thedecoderare memory-bound, and their latency grows almost linearly with batch size, so batching provides
+no benefit.
+1 2 4 8
+Batch Size
+1.0
+1.5
+2.0
+2.2Relative Latency (vs. Batch Size 1)
+1.1×
+1.2×
+1.6×
+1.7×
+Linear Growth
+Efficient Scale
+Encoder
+32 64 128 256
+1 2 4 8
+Batch Size
+2
+4
+6
+8Relative Latency (vs. Batch Size 1)
+1.0×
+2.1×
+5.8×
+4.3×
+7.7×
+8.5×Linear
+Growth
+Efficient Scale
+Diffusion
+SD3
+FLUX
+128p
+256p
+512p
+1 2 4 8
+Batch Size
+2
+4
+6
+8Relative Latency (vs. Batch Size 1)
+3.6×
+7.5×
+7.9×
+8.3×
+Linear Growth
+Efficient Scale
+Decoder / V AE
+128p
+256p
+512p
+1024p
+Figure 17.Batch effects on different stages. Encoder:T5-XXL; Decoder:AutoEncoderKL. Batching is efficient when latency
+overhead≤20%.
+Integration with Dynamic Batch.From the analysis above, we conclude that different requests and different stages each
+have distinct optimal batch sizes (we define the optimal batch size as the largest batch size whose latency increase is less than
+20%). We observe that batch scalability followsEncode > Diffuse > Decode. Since theDiffusestage dominates runtime, we
+use its optimum as the standard: for requests of the same size, we form batches using theDiffusestage’s optimal batch size,
+and then perform resource allocation and execution at the granularity of the request batch; the method requires virtually no
+changes.
+Meanwhile, because theEncodestage’s optimal batch size exceeds that of theDiffusestage, some Γ𝐸 may not reach their
+optimal batch size. We proactively merge theΓ𝐸 that run exclusively on𝜋=⟨𝐸⟩ , consolidating those that have not yet reached
+the optimal batch size, thereby further improving resource utilization.
+E.2 Model Parallelism
+Because model parallelism is far less efficient than sequence parallelism at the same degree, we enable model parallelism only
+when the model parameters cannot fit on a single GPU. We enable model parallelism solely for theDiffusestage, sinceEncode
+requires no parallelism and theDecodestage has very small model parameters, rendering model parallelism highly inefficient.
+When theDiffusion modelcannot fit on a single GPU, we first determine the minimal model-parallel degree 𝑘𝑚𝑖𝑛 such that,
+under the maximum load, the per-GPU shard of theDiffusion modelfits within one GPU’s memory. We then carry out the
+placement planallocation anddispatch plansolving at the granularity of 𝑘𝑚𝑖𝑛 GPUs (rather than a single GPU), which leaves
+all our methods unchanged.
+21

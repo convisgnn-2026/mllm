@@ -1,0 +1,7 @@
+individual_plots/
+FluidServe_logs/
+comm_comp/
+examples
+# latent_transfer
+scaling_efficiency_with_vae_decoder
+*.log

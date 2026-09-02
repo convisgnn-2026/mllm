@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tetriserve"
+version = "0.0.0"
+description = "TetriServe: A deadline-aware diffusion transformer serving system with step-level dynamic sequence parallelism"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "TetriServe Team", email = "tetriserve@gmail.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "torch>=2.1.0",
+    "accelerate>=0.33.0",
+    "transformers>=4.39.1,<5",
+    "sentencepiece>=0.1.99",
+    "distvae",
+    "pytest",
+    "einops",
+    "pandas",
+    "pyzmq",
+    "protobuf",
+    "numpy<2",
+    "diffusers==0.33.0",
+]
+
+[project.optional-dependencies]
+diffusers = [
+    "diffusers==0.33.0",
+]
+flash-attn = [
+    "flash-attn==2.6.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/DiT-Serving/TetriServe"
+
+[tool.setuptools.packages.find]
+include = ["tetriserve*"]

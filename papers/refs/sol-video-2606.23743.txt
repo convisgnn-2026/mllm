@@ -1,0 +1,940 @@
+2026-6-25
+Sol Video Inference Engine: Agent-Native Full-Stack
+Acceleration Framework for Efficient Video Generation
+NVIDIA SANA Team*, Codex*, GPT-Image2
+Modern video diffusion models scale toward higher generation quality, but this scaling also increases inference cost.
+While a variety of acceleration methods have been proposed, one significant difficulty is that the most effective acceler-
+ation implementation is highlyinstance-specific: the best recipe for one(model, hardware, inference configuration)
+combination often fails to transfer to another. Models differ in architecture, numerical sensitivity, and attention con-
+centration patterns. Inference configurations vary in spatial and temporal resolution as well as video duration, while
+hardware platforms differ in memory hierarchy, supported numerics, and kernel throughput. Together, these factors
+create a large tuning space in which manual performance engineering becomes costly. To address this, we presentSol
+Video Inference Engine, an agentic native training-free acceleration framework for video diffusion models. It organizes
+five broadly applicable techniques—cache, sparse attention, token pruning, quantization, and kernel fusion—into an
+agentic acceleration stack for instance-specific optimization. For a concrete(model, hardware, serving configuration)
+deployment target, parallel skill agents optimize the implementation of each technique, an agent integrator composes
+them into a global stack, and a human validator provides feedback on quality. We instantiate this workflow on three
+video models with different model sizes and architectures: 64BCosmos3-Super, 22BLTX-2.3, and 2BSANA-Video.
+With little human effort, the full stack achieves more than2× end-to-end acceleration while maintaining near-lossless
+VBench quality, demonstrating the effectiveness of the agent framework for video diffusion acceleration.
+Links:Github Code | Project Page
+• Long Iteration Cycles
+• High Communication Cost
+• Hard to Scale
+• Error-prone
+• Low Efficiency
+Integration & Debugging
+(Time-consuming & Error-prone)
+Serving Group
+(Work on Deployment Efficiency
+& High Concurrency Requirements)
+Algorithm Group
+& Sparse Attention)
+Kernel Group
+(Work on kernel fusion
+& Optimization)
+Traditional Manual Workflow
+(Complex & Inefficient)
+Agent-Human Workflow
+Validate
+&
+Iterate
+• Fast Iteration
+• Low Communication Cost 
+• Easy to Scale
+• Robust & Reliable
+• High Efficiency
+Cross-step
+Diffusion Cache
+Token
+Pruning
+Sparse
+Attention
+Kernel
+Fusion
+Low-bit
+Quantization
+Agent
+Skills
+Human Validator / Approver Human Validator
+(Work on Diffusion Cache
+(Simple & Efficient)
+Figure 1| Traditional manual acceleration workflow versus Sol Video Inference Engine’s agent-human workflow.
+Left: acceleration work is split across multiple human groups with different expert techniques, leading to long iteration
+cycles, high communication cost, and manual integration or debugging effort. Right: Sol Video Inference Engine
+exposes acceleration skills to an agent system that performs local search and stack integration, while the human stays in
+the loop mainly for validation and iteration. This agent-human mode reduces coordination overhead and human effort
+while making the workflow faster, easier to scale, and more reliable.
+Human authors: Yitong Li, Junsong Chen, Haopeng Li, Haozhe Liu, Jincheng Yu, Ligeng Zhu, Ping Luo, Song Han, Enze Xie.
+NVIDIA Research, Efficient AI Team & Singapore Lab.
+© 2026 NVIDIA. All rights reserved.
+arXiv:2606.23743v2  [cs.CV]  24 Jun 2026
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+1. Introduction
+Video diffusion models continue to scale toward higher generation quality, longer duration, and higher fidelity. This
+scaling, however, also increases inference cost. Modern video diffusion systems combine billion-scale backbones, long
+spatiotemporal sequences, and multi-step sampling, making inference computationally heavy.
+While many acceleration methods have been proposed, accelerating these systems is not a one-time optimization
+problem. One significant difficulty is that effective acceleration is highlyinstance-specific: the best recipe for one
+(model, hardware, inference serving configuration)combination often fails to transfer to another. Models differ in
+architecture, numerical sensitivity, and attention concentration patterns. Inference configurations vary in spatial and
+temporal resolution, video duration, denoising schedule, and batching strategy, while target hardware ranges from
+high-memory datacenter cards to consumer-grade edge devices with distinct supported numerics and throughput.
+As a direct result of these heterogeneous properties, the implementation of various acceleration methods is instance-
+dependent: a cache policy may be valid for one denoising schedule but drift under another; a sparsity pattern may
+preserve quality at one resolution but fail at a longer temporal context; and a low-precision backend may provide a good
+speed–quality trade-off for one hardware but offer a poor trade-off for another. Because the combination space spanned
+by these factors is so large, hand-tuning every deployment instance consumes substantial engineering effort.
+Sol Video Inference Engine addresses this challenge with anagentic acceleration frameworkorganized around two
+coupled parts. The first is a full-stack set of acceleration techniques spanning cross-step cache, sparse attention, token
+pruning, quantization, and kernel fusion. The second is an agent-native workflow: parallel skill agents perform per-
+technique local optimization, an agent integrator composes the resulting candidates through global search, and a human
+validator provides visual-quality feedback. Sol Video Inference Engine applies this framework to 64B Cosmos3-Super,
+22B LTX-2.3, and 2B SANA-Video, producing effective acceleration stacks with little manual effort. The contributions
+of this paper can be summarized in four aspects:
+• Problem reformulation.We systematically analyze the acceleration space of video diffusion inference and formulate
+its acceleration as an instance-specific tuning problem rather than one-time optimization paradigms.
+• Full-stack acceleration framework.We propose a comprehensive framework for video diffusion models accel-
+eration, synergistically integrating algorithmic and system-level techniques, including cross-step caching, sparse
+attention, token pruning, quantization, and kernel fusion.
+• Agent-driven optimization workflow.We propose an agent-native architecture that orchestrates parallel agents
+and an integrator. It successfully bypasses the multi-team engineering traditionally required for model deployment,
+autonomously delivering highly optimized speed–quality configurations in a fraction of the usual human effort.
+• Extensive empirical validation.Extensive experiments demonstrate that our training-free framework achieves over
+2× end-to-end speedup across diverse state-of-the-art models—including 64B Cosmos3-Super, 22B LTX-2.3, and
+2B SANA-Video—without compromising visual quality.
+Report organization.Section 2 reviews related work. Section 3 analyzes the deployment constraints and instance-
+specific nature of video diffusion acceleration. Section 4 presents the agentic acceleration framework, the local-to-global
+workflow, and the acceleration techniques used in that process. Section 5 evaluates Sol Video Inference Engine on
+Cosmos3-Super, LTX-2.3, and SANA-Video. Section 6 concludes.
+2. Related Work
+2.1. Video Diffusion Models
+Video generation is currently dominated by large-scale Diffusion Transformers (DiTs). Mainstream open-source models,
+such as CogVideo and CogVideoX [1, 2], the Wan series [3], HunyuanVideo [4, 5], and Cosmos3-Super [6], establish
+the standard paradigm for high-fidelity and physically-aware synthesis. To handle extended temporal contexts and high
+resolutions, systems like LongCat-Video [7], LTX-2.3 [8], JoyAI-Echo [9], and Pyramid Flow [10] adopt multi-stage,
+autoregressive, or memory-augmented generation pipelines. Other models explore the extremes of the design space for
+efficiency: SANA-Video [11] prioritizes efficiency through linear attention. Despite this architectural diversity, all these
+systems face a severe, shared inference bottleneck. The combination of massive spatiotemporal token sequences and
+iterative denoising steps inherently makes efficient deployment a critical system-level challenge.
+2
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+2.2. Video Generation Acceleration
+Prior acceleration work attacks video diffusion cost from three complementary levels. At thealgorithmlevel, cache-
+based methods exploit similarity across denoising steps: TeaCache predicts timestep-to-timestep output change to
+decide when cached residuals can be reused [ 12], and TaylorSeer forecasts features across timesteps using Taylor
+expansion to reduce the error of more aggressive reuse [13]. A broader spectrum of caching strategies has also emerged
+to accelerate diffusion inference [14, 15, 16]. At themodellevel, sparse attention and token reduction reduce work
+inside each denoising step: PISA uses training-free piecewise sparse attention with first-order Taylor compensation [17],
+Sparse VideoGen and Sparse VideoGen2 exploit spatial-temporal sparsity with profiling and layout-aware sparse
+execution [18, 19], VSA learns video sparse attention operators [ 20]. Many other methods have also extensively
+explored sparse attention for video diffusion [ 21, 22, 23, 24, 25, 26]. Meanwhile, token-reduction methods such as
+ToMe-SD, Astraea, TAPE, and CoReDiT merge, prune, or reconstruct redundant diffusion tokens [ 27, 28, 29, 30].
+At thekernellevel, quantization and fusion reduce the cost of the remaining operators: PTQ4DiT, Q-DiT, ViDiT-Q,
+and SVDQuant study diffusion-aware low-precision execution [31, 32, 33, 34, 35]. Moreover, CUTLASS epilogues,
+ByteTransformer, and CODA show how GEMM-adjacent memory-bound operations can be fused into high-throughput
+kernels [36, 37, 38]. Sol Video Inference Engine builds on these technique families.
+2.3. Agentic Workflows and Harness Engineering
+Recent work increasingly treats the surrounding agent runtime—tool access, execution loop, verification, memory,
+and feedback—as a first-class optimization target rather than incidental glue code. AgentBench and MLAgentBench
+provide broad evaluation settings for language agents in interactive environments and machine-learning experimentation,
+respectively [39, 40]. In software engineering, SWE-agent, AutoCodeRover, Agentless, and OpenHands study how
+agent interfaces, search, localization, execution environments, and generalist developer agents affect autonomous code
+improvement workflows [41, 42, 43, 44]. AI Harness Engineering formalizes the harness itself as a runtime substrate
+for foundation-model software agents [ 45], while The AI Scientist shows that agentic systems can orchestrate idea
+generation, experiment execution, figure production, and manuscript writing in an end-to-end loop [ 46]. Closer to
+systems optimization, CUDA-LLM and CudaForge demonstrate that iterative agentic workflows with compilation
+checks, correctness validation, profiling, and hardware feedback can automatically generate or optimize efficient CUDA
+kernels [47, 48]. Sol Video Inference Engine is aligned with this direction, but targets a different object of coordinating
+multiple acceleration skills for video diffusion inference into a quality-constrained full-stack deployment.
+3. Background: Inference Redundancy and Deployment Heterogeneity
+3.1. Inference Redundancy in Video Diffusion Models
+Scaling video diffusion models improves generation quality, temporal consistency, and controllability, but it also
+substantially increases inference cost. Recent systems illustrate this trend: Cosmos3-Super scales to 64B parameters
+for high-capacity video and physical-aware content generation [ 6], while LTX-2.3 is released as a 22B-parameter
+audio-video diffusion foundation model [8]. As parameter count and model scale increase, video diffusion inference
+also exposes redundancy at three complementary levels. At thediffusion algorithmlevel, adjacent denoising steps
+often execute structurally similar computations over slowly changing latent states, creating opportunities for cross-step
+reuse, selective skipping, and compensation. At themodellevel, long spatiotemporal sequences contain redundant
+tokens and attention interactions, so the full attention graph or full token set is not always necessary at every layer and
+timestep. At thekernellevel, transformer inference repeatedly launches memory-bound operators around GEMMs,
+materializes intermediate tensors, and pays overhead for layout movement, normalization, activation, and precision
+conversion. Figure 2a visualizes how the three levels of redundancy appear in the unaccelerated inference path.
+3.2. Deployment Heterogeneity: Model, Hardware, and Configuration
+We treat an acceleration target as a heterogeneous deployment instance defined by three co-equal axes:model, hardware,
+and inference serving configuration. Acceleration implementations fail to transfer cleanly because each deployment
+instance is constrained by the joint choice of them, spanning a large combination space as shown in Figure 3. Themodel
+determines numerical and structural sensitivity: different backbones have different quantization robustness, attention
+redundancy, cache stability across denoising steps, and tolerance to token pruning. Thehardwaredetermines which
+bottlenecks are exposed: on high-compute GPUs such as B200, large GEMMs may become sufficiently fast that small-
+3
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+2.38×
+1.20×
+1.39×
+LTX-2.3 Sglang
+1st stage33.3s  
+1st stage60.8s  
+1st stage33.3s  
+24.6s  
+2nd stage28.2s  
+2nd stage28.2s  
+16.4s  11.0s  
+VAE 8.8s  
+5.4s  
+VAE 8.8s  
+VAE 8.8s  
+97.8s
+70.3s
+58.5s
+41.0s
++ Diffusion Cache
++ token pruning & sparse attention
++ Kernel Fusion & Quantization
+Step 1 ……Step 2 Step 30
+1.Denoising algorithm  Diffusion Cache 
+2.Core operators
+token pruning & sparse attention 
+3. Fragmented operators
+ Kernel fusion
+GEMM 24.8%  Softmax 47.6%  Element + norm 27.6%  
+GEMM 38.8%  Softmax 19.9%  Element + norm 41.3%  
+LTX-2.3resolution544×960tokenlength15,810
+LTX-2.3resolution1088×1920tokenlength63,240…GEMM ~ 40% Softmax ~ 20% normRoPE
+(a) Three-level redundancy.
+2.38×
+1.20×
+1.39×
+LTX-2.3 Sglang
+1st stage33.3s  
+1st stage60.8s  
+1st stage33.3s  
+24.6s  
+2nd stage28.2s  
+2nd stage28.2s  
+16.4s  11.0s  
+VAE 8.8s  
+5.4s  
+VAE 8.8s  
+VAE 8.8s  
+97.8s
+70.3s
+58.5s
+41.0s
++ Diffusion Cache
++ token pruning & sparse attention
++ Kernel Fusion & Quantization
+GEMM ~ 40% Softmax ~ 20%norm
+Step 1 ……Step 2 Step 30
+1.Denosing algorithm> Diffusion Cache 
+2.Model Inference
+> token pruning & sparse attention 
+3. Kernel launch
+> Kernel fusion
+rope…
+GEMM 24.8%  Softmax 47.6%  Element + norm 27.6%  
+GEMM 38.8%  Softmax 19.9%  Element + norm 41.3%  
+LTX-2.3resolution544×960tokenlength15,810
+LTX-2.3resolution1088×1920tokenlength63,240 (b) Time profile across diffusion configurations under the same model
+and hardware.
+Figure 2| Baseline inference time breakdown and configuration-specific bottlenecks.Left: runtime decomposition
+that illustrates algorithm-, model-, and kernel-level redundancy in the unaccelerated serving path. Right: time profile
+across diffusion configurations under the same model and hardware. Different spatial resolutions shift the dominant
+inference bottlenecks and therefore expose different primary optimization opportunities.
+Models Hardware Space Inference Configs
+Cosmos3-Super
+64B
+Mixture of Transformer
+LTX-2.3
+22B
+Two-stage Inference
+SANA-Video
+2B
+Linear Attention
+B200
+192GB | FP4/8/16
+~9000 TFLOPS
+H200
+141GB | FP8/16/BF16
+~1979 TFLOPS
+RTX 5090
+32GB | FP4/8/16
+~3352 TOPS
+480p - 1080p
+High Resolution
+5s - 30s
+Long Video
+16 fps - 48 fps
+High Dynamics Video
++ +
+Figure 3| Joint combination space of video generation model deployment instances.Model, hardware, and inference
+configuration jointly define a large combinatorial space of deployment instances. This diversity makes implementation
+of acceleration techniques a substantial engineering challenge rather than a one-time optimization problem.
+operator launch overhead and memory-bound epilogues occupy a larger fraction of runtime, while on lower-compute
+GPUs those same launches may be less visible because dense compute remains dominant. Theconfigurationaxis covers
+runtime choices such as spatial and temporal resolution (e.g.720pvs.1080p, 24fpsvs.48 fps). It changes the effective
+token count and runtime balance: increasing spatial or temporal resolution increases sequence length, attention scales
+quadratically with token count, and FFN/MLP work scales roughly linearly, so the attention–FFN time split can change
+substantially across resolutions. These coupled constraints make caching, sparsity, pruning, fusion, and quantization
+properties instance-specific; an acceleration recipe that works for one(model, hardware, serving configuration)point
+may not preserve speed or quality at another. Figure 2b illustrates this effect within a single model and hardware setting:
+different resolutions expose different dominant bottlenecks and therefore different primary acceleration directions.
+This creates two consequences for performance engineering. First, the number of deployment instances is large, so
+exhaustive manual tuning does not scale. Second, the optimization problem within each instance is structured: objectives
+such as latency and quality-preservation are explicit, which naturally lends itself to agent-based automation. Sol Video
+Inference Engine on Cosmos3-Super, LTX-2.3, and SANA-Video instantiates distinct points in this configuration space,
+demonstrating how an agent-native workflow can produce effective stacks for concrete deployment instances.
+4
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+2.38×
+1.20×
+1.39×
+LTX-2.3
+1st stage33.3s  
+1st stage60.8s  
+1st stage33.3s  
+24.6s  
+2nd stage28.2s  
+2nd stage28.2s  
+16.4s  
+11.0s  
+VAE 8.8s  
+5.4s  
+VAE 8.8s  
+VAE 8.8s  
+97.8s
+70.3s
+58.5s
+41.0s
++ Diffusion Cache
++ token pruning & sparse attention
++ Kernel Fusion & Quantization
+Cosmos3-Super
+47.3s  
+denoise 94.5s  
+39.1s  
+VAE 4.8s  
+2.27×
+1.90×
+99.6s
+52.4s
+43.9s
++ Diffusion Cache
++ Kernel Fusion &Quantization
+VAE 4.8s  
+VAE 4.8s  
+SANA-Video
+denoise 18.6s  
+denoise 28.2s  
+9.4s  
+VAE 1.2s  
+2.77×
+1.48×
+29.4s
+19.8s
+10.6s
++ Diffusion Cache
++ Kernel Fusion & Optimization
+VAE 1.2s  
+VAE 1.2s  
+Figure 4| Acceleration breakdown across different optimization methods.The figure decomposes the cumulative
+speedup contributed by different components in the Sol Video Inference Engine stack, showing how cache, sparse
+attention and token pruning, and kernel-level optimization progressively reduce end-to-end latency. Overall, the full
+framework delivers roughly2×–3×acceleration across Cosmos3-Super, LTX-2.3, and SANA-Video.
+4. Agentic Acceleration Stack
+Sol Video Inference Engine builds a full-stack acceleration framework that spans three levels of acceleration: algorithm-
+level cache to reduce redundancy across repeated denoising steps, model-level sparse attention and token pruning
+to reduce unnecessary token computation, and kernel-level optimizations through kernel fusion to minimize kernel-
+launch overhead, alongside quantization to accelerate execution by leveraging lower-precision hardware primitives.
+For a specific deployment instance, defined by a concrete(model, hardware, serving configuration)combination, the
+framework aims to select and compose the most suitable subset of these acceleration skills under acceptable generation
+quality. Within this framework, each acceleration technique is first tuned locally to identify the configuration that best
+fits the current deployment instance. The agent integrator then composes these per-technique optima and performs
+global tuning to find the strongest full-stack combination under generation-quality constraints. Sol Video Inference
+Engine delivers roughly 2×–3× end-to-end acceleration across Cosmos3-Super, LTX-2.3, and SANA-Video, which is
+achieved by a full-stack techniques composition rather than a single acceleration method, as shown in Figure 4.
+4.1. Agent-Native Acceleration Workflow
+Sol Video Inference Engine uses anagent-native acceleration workflowto tune and compose a deployment stack for
+each instance. The workflow turns the technique families detailed in Section 4.2 into a structured optimization process.
+Illustrated in Figure 5, it proceeds in three stages: parallel skill agents perform model-specific local optimization, an
+agent integrator composes the local candidates into a global stack, and a human validator provides quality feedback.
+• Parallel skill agents.We first perform local optimization within each technique family. Because the full stack
+contains many techniques and the joint search space is large, directly running a single agent over the entire global
+optimization problem would be costly and slow. Instead, independent skill agents search their own local spaces in
+parallel. For example, a cache agent searches skip-step schedules and compensation rules, while a kernel-fusion
+agent profiles the kernel-wise time cost and tests fusions such as GEMM + GELU or RoPE + norm. These locally
+optimized candidates provide strong per-skill starting points for the later global optimization stage.
+• Agent as integrator.The integrator receives local candidates from all skill agents and combines them into a full
+acceleration recipe for the target deployment. Because these methods are not independent, the final end-to-end
+speedup is not the direct product of their local gains. Moreover, many techniques are lossy, so directly stacking the
+locally optimal choices can accumulate approximation error and produce an unacceptable final result. The integrator
+therefore performs global optimization rather than simply aggregating first-stage results. It resolves interactions
+such as whether lossy methods like cache and sparse attention remain acceptable when combined, and whether
+quantization admits a compatible implementation together with kernel fusion under the same deployment target.
+• Human validator feedback.Similarity metrics such as PSNR are not well aligned with human visual perception.
+Given a high-quality reference video, PSNR may assign a large distance to outputs with shifted visual details, while
+assigning a smaller distance to outputs with blur, temporal jitter, or degraded motion coherence, as shown in Figure 6.
+From a human-quality perspective, the former is acceptable while the latter is not, which makes human feedback
+necessary. In the workflow, we use a fixed validation set to inspect each integrated candidate and determine whether
+its visual quality remains acceptable. This feedback then tells the next optimization round whether the global agent
+can push toward more aggressive acceleration or should stay more conservative to preserve quality.
+5
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Agent Workflow for Skill-Based Video Generation Acceleration
+Acceleration Skills Parallel Applicability Executors* Integrator Agent
+Diffusion 
+Cache
+Token 
+Pruning
+Sparse 
+Attention
+Kernel 
+Fusion
+Quantization
+Optimal Implementation
+Not applicable 
+Optimal Implementation
+Optimal Implementation
+Optimal Implementation
+Integration Engine
+compose selected skills
+global parameter tuning
+e2e quality checking
+implement stack patch
+Proposed Acceleration Stack
+(Deployment Config + Patches)
+Selected Skills (Applicable)
+Cache Sparse
+Attention
+Kernel
+Fusion Quantize
+1 2 3
+*The applicability of certain methods may vary across different models. The specific implementations are provided for illustra tive purposes.
+Human Validator
+Accept Stack
+Revise Policies
+Validation Dashboard
+•  latency
+•  throughput
+•  memory
+•  consistency
+•  visual fidelity
+•  alignment
+Efficiency
+Quality
+4
+• TeaCache fits best
+• Start at 5th step
+•
+negligible loss on the model
+• at density of 10%
+• 10th ~ 23rd layers
+•
+•
+• Select NVFP4 for B200
+• Only on FFN layers
+Validate
+&
+Iterate
+GELU as epilogue
+Token pruning causes non-
+Fuse RoPE operation
+Figure 5| Agent-native acceleration workflow.The workflow can be viewed in two parts. The first part is local parallel
+per-technique search, where skill agents independently explore local candidates. The second part is global integration
+and the human-validator loop, where an integrator composes the local candidates into a full acceleration stack and the
+human validator provides feedback to guide the next iteration.
+It seeks strong local configurations for each technique family and composes them into a global operating point under
+quality constraints. In this process, parallel agents optimize each technique family locally, the integrator searches
+over the resulting candidate points, and the human validator verifies visual quality. Together, this workflow enables
+instance-specific optimization for each deployment target without requiring large manual tuning effort.
+4.2. Acceleration Techniques
+4.2.1. Cross-Step Cache
+Diffusion inference typically requires a large number of function evaluations (NFE), often on the order of 30–50
+denoising steps for high-quality generation. Across these steps, the model repeatedly executes structurally similar
+computation, and adjacent denoising states often induce similar intermediate features. Cross-step caching targets this
+trajectory-level redundancy by skipping selected denoising-step computations and compensating for the skipped output.
+Recent diffusion-cache methods illustrate the range of usable cache policies. TeaCache estimates timestep-to-timestep
+output change from timestep-conditioned inputs and reuses cached residuals when the predicted change is small [12].
+EasyCache introduces a runtime-adaptive caching policy that adjusts feature reuse online to better balance acceleration
+and quality across video diffusion trajectories [14]. TaylorSeer extends feature reuse into feature forecasting, using
+Taylor-series extrapolation over previous timestep features to reduce quality degradation when cached intervals become
+larger [13]. For a specific model and deployment configuration, Sol Video Inference Engine treats cache selection as an
+instance-specific optimization problem rather than a generalizable methodology. The cache agent must determine which
+policy best matches the model, then tune its key hyperparameters, such as skip-step schedule, cached feature or residual
+choice, compensation rule, warmup, and maximum cached-step constraints.
+4.2.2. Sparse Attention
+Video diffusion inference operates over large spatiotemporal token sets, especially for long-duration or high-resolution
+generation. These tokens exhibit both temporal redundancy across adjacent frames and spatial redundancy within each
+frame, so many attention edges contribute little to the final output on a given step. Sparse attention targets the quadratic
+6
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+w/ human validation w/ human validation
+w/o human validation w/o human validation
+worse PSNR better Visual Quality
+betterPSNR worseVisual Quality
+worse PSNR better Visual Quality
+betterPSNR worseVisual Quality
+Figure 6| Necessity of human validation.Human validators inspect representative generations and provide feedback
+on overall visual quality, while traditional similarity operators such as PSNR often fail to faithfully reflect the actual
+perceptual quality of generated videos in deployment-oriented evaluation.
+cost of full spatiotemporal attention without necessarily changing the external token lattice.
+Recent work shows several ways to exploit this sparsity. PISA provides training-free piecewise sparse attention: critical
+blocks are computed exactly, while non-critical blocks are compensated with first-order Taylor approximation [ 17].
+SpargeAttention introduces a universal training-free sparse attention framework that accurately predicts and skips
+near-zero attention entries using a block-wise similarity metric [21]. Furthermore, Sparse VideoGen exploits spatial-
+temporal sparsity patterns with online profiling and custom kernels [ 18], while Sparse VideoGen2 improves sparse-
+token identification and GPU layout through semantic-aware permutation [19]. For a specific model and deployment
+configuration, Sol Video Inference Engine must determine which sparse attention backend fits best in the setting, as
+well as which attention layers can be sparsified safely and which should remain dense for quality preservation. The
+sparse-attention agent therefore tunes layer selection, sparsity pattern, and compensation policy, then validates the
+quality–speedup trade–off under given inference configuration.
+4.2.3. T oken Pruning
+Token pruning reduces the sequence itself by skipping, merging, or reconstructing redundant latent tokens. By reducing
+the number of active tokens, it lowers the cost of subsequent attention and feed-forward computation, especially in
+high-resolution or long-video settings where sequence length dominates latency.
+Earlier token-reduction work such as ToMe for Stable Diffusion shows that redundant diffusion tokens can be merged
+at inference time with limited quality loss [27]. More recent video-diffusion systems make the pruning decision more
+temporally and spatially aware: Astraea searches token budgets for video DiTs under a performance target [28], TAPE
+smooths token importance across frames to avoid temporal jitter [29], and CoReDiT prunes spatially coherent DiT tokens
+while reconstructing skipped outputs to preserve a dense representation [ 30]. For a specific model and deployment
+configuration, the key question is not whether token pruning helps in principle, but which pruning policy removes
+redundant computation without destabilizing motion or fine detail. The token-pruning agent therefore tunes the pruning
+criterion, pruning ratio, layer schedule, timestep schedule, and reconstruction rule, then validates each candidate against
+temporal coherence and late-step fidelity before exposing it to stack integration.
+4.2.4. Quantization
+While quantization is typically employed to reduce computational cost, its actual speedup is heavily governed specifically
+by the model’s hidden dimension, the number of inference tokens and the hardware characteristics. Concurrently,
+a model’s sensitivity to quantization noise is fundamentally dictated by its inherent training parameter distribution.
+Because both the acceleration potential and the resulting quality impact vary drastically across various deployment
+instances, we must conduct an instance-specific search to identify the optimal quality–speedup trade-off.
+Recent work reduces quantization loss through diffusion-aware calibration and scaling. PTQ4DiT identifies salient
+channels and timestep-varying activations as key post-training quantization challenges [ 31]; Q-DiT uses automatic
+quantization granularity allocation for DiTs [32]; and SVDQuant absorbs weight and activation outliers with low-rank
+components to enable 4-bit diffusion inference [34]. The SageAttention series targets the attention quantization, intro-
+ducing 8-bit to 4-bit attention acceleration with outlier smoothing [49, 50, 51]. For a specific deployment instance, Sol
+7
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Video Inference Engine treats quantization as a selective local-tuning problem rather than a uniform low-bit conversion.
+The quantization agent profiles layer sensitivity and tensor shapes, then tunes layer-wise precision assignments, weight
+and activation bitwidths, timestep-dependent scaling to find the best speed–quality trade-off.
+4.2.5. Kernel Fusion
+Transformer and diffusion backbones spend substantial time around GEMMs on fragmented operators that have low
+arithmetic intensity: bias addition, residual updates, normalization, activation functions, scaling, and layout conversion.
+Kernel fusion accelerates these paths by executing memory-bound follow-up operators while intermediate results are
+still in registers or shared memory, instead of materializing them to HBM and launching separate kernels.
+This pattern is explicit in CUTLASS epilogue programming, where activations such as GELU can be fused as GEMM
+epilogues [36], and in ByteTransformer, which uses customized fused CUTLASS epilogues for bias and GELU to hide
+memory latency inside GEMM execution [37]. CODA generalizes this idea by rewriting transformer blocks as GEMM-
+plus-epilogue programs, fusing normalization, activations, residual updates, reductions, and related memory-bound
+work into tile-local epilogue code [38]. For a specific model and deployment configuration, Sol Video Inference Engine
+treats kernel fusion as a late-stage local-tuning problem driven by the current bottlenecks of the partially accelerated
+stack. The kernel-fusion agent profiles the kernel-wise time consumption, then tunes which operator sequences to fuse,
+whether to use custom kernels or compiler-generated fusion, and how to match the implementation to the current tensor
+shapes and precision formats. Typical candidates include GEMM + GELU, GEMM + residual, and fused RoPE + norm.
+5. Experiments
+Sol Video Inference Engine applies the agent-native workflow to multiple video diffusion models. Each deployment is a
+distinct(model, hardware, inference serving configuration)instance: the deployments share the same technique stack, but
+concrete implementations must be applied, optimized, and validated per target. We evaluate three representative video
+models across different model sizes and architectures—Cosmos3-Super (64B) [6], LTX-2.3 (22B) [8], and SANA-Video
+(2B) [11]—to demonstrate the generalizable acceleration capability of our framework.
+5.1. Experimental Protocol
+Deployment Hardware.All experiments run on NVIDIA B200 GPUs. We first deploy each model in an SGLang-
+based serving stack and then develop the acceleration components on top of this deployment. Cosmos3-Super uses four
+GPUs with sequence parallelism (SP), while LTX-2.3 and SANA-Video use one GPU.
+Metrics.We use end-to-end latency as the primary metric. For quality preservation, we use VBench [ 52] to evaluate
+visual quality and motion quality under matched prompts and serving configurations.
+Models.We choose Cosmos3-Super [ 6], LTX-2.3 [8], and SANA-Video [11] to evaluate acceleration under our agentic
+acceleration framework. These models span different parameter scales, from 2B to 64B, and cover distinct inference
+pipelines and architectural designs: Cosmos3-Super uses a Mixture-of-Transformers (MoT) structure for physical video
+generation, LTX-2.3 emphasizes multi-resolution two-stage inference, and SANA-Video replaces quadratic attention
+with linear attention. Accelerating all three models demonstrates that the framework can generalize across foundation
+models with varied scales and architectural designs rather than overfitting to a single model family.
+• Cosmos3-Super.Cosmos3-Super is a 64B-parameter large video model focused on physical generation [ 6]. It uses
+a Mixture-of-Transformers (MoT) architecture with an autoregressive reasoning tower and a diffusion generation
+tower, scaling the model to 64B parameters and improving generation quality and physical reasoning capability.
+• LTX-2.3.LTX-2.3 is a 22B-parameter audio-video diffusion model [8]. Its serving pipeline includes two stages:
+stage 1 generates the video latent at 544×960 with 15 denoising steps, stage 2 upsamples and refines at 1088×1920
+with 3 denoising steps, followed by V AE decode for 241 frames. The high-quality pipeline uses the res_2s
+second-order sampler, which improves quality/step trade-offs but differs from the Euler-style schedules assumed by
+many cache heuristics, making cache implementation and optimization less direct.
+8
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Table 1| End-to-end acceleration across model deployments on NVIDIA B200 GPUs.The table compares baseline
+inference systems against the fully optimized Sol-Engine configuration across Cosmos3-Super, LTX-2.3, and SANA-
+Video. Speedups are reported relative to the SGLang baseline, while official latencies are shown for reference. The final
+optimized system delivers roughly2×–3×end-to-end speedup.
+Framework Cosmos3-Super (64B, GPU=4) LTX-2.3 (22B) SANA-Video (2B)
+Latency (s) Speedup Latency (s) Speedup Latency (s) Speedup
+Official 108.3-118.1-34.2-
+SGLang 99.61.00×97.81.00×29.41.00×
+Sol-Engine 43.92.27×41.02.38×10.62.77×
+• SANA-Video.SANA-Video is a 2B-parameter video diffusion model based on a block linear diffusion trans-
+former [11]. It uses linear attention to reduce the 𝑂(𝑛2) overhead of standard attention and convolution-enhanced
+FFN blocks to preserve local spatiotemporal structure, achieving strong video quality while remaining efficient.
+5.2. Efficiency Analysis
+Across all three deployments, Sol Video Inference Engine achieves more than 2× end-to-end acceleration despite
+substantial differences in model architecture, parameter scale, and inference pipeline. This suggests that the agentic
+acceleration framework is not tied to a single backbone, but can identify and compose effective optimizations for diverse
+video diffusion systems. Table 1 summarizes the resulting efficiency gains, with SGLang normalized to 1.00× and
+official latencies shown for reference.
+Cosmos3-Super.Cosmos3-Super starts from a 108.3 s official pipeline and a 99.6 s SGLang deployment. The
+diffusion-cache agent explores cache variants for the 64B MoT setting and selects a TeaCache-style policy [12], reducing
+latency from 99.6 s to 52.4 s (1.90× over SGLang). Quantization is also selective across denoising time: using low
+precision in early steps can introduce larger structural deviation, while using low precision in the final refinement steps
+can create high-frequency visual artifacts. The agent therefore assigns precision by timestep and module sensitivity
+rather than applying one uniform format everywhere. Kernel-wise optimization reduces latency to 43.9 s, yielding
+cumulative2.27×speedup over SGLang and2.47×over the official pipeline.
+LTX-2.3.LTX-2.3 starts from a 118.1 s official pipeline and a 97.8 s SGLang deployment. Diffusion cache removes
+redundancy across repeated denoising steps; because the high-quality LTX pipeline uses the res_2s sampler, cache
+schedules originally tuned for Euler-style samplers do not directly fit this trajectory well. In our framework, the agent
+discovers a fixed-step skip strategy that gives a better speed–quality operating point under the same inference NFE
+budget, reducing latency from 97.8 s to 70.3 s (1.39× over SGLang). Sparse attention and token pruning target the
+high-resolution stage, where the larger token count increases attention and DiT-forward cost; sparse attention reduces
+unnecessary bidirectional dense attention, while token pruning removes redundant token computation, bringing latency
+to 58.5 s (1.20× incremental and 1.67× cumulative over SGLang). Kernel fusion then compresses memory-bound and
+fragmented operators: for example, GELU can be fused as a linear-layer epilogue to avoid a separate kernel launch.
+Along with NVFP4 quantization, kernel-wise optimization reduces the final latency to 41.0 s, yielding2.38× speedup
+over SGLang and2.88×over the official pipeline.
+SANA-Video.SANA-Video starts from a 34.2 s official pipeline and a 29.4 s SGLang deployment. SANA-Video
+already incorporates efficiency-oriented model design, especially linear attention, so model-level acceleration has less
+room and we focus on the diffusion algorithm and kernel levels. The cache agent selects EasyCache [14] as the best
+policy for this pipeline, reducing latency from 29.4 s to 19.8 s (1.48× over SGLang). At the kernel level, replacing
+high-precision linear-attention kernels with low-bit kernels gives an additional roughly 1.2× kernel-level speedup with
+very small reconstruction loss (PSNR above 30 dB), while torch.compile performs operator fusion and graph
+construction to reduce kernel-launch overhead; together, these changes reduce end-to-end latency to 10.6 s, yielding
+2.77×speedup over SGLang and3.23×over the official pipeline.
+9
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Table 2| VBench quality evaluation under full-stack acceleration.The table compares the unaccelerated baseline
+against the fully optimized Sol Video Inference Engine configuration across the retained VBench dimensions. Δ reports
+the relative percentage change with respect to the baseline.
+ConfigurationAverage Score Subject
+consistency
+Background
+consistency
+Temporal
+flicker
+Motion
+smoothness
+Aesthetic
+quality
+Imaging
+quality
+Overall
+consistency
+Cosmos3-Super (64B)
+Baseline0.77590.9687 0.9301 0.9859 0.9923 0.6134 0.7276 0.2133
+Sol-Engine0.77750.9723 0.9382 0.9877 0.9935 0.6197 0.7178 0.2133
+Δ +0.21%+0.37% +0.87% +0.18% +0.12% +1.03% -1.35% +0.00%
+LTX-2.3 (22B)
+Baseline0.76460.9010 0.9245 0.9675 0.9871 0.6234 0.7012 0.2474
+Sol-Engine0.76050.9006 0.9137 0.9704 0.9840 0.6104 0.7013 0.2429
+Δ -0.54%-0.04% -1.17% +0.30% -0.31% -2.09% +0.01% -1.82%
+SANA-Video (2B)
+Baseline0.78640.9730 0.9648 0.9626 0.9843 0.6650 0.6892 0.2660
+Sol-Engine0.78470.9750 0.9654 0.9646 0.9842 0.6624 0.6779 0.2637
+Δ -0.21%+0.21% +0.06% +0.21% -0.01% -0.39% -1.64% -0.86%
+5.3. Quality Evaluation
+Table 2 compares the unaccelerated baseline against the resulting full-stack accelerated pipeline using detailed VBench
+dimensions. The reported results demonstrate that the accelerated stacks maintain average evaluation scores on par with
+the baseline, introducing only negligible variations in visual and motion quality. The evaluation results indicate that the
+observed latency gains stem from eliminating redundant or inefficient operations rather than sacrificing perceptually
+critical computations, thereby preserving prompt adherence and overall visual fidelity.
+Figure 7 provides qualitative side-by-side video outputs under matched prompts and serving configurations. The
+accelerated outputs may exhibit minor differences in fine visual details, but the overall visual quality, motion quality,
+and physical fidelity remain strong. Across the shown cases, the accelerated videos preserve the basic scene layout,
+subject arrangement, and motion structure of the unaccelerated baseline, which is the key requirement for deploying the
+optimized stack in a near-lossless serving regime.
+5.4. Extension to NVIDIA B300
+We further evaluate single-GPU Cosmos3-Super on NVIDIA
+B200 and B300. Relative to B200, B300 maintains similar BF16
+compute capability while providing higher NVFP4 compute capa-
+bility [53]. Accordingly, LTX-2.3 and SANA-Video, which rely
+less on NVFP4-heavy execution, show little end-to-end change
+in our single-GPU setting. By contrast, Cosmos3-Super depends
+more on NVFP4 execution and therefore obtains a clearer end-to-
+end speedup on B300. Table 3 reports single-GPU latency and
+speedup normalized to the baseline on the same card. On B200,
+Sol-Engine reduces latency from 353.5 s to 143.8 s (2.46×); on
+B300, it reduces latency from 351.9 s to 137.6 s (2.56×).
+Table 3| Single-GPU Cosmos3-Super on B200
+and B300.Speedups are normalized to the baseline
+on the same hardware. It shows a clearer B300
+acceleration advantage with the NVFP4 stack.
+Framework Latency (s) Speedup
+B200×SGLang 353.51.00×
+B200×Sol-Engine 143.82.46×
+B300×SGLang 351.91.00×
+B300×Sol-Engine 137.62.56×
+6. Conclusion
+Modern large-scale video diffusion models are rapidly improving in quality, but their inference cost remains a major
+obstacle to practical deployment. We argued that a core systems challenge isinstance-specific acceleration: effective
+speedups depend jointly on model architecture, inference serving configuration, and hardware platform, and recipes
+tuned for one deployment instance often fail to transfer to another. As these factors combine into a large optimization
+space, manually engineering a separate acceleration recipe for every instance requires substantial engineering effort.
+10
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+LTX-2.3
+Sol (2.38x)Baseline
+Cosmos3-Super
+Sol (2.27x) Baseline
+SANA-Video
+Sol (2.77x)Baseline
+Figure 7| Visual comparison on generated videos.Qualitative demo comparing unaccelerated and accelerated outputs
+under matched prompts and serving configurations, with latency annotations. Our framework achieves substantial
+speedup without introducing visually perceptible quality differences.
+Sol Video Inference Engine addresses this gap with anagentic acceleration stackand anagent-native acceleration
+workflow. The stack organizes cache, quantization, efficient sparse attention, token pruning, and kernel optimization
+into model-specific design spaces; parallel skill agents tune local candidates, an agent integrator composes the selected
+candidates into a deployment stack, and a human validator provides feedback on the final efficiency–quality trade-off for
+targets including Cosmos3-Super, LTX-2.3, and SANA-Video. The optimized systems organize these candidates into
+coherent pipelines tuned per deployment instance. Across these models, Sol Video Inference Engine achieves more
+than 2× end-to-end speedup across different model scales and architectural designs while preserving visual and motion
+quality with negligible degradation. These results show that agent-native full-stack acceleration can reduce inference
+cost with little human effort while largely maintaining generation quality.
+Limitations and future work.While Sol Video Inference Engine demonstrates consistent acceleration across models
+with different scales, architectures, and serving pipelines, its current workflow still depends on human judgment for
+final quality assessment. Traditional automatic loss or similarity operators, such as PSNR-style measurements, are not
+well aligned with the visual intent of video generation. When an accelerated output changes harmless visual details,
+these metrics may report a large difference even though the result is acceptable to a human reviewer. Conversely,
+high-frequency noise, blur, temporal jitter, or physically implausible motion may remain numerically close to the
+baseline while being clearly unacceptable perceptually. Because these traditional detectors do not faithfully reflect
+human aesthetic intent and deployment expectations, the current system keeps human feedback validation in the loop:
+humans inspect representative generations, update the acceptable quality envelope, and redirect the agent search when
+automatic scores fail to capture visible artifacts.
+This limitation also points to a natural direction for future work. A stronger end-to-end visual-quality evaluator could
+reduce the amount of manual validation, make the feedback loop more scalable, and allow agents to optimize more
+aggressively while staying within quality constraints. Future versions of the framework could incorporate learned video
+preference models, artifact detectors, physics-consistency checks, and VLM-based end-to-end quality judgment so that
+the integrator receives richer feedback than latency and aggregate benchmark scores alone. Improving automatic quality
+recognition would make the same agent-native acceleration workflow more autonomous and more broadly deployable.
+11
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+A. Implementation Details
+A.1. Overall Implementation Details
+Across all three models, we vary only their concrete implementation scope and hyperparameters: cache policy, sparse
+attention replacement, token-pruning schedule, low-precision quantization scope, and kernel-level fusion. The deploy-
+ment interface is always organized into a dense baseline path and a composed fullopt path, so the measured
+comparisons reflect end-to-end serving stacks rather than isolated kernel microbenchmarks. The runtime itself remains
+SGLang-based, while the optimized path selectively swaps in cache reuse, sparse or reduced token computation,
+low-precision kernels, and fused operator sequences according to each model’s architecture and bottlenecks.
+At a method level, the global implementation principles are consistent. Cache is always applied as a training-free
+denoising-step reuse policy, but the exact schedule differs by model. Sparse attention is only introduced when the
+attention map exhibits enough structure to justify replacing dense bidirectional attention with a piecewise sparse pattern.
+Token pruning is used only when intermediate video tokens contain enough redundancy that dropping a subset can
+reduce cost without visible artifacts. Quantization is applied selectively instead of uniformly: numerically fragile stages
+stay in higher precision, while stable GEMM-heavy regions are moved to low precision. Kernel optimization is similarly
+selective and includes epilogue fusion, QKV-path fusion, normalization-path fusion, and compiler-driven graph fusion
+when those transformations are stable for the target workload.
+A.2. Model-Specific Pipelines
+A.2.1. Cosmos3-Super
+Cosmos3-Super is dominated by very large transformer blocks, so the optimized pipeline focuses on reducing repeated
+denoising computation and accelerating the GEMM-heavy middle part of the trajectory. The cache component follows
+a TeaCache-style residual replay policy with threshold 1.15, start step 10, and at most three continuous cache hits. It
+measures the relative 𝐿1 change of the generation hidden state across denoising steps, accumulates this change, and
+skips the generation-path transformer blocks only when the accumulated change remains below the threshold; otherwise
+it recomputes and refreshes the cached residual. Quantization is applied in a step-selective manner rather than uniformly.
+The first three and last three denoising steps are kept in the dense/high-precision path, because early steps determine
+global structure while late steps refine high-frequency details. NVFP4 is then applied to the more regular middle steps
+and GEMM-heavy generation-path linear layers with high arithmetic density, including the FFN gate-up and down
+projections as well as the attention QKV and output projections. This combination makes Cosmos3-Super the case
+where cache and NVFP4-oriented transformer execution provide the clearest end-to-end gain.
+A.2.2. LTX-2.3
+LTX-2.3 uses a two-stage high-quality pipeline. Stage 1 runs the res_2s sampler for 15 denoising steps at 544×960,
+and stage 2 upsamples and refines the latent at 1088×1920 for 3 denoising steps before V AE decoding 241 frames. The
+full optimized stack uses a fixed-step cache method in stage 1 rather than an online TeaCache threshold. The concrete
+preset is 8of15_last_29calls: over the 29 stage-1 denoiser calls, it reuses the last computed result at call indices
+[13, 14, 16, 17, 18, 19, 20, 21, 22, 24, 25, 26, 27], with reuse_mode=last and max_skip_steps=30. Stage 2
+applies PISA only to the high-resolution refinement transformer: sparsity is 0.9 (density 0.1), block size is 64, only video
+self-attention is replaced, stage-1 sparse scheduling is disabled, and stage-2 layers 0–1 remain dense while later layers
+use piecewise attention with approximate remainder enabled, score-based routing, and FlashAttention dense fallback.
+Token pruning is also restricted to stage 2: during the additional refinement model calls, the system keeps 50% of video
+tokens according to the feat_norm saliency score, and applies pruning on refinement calls 1 and 2. NVFP4 is applied
+only to the video FFN input and output projections; the NVFP4 fused proj_in+GELU and proj_out+bias+gate
+paths are disabled. The lossless kernel/fusion flags enabled in the full stack are block-0 self-attention sharing, guidance-
+prefix sharing, fused QK+RoPE, fused RMS-AdaLN, fused AdaLN, fused QKNorm+RoPE, fused dual modulation,
+fused cross-attention dual modulation, fused Ada values, fused residual gate, fused FFN proj_in+GELU, compiled
+gate-to-output, fused audio QKVG, global fused QKNorm+RoPE, and compiled tiled V AE decoding. The distilled
+LoRA strengths are 0.25 in stage 1 and 0.5 in stage 2; stage 2 uses sigmas[0.909375,0.725,0.421875,0.0].
+12
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+A.2.3. SANA-Video
+SANA-Video uses a 2B linear-attention backbone and is evaluated with 81 frames, 50 denoising steps, and the 480p
+setting 832×480 in the main demo configuration. Its optimized path does not use sparse attention, token pruning,
+or NVFP4 FFN quantization. The cache component is EasyCache with threshold 0.1, warmup 3 steps, and spatial
+subsample stride 8. The decision rule estimates the online input-to-output transformation rate from subsampled hidden
+states, accumulates the estimated relative output change, and skips the transformer block stack while the accumulated
+value stays below the threshold; the cached residual is shared across the unbatched CFG branches to avoid injecting stale
+guidance. The remaining acceleration comes from three lossless or near-lossless kernel-path changes: the linear-attention
+key/value aggregation is kept in BF16 tensor-core execution instead of being promoted to FP32, self-attention Q/K/V
+projections are merged into one GEMM by concatenating the projection weights after loading, and the DiT block
+stack is compiled with torch.compile. The max-autotune compile mode uses max-autotune-no-cudagraphs,
+subprocess autotuning, and a persistent TorchInductor cache; the safe compile path uses the default torch.compile mode.
+The 480p setting reports roughly 16 skipped steps out of 50 for EasyCache, with the remaining speedup coming from
+BF16 linear attention, QKV merge, and compile/fusion.
+B. Visual Demo Comparison
+We provide extended visual comparisons to show that the Sol-Engine accelerated pipelines remain visually close to the
+unaccelerated SGLang deployments while achieving more than 2× end-to-end speedup. For each of Cosmos3-Super,
+LTX-2.3, and SANA-Video, we collect six matched video pairs. In each figure, the upper strip shows the unaccelerated
+SGLang result and the lower strip shows the Sol-Engine result for the same prompt, making it possible to inspect
+whether scene layout, motion evolution, and visual fidelity are preserved under the accelerated setting.
+13
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Figure 8| Cosmos3-Super visual demo comparisons.The video pairs compare the unaccelerated SGLang deployment
+with the Sol-Engine accelerated pipeline. The upper strip shows the unaccelerated SGLang result and the lower strip
+shows the Sol-Engine result. With 2.27× end-to-end acceleration over SGLang, the accelerated pipeline preserves the
+main scene layout, object structure, and motion evolution.
+14
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Figure 9| LTX-2.3 visual demo comparisons.The video pairs compare the unaccelerated SGLang deployment with
+the Sol-Engine accelerated pipeline. The upper strip shows the unaccelerated SGLang result and the lower strip shows
+the Sol-Engine result. With 2.38× end-to-end acceleration over SGLang, the accelerated pipeline maintains the overall
+visual quality, temporal coherence, and scene composition.
+15
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+Figure 10| SANA-Video visual demo comparisons.The video pairs compare the unaccelerated SGLang deployment
+with the Sol-Engine accelerated pipeline. The upper strip shows the unaccelerated SGLang result and the lower strip
+shows the Sol-Engine result. With 2.77× end-to-end acceleration over SGLang, the accelerated pipeline preserves
+prompt-level appearance, motion trends, and perceptual quality.
+16
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+References
+[1] Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu, and Jie Tang. Cogvideo: Large-scale pretraining for text-to-video
+generation via transformers.arXiv preprint arXiv:2205.15868, 2022.
+[2] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu Huang, Jiazheng Xu, Yuanming Yang, Wenyi Hong, Xiaohan Zhang,
+Guanyu Feng, Da Yin, Yuxuan Zhang, Weihan Wang, Yean Cheng, Bin Xu, Xiaotao Gu, Yuxiao Dong, and Jie Tang. Cogvideox:
+Text-to-video diffusion models with an expert transformer. InInternational Conference on Learning Representations, 2025.
+[3] Team Wan, Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie, Di Chen, Feiwu Yu, Haiming Zhao, Jianxiao Yang,
+et al. Wan: Open and advanced large-scale video generative models.arXiv preprint arXiv:2503.20314, 2025.
+[4] Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo Dai, Jin Zhou, Jiangfeng Xiong, Xin Li, Bo Wu, Jianwei Zhang, et al.
+Hunyuanvideo: A systematic framework for large video generative models.arXiv preprint arXiv:2412.03603, 2024.
+[5] Tencent Hunyuan Foundation Model Team. Hunyuanvideo 1.5 technical report, 2025. URL https://arxiv.org/abs/
+2511.18870.
+[6] NVIDIA. Cosmos 3: Omnimodal world models for physical ai.arXiv preprint arXiv:2606.02800, 2026. URL https:
+//arxiv.org/abs/2606.02800.
+[7] Meituan LongCat Team, Xunliang Cai, Qilong Huang, Zhuoliang Kang, Hongyu Li, Shijun Liang, Liya Ma, Siyu Ren, Xiaoming
+Wei, Rixu Xie, and Tong Zhang. Longcat-video technical report, 2025. URLhttps://arxiv.org/abs/2510.22200.
+[8] Lightricks. LTX-2.3 Model Card. https://huggingface.co/Lightricks/LTX-2.3, 2026. Model checkpoint family
+including ltx-2.3-22b-dev and distilled variants. Accessed June 20, 2026.
+[9] Echo Team @ Joy Future Academy, JD. Joyai-echo: Pushing the frontier of long video generation. Technical report,
+Joy Future Academy, JD, May 2026. URL https://echo-team-joy-future-academy-jd.github.io/Echo-
+LongVideo-Page/. Project page. Accessed June 20, 2026.
+[10] Yang Jin, Zhicheng Sun, Ningyuan Li, Kun Xu, Kun Xu, Hao Jiang, Nan Zhuang, Quzhe Huang, Yang Song, Yadong Mu, and
+Zhouchen Lin. Pyramidal flow matching for efficient video generative modeling.arXiv preprint arXiv:2410.05954, 2024.
+[11] Junsong Chen, Yuyang Zhao, Jincheng Yu, Ruihang Chu, Junyu Chen, Shuai Yang, Xianbang Wang, Yicheng Pan, Daquan
+Zhou, Huan Ling, et al. SANA-Video: Efficient video generation with block linear diffusion transformer, 2025. URL
+https://arxiv.org/abs/2509.24695.
+[12] Feng Liu, Shiwei Zhang, Xiaofeng Wang, Yujie Wei, Haonan Qiu, Yuzhong Zhao, Yingya Zhang, Qixiang Ye, and Fang Wan.
+Timestep embedding tells: It’s time to cache for video diffusion model.arXiv preprint arXiv:2411.19108, 2024.
+[13] Jiacheng Liu, Chang Zou, Yuanhuiyi Lyu, Junjie Chen, and Linfeng Zhang. From reusing to forecasting: Accelerating diffusion
+models with taylorseers. InProceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), pages
+15853–15863, October 2025.
+[14] Xin Zhou, Dingkang Liang, Kaijin Chen, Tianrui Feng, Xiwu Chen, Hongkai Lin, Yikang Ding, Feiyang Tan, Hengshuang
+Zhao, and Xiang Bai. Less is enough: Training-free video diffusion acceleration via runtime-adaptive caching.arXiv preprint
+arXiv:2507.02860, 2025.
+[15] DefTruth, vipshop.com, etc. Cache-dit: A pytorch-native inference engine with cache, parallelism and quantization for diffusion
+transformers. https://github.com/vipshop/cache-dit.git, 2025. Open-source software. Accessed June 20,
+2026.
+[16] Xuanlei Zhao, Xiaolong Jin, Kai Wang, and Yang You. Real-time video generation with pyramid attention broadcast.arXiv
+preprint arXiv:2408.12588, 2024.
+[17] Haopeng Li, Shitong Shao, Wenliang Zhong, Zikai Zhou, Lichen Bai, Hui Xiong, and Zeke Xie. Pisa: Piecewise sparse attention
+is wiser for efficient diffusion transformers.arXiv preprint arXiv:2602.01077, 2026.
+[18] Haocheng Xi, Shuo Yang, Yilong Zhao, Chenfeng Xu, Muyang Li, Xiuyu Li, Yujun Lin, Han Cai, Jintao Zhang, Dacheng Li, et al.
+Sparse videogen: Accelerating video diffusion transformers with spatial-temporal sparsity.arXiv preprint arXiv:2502.01776,
+2025.
+[19] Shuo Yang, Haocheng Xi, Yilong Zhao, Muyang Li, Jintao Zhang, Han Cai, Yujun Lin, Xiuyu Li, Chenfeng Xu, Kelly Peng,
+et al. Sparse videogen2: Accelerate video generation with sparse attention via semantic-aware permutation.arXiv preprint
+arXiv:2505.18875, 2025.
+17
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+[20] Peiyuan Zhang, Yongqi Chen, Haofeng Huang, Will Lin, Zhengzhong Liu, Ion Stoica, Eric P. Xing, and Hao Zhang. Faster
+video diffusion with trainable sparse attention. InAdvances in Neural Information Processing Systems, 2025.
+[21] Jintao Zhang, Chendong Xiang, Haofeng Huang, Jia Wei, Haocheng Xi, Jun Zhu, and Jianfei Chen. Spargeattn: Accurate sparse
+attention accelerating any model inference. InInternational Conference on Machine Learning (ICML), 2025.
+[22] Xuan Shen, Chenxia Han, Yufa Zhou, Yanyue Xie, Yifan Gong, Quanyi Wang, Yiwei Wang, Yanzhi Wang, Pu Zhao, and
+Jiuxiang Gu. Draftattention: Fast video diffusion via low-resolution attention guidance.arXiv preprint arXiv:2505.14708, 2025.
+[23] Peiyuan Zhang, Yongqi Chen, Runlong Su, Hangliang Ding, Ion Stoica, Zhengzhong Liu, and Hao Zhang. Fast video
+generation with sliding tile attention. InProceedings of the 42nd International Conference on Machine Learning, volume 267
+ofProceedings of Machine Learning Research, pages 74714–74731, 2025. URL https://proceedings.mlr.press/
+v267/zhang25m.html.
+[24] Ruyi Xu, Guangxuan Xiao, Haofeng Huang, Junxian Guo, and Song Han. Xattention: Block sparse attention with antidiagonal
+scoring. InProceedings of the 42nd International Conference on Machine Learning (ICML), 2025.
+[25] Xingyang Li, Muyang Li, Tianle Cai, Haocheng Xi, Shuo Yang, Yujun Lin, Lvmin Zhang, Songlin Yang, Jinbo Hu, Kelly Peng,
+Maneesh Agrawala, Ion Stoica, Kurt Keutzer, and Song Han. Radial attention:𝒪(𝑛log𝑛)sparse attention with energy decay
+for long video generation.arXiv preprint arXiv:2506.19852, 2025.
+[26] Yukang Chen, Luozhou Wang, Wei Huang, Shuai Yang, Bohan Zhang, Yicheng Xiao, Ruihang Chu, Weian Mao, Qixin Hu,
+Shaoteng Liu, Yuyang Zhao, Huizi Mao, Ying-Cong Chen, Enze Xie, Xiaojuan Qi, and Song Han. LongLive-2.0: An nvfp4
+parallel infrastructure for long video generation, 2026. URLhttps://arxiv.org/abs/2605.18739.
+[27] Daniel Bolya and Judy Hoffman. Token merging for fast stable diffusion.CVPR Workshop on Efficient Deep Learning for
+Computer Vision, 2023.
+[28] Haosong Liu, Yuge Cheng, Wenxuan Miao, Zihan Liu, Aiyue Chen, Jing Lin, Yiwu Yao, Chen Chen, Jingwen Leng, Yu Feng, and
+Minyi Guo. Astraea: A token-wise acceleration framework for video diffusion transformers.arXiv preprint arXiv:2506.05096,
+2025.
+[29] Sheng Li, Yang Sui, Junhao Ran, Bo Yuan, Yue Dai, and Xulong Tang. Temporal aware pruning for efficient diffusion-based
+video generation.arXiv preprint arXiv:2605.17837, 2026.
+[30] Zhuojin Li, Hsin-Pai Cheng, Hong Cai, Shizhong Han, and Fatih Porikli. Coredit: Spatial coherence-guided token pruning and
+reconstruction for efficient diffusion transformers.arXiv preprint arXiv:2605.14191, 2026.
+[31] Junyi Wu, Haoxuan Wang, Yuzhang Shang, Mubarak Shah, and Yan Yan. Ptq4dit: Post-training quantization for diffusion
+transformers. InAdvances in Neural Information Processing Systems, 2024.
+[32] Lei Chen, Yuan Meng, Chen Tang, Xinzhu Ma, Jingyan Jiang, Xin Wang, Zhi Wang, and Wenwu Zhu. Q-dit: Accurate
+post-training quantization for diffusion transformers. InProceedings of the IEEE/CVF Conference on Computer Vision and
+Pattern Recognition (CVPR), pages 28306–28315, 2025.
+[33] Tianchen Zhao, Tongcheng Fang, Haofeng Huang, Rui Wan, Widyadewi Soedarmadji, Enshu Liu, Shiyao Li, Zinan Lin, Guohao
+Dai, Shengen Yan, Huazhong Yang, Xuefei Ning, and Yu Wang. Vidit-q: Efficient and accurate quantization of diffusion
+transformers for image and video generation. InInternational Conference on Learning Representations, 2025.
+[34] Muyang Li, Yujun Lin, Zhekai Zhang, Tianle Cai, Xiuyu Li, Junxian Guo, Enze Xie, Chenlin Meng, Jun-Yan Zhu, and Song
+Han. Svdquant: Absorbing outliers by low-rank component for 4-bit diffusion models. InInternational Conference on Learning
+Representations, 2025.
+[35] Yitong Li, Junsong Chen, Shuchen Xue, Pengcuo Zeren, Siyuan Fu, Dinghao Yang, Yangyang Tang, Junjie Bai, Ping Luo,
+Song Han, and Enze Xie. Fp4 explore, bf16 train: Diffusion reinforcement learning via efficient rollout scaling, 2026. URL
+https://arxiv.org/abs/2604.06916.
+[36] NVIDIA. Cutlass epilogue operations. https://nvidia-cutlass-22.mintlify.app/cpp/epilogue, 2025.
+Documentation. Accessed June 20, 2026.
+[37] Yujia Zhai, Chengquan Jiang, Leyuan Wang, Xiaoying Jia, Shang Zhang, Zizhong Chen, Xin Liu, and Yibo Zhu. Bytetransformer:
+A high-performance transformer boosted for variable-length inputs. In2023 IEEE International Parallel and Distributed
+Processing Symposium (IPDPS), pages 344–355, 2023.
+[38] Han Guo, Jack Zhang, Arjun Menon, Driss Guessous, Vijay Thakkar, Yoon Kim, and Tri Dao. Coda: Rewriting transformer
+blocks as gemm-epilogue programs.arXiv preprint arXiv:2605.19269, 2026.
+18
+Sol Video Inference Engine: Agent-Native Full-Stack Acceleration Framework for Efficient Video Generation
+[39] Xiao Liu, Hao Yu, Hanchen Zhang, Yifan Xu, Xuanyu Lei, Hanyu Lai, Yu Gu, Hangliang Ding, Kaiwen Men, Kejuan Yang,
+Shudan Zhang, Xiang Deng, Aohan Zeng, Zhengxiao Du, Chenhui Zhang, Sheng Shen, Tianjun Zhang, Yu Su, Huan Sun,
+Minlie Huang, Yuxiao Dong, and Jie Tang. Agentbench: Evaluating llms as agents. InInternational Conference on Learning
+Representations, 2024.
+[40] Qian Huang, Jian V ora, Percy Liang, and Jure Leskovec. Mlagentbench: Evaluating language agents on machine learning
+experimentation. InProceedings of the 41st International Conference on Machine Learning, volume 235 ofProceedings of
+Machine Learning Research, pages 20271–20309, 2024.
+[41] John Yang, Carlos E. Jimenez, Alexander Wettig, Kilian Lieret, Shunyu Yao, Karthik R. Narasimhan, and Ofir Press. Swe-agent:
+Agent-computer interfaces enable automated software engineering. InAdvances in Neural Information Processing Systems,
+2024.
+[42] Yuntong Zhang, Haifeng Ruan, Zhiyu Fan, and Abhik Roychoudhury. Autocoderover: Autonomous program improvement.
+arXiv preprint arXiv:2404.05427, 2024.
+[43] Chunqiu Steven Xia, Yinlin Deng, Soren Dunn, and Lingming Zhang. Agentless: Demystifying llm-based software engineering
+agents.arXiv preprint arXiv:2407.01489, 2024.
+[44] Xingyao Wang, Boxuan Li, Yufan Song, Frank F. Xu, Xiangru Tang, Mingchen Zhuge, Jiayi Pan, Yueqi Song, Bowen Li,
+Jaskirat Singh, Hoang H. Tran, Fuqiang Li, Ren Ma, Mingzhang Zheng, Bill Qian, Yanjun Shao, Niklas Muennighoff, Yizhe
+Zhang, Binyuan Hui, Junyang Lin, Robert Brennan, Hao Peng, Heng Ji, and Graham Neubig. Openhands: An open platform for
+ai software developers as generalist agents.arXiv preprint arXiv:2407.16741, 2024.
+[45] Hailin Zhong and Shengxin Zhu. Ai harness engineering: A runtime substrate for foundation-model software agents.arXiv
+preprint arXiv:2605.13357, 2026.
+[46] Chris Lu, Cong Lu, Robert Tjarko Lange, Jakob Foerster, Jeff Clune, and David Ha. The ai scientist: Towards fully automated
+open-ended scientific discovery.arXiv preprint arXiv:2408.06292, 2024.
+[47] Wentao Chen, Jiace Zhu, Qi Fan, Yehan Ma, and An Zou. Cuda-llm: Llms can write efficient cuda kernels.arXiv preprint
+arXiv:2506.09092, 2025.
+[48] Zijian Zhang, Rong Wang, Shiyang Li, Yuebo Luo, Mingyi Hong, and Caiwen Ding. Cudaforge: An agent framework with
+hardware feedback for cuda kernel optimization.arXiv preprint arXiv:2511.01884, 2025.
+[49] Jintao Zhang, Jia Wei, Haofeng Huang, Pengle Zhang, Jun Zhu, and Jianfei Chen. Sageattention: Accurate 8-bit attention for
+plug-and-play inference acceleration. InInternational Conference on Learning Representations, 2025.
+[50] Jintao Zhang, Haofeng Huang, Pengle Zhang, Jia Wei, Jun Zhu, and Jianfei Chen. Sageattention2: Efficient attention with
+thorough outlier smoothing and per-thread int4 quantization. InProceedings of the 42nd International Conference on Machine
+Learning, volume 267 ofProceedings of Machine Learning Research, pages 75097–75119, 2025.
+[51] Jintao Zhang, Jia Wei, Haoxu Wang, Pengle Zhang, Xiaoming Xu, Haofeng Huang, Kai Jiang, Jun Zhu, and Jianfei Chen.
+Sageattention3: Microscaling fp4 attention for inference and an exploration of 8-bit training.arXiv preprint arXiv:2505.11594,
+2025.
+[52] Ziqi Huang, Yinan He, Jiashuo Yu, Fan Zhang, Chenyang Si, Yuming Jiang, Yuanhan Zhang, Tianxing Wu, Qingyang Jin,
+Nattapol Chanpaisit, Yaohui Wang, Xinyuan Chen, Limin Wang, Dahua Lin, Yu Qiao, and Ziwei Liu. Vbench: Comprehensive
+benchmark suite for video generative models. InProceedings of the IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 21807–21818, 2024.
+[53] NVIDIA. Components — nvidia hgx ai factory. https://docs.nvidia.com/enterprise-reference-
+architectures/hgx-ai-factory/latest/components.html, 2026. Accessed June 20, 2026.
+19

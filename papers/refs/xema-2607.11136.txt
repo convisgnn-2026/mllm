@@ -1,0 +1,1619 @@
+Xema: Efficient Diffusion Serving through
+Fine-Grained Memory Management and
+Auto-Configuration
+Xueze Kang∗
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+xkang507@connect.hkust-gz.edu.cn
+Guangyu Xiang∗
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+gxiang190@connect.hkust-gz.edu.cn
+Suyi Li
+Hong Kong University of Science and
+Technology
+Hong Kong, China
+slida@cse.ust.hk
+Yuxin Wang
+No institutional affiliation
+yxwang.ele@gmail.com
+Shaohuai Shi
+Harbin Institute of Technology,
+Shenzhen
+Shenzhen, China
+shaohuais@hit.edu.cn
+Lin Zhang†
+Hong Kong University of Science and
+Technology
+Hong Kong, China
+lzhangbv@connect.ust.hk
+Xiaowen Chu†
+The Hong Kong University of Science
+and Technology (Guangzhou)
+Guangzhou, China
+xwchu@hkust-gz.edu.cn
+Abstract
+Diffusion models are increasingly deployed as production
+visual-generation services, where serving high-resolution
+image and long video generation is often limited by GPU
+memory. Popular memory-saving techniques such as weight
+offloading, sharding, and VAE slicing are often not practical
+because they tend to introduce significant performance over-
+head. In this paper, we present Xema, a memory-efficient
+diffusion serving system that exploits predictable tensor life-
+times for trace-guided memory optimization. For each re-
+quest template, Xema derives an offline memory trace to
+identify short memory-pressure intervals and applies mem-
+ory mitigation only within these intervals and only by the
+amount needed to fit the target GPU budget. Xema fur-
+ther constructs a static memory layout for tensors with pre-
+dictable lifetimes, reducing fragmentation-induced reserved
+memory and making offline memory reasoning reliable at
+runtime. Built on this memory optimization layer, Xema in-
+troduces an offline planner that jointly selects parallelism,
+concurrency, and memory control under GPU memory and
+SLO constraints. The selected plan is stored in a plan table
+and directly used by the online serving runtime. We imple-
+ment Xema on production diffusion pipelines and evaluate
+it with Flux.2, CogVideoX-5B, and LTX-2. Compared with
+existing serving configurations, Xema improves SLO attain-
+ment by up to 3.7×, and reduces planning cost from 6.3 hours
+to 197 seconds compared with grid search.
+∗Equal contribution.
+†Corresponding author.
+SP1 BS4
++ offload 3 blocks
+SP1 BS2
+SP1 BS1
+4.97
+4.84
+4.45
+480p × 49f
+SP1 BS1
++ offload 5 blocks
+SP1 BS1
++ layerwise offload
+SP2 BS1
+1.29
+1.12
+1.05
+720p × 81f
+SP1 BS1 + offload
+18 blocks + fusion
+SP2 BS1
++ layerwise offload
+SP4 BS1
++ layerwise offload
+0.46
+0.36
+0.19
+reqs/min
+1080p × 81f
+Xema vLLM-Omni
+Figure 1.Optimal execution configurations vary across LTX-
+2 request templates. For each template, the first bar is selected
+by Xema, and the next two bars are the best and second-best
+configurations searched by vLLM-Omni. By expanding the
+search space with fine-grained memory controls, Xema finds
+higher-goodput configurations than vLLM-Omni.
+1 Introduction
+Diffusion models are now widely used in visual generation,
+including image generation [ 4, 28, 30, 35–37], image edit-
+ing [3, 27, 39, 52], video generation [8, 9, 41, 50], 3D content
+creation [21, 31], and interactive design [5]. These applica-
+tions are moving from offline demonstrations to production
+1
+arXiv:2607.11136v1  [cs.DC]  13 Jul 2026
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+services, where the serving system must handle many user
+requests under latency and resource constraints. At the same
+time, production workloads are shifting toward more de-
+manding request templates, such as high-resolution images
+and long videos. In this paper, a request template refers to
+a supported combination of model, output resolution, and
+frame count. These trends make efficient diffusion serving
+an important systems problem for deploying generative AI
+applications at scale.
+However, GPU memory has become a major bottleneck in
+serving modern diffusion requests. To illustrate this problem,
+we measure the peak GPU memory of representative image
+and video requests. For example, generating a1024× 1024
+image with Flux.2 requires more than 64 GB of GPU mem-
+ory, and generating a1080𝑝× 49𝑓 video with CogVideoX
+requires more than 100 GB, both with a batch size of one.
+The memory pressure also comes from different parts of the
+pipeline. Large image models can be dominated by model
+weights, while long-video requests can be dominated by ac-
+tivations. This request-dependent behavior makes memory
+control difficult as reducing the wrong part of the footprint
+may not help the request fit on a target GPU. Because serving
+can run only when reserved memory fits within the target
+GPU budget, these large and heterogeneous footprints di-
+rectly determine whether a request template is serviceable.
+Under fixed production GPU resources, memory manage-
+ment is therefore necessary to make diverse image and video
+requests fit while preserving efficiency.
+Current memory control mechanisms are insufficient for
+this setting. Weight offloading [45] and sharding [46] reduce
+the weight footprint, but they introduce CPU–GPU transfers
+and cross-GPU communication, respectively, and do little
+for activation-dominated requests. VAE (Variational Autoen-
+coder) slicing [47] can reduce VAE activation peaks, but it
+may slow down the VAE stage and does not address peaks
+from denoising. Moreover, their control granularity can be
+too coarse. For example, in Flux.2, offloading a subset of
+blocks is enough to fit a 48 GB GPU, but existing mechanisms
+only support full offloading, increasing per-step latency from
+3.1 s to 8.4 s. Therefore, current systems lack request-aware
+selection of memory controls, and their coarse granularity
+often trades more performance than necessary for memory
+reduction.
+The key opportunity is that diffusion inference is template-
+static and its memory pressure is localized. For a fixed re-
+quest template, the execution path of diffusion inference is
+determined by the model, output resolution, frame count,
+and denoising steps. As a result, the operator sequence, ten-
+sor shapes, and tensor lifetimes can be derived before serv-
+ing real inputs. Moreover, diffusion inference does not sus-
+tain peak memory throughout the whole request. Our mea-
+surements show that memory usage is highly uneven. In
+CogVideoX, only about 2% of allocation events reach at least
+90% of the phase peak. This suggests that memory control
+does not need to be applied globally. Instead, it can focus on
+the few intervals where the offline-derived memory trace
+exceeds the GPU budget.
+We present Xema, a diffusion serving system that exploits
+template-static tensor lifetimes to support low-overhead
+memory mitigation. For each request template, Xema de-
+rives an offline memory trace and identifies short memory-
+pressure intervals that may exceed the target GPU budget. At
+runtime, Xema mitigates memory only within these intervals
+and only by the amount required to fit the GPU, avoiding
+unnecessary transfer, communication, or serialization over-
+head in regions that already fit. Xema also builds a static
+memory layout for tensors, reducing fragmentation-induced
+reserved-memory overhead and ensuring that runtime allo-
+cation follows the offline-derived trace .
+Fine-grained memory optimization makes large requests
+feasible, but it also creates a larger execution space that
+should be planned automatically. The serving system must
+decide not only which memory mitigation to apply, but also
+how it should interact with parallelism and concurrency
+configurations. These choices are tightly coupled. For in-
+stance, sequence parallelism can reduce per-GPU activation
+memory but introduces additional communication, while
+increasing batch size can improve utilization but raises acti-
+vation memory. As a result, the best execution plan changes
+across request templates. Figure 1 shows this effect for LTX-
+2: small, medium, and large video requests prefer different
+combinations of spatial parallelism, batch size, and memory
+mitigation configurations. Manually tuning these choices for
+every model, resolution, and frame count is impractical in
+production services.
+To address this challenge, Xema builds an offline planner
+that jointly optimizes parallelism, concurrency, and memory
+control under GPU memory and SLO constraints. For each
+request template, the planner evaluates candidate execution
+configurations using the offline-derived memory trace. It
+prunes configurations that cannot satisfy the memory budget
+or SLO, focuses mitigation search on the intervals where
+memory may exceed the budget, and uses profiling results
+to select the highest-goodput feasible plan, where goodput
+is the throughput of requests that meet their SLOs [53]. The
+selected plan is stored in a plan table, so the online serving
+runtime only needs to look up the precomputed plan for
+each incoming request template.
+This paper makes the following contributions:
+• We identify GPU memory as a major bottleneck in
+diffusion serving. We show that image and video re-
+quests can exceed GPU memory even at batch size one,
+and that the dominant memory source varies across
+request templates, including model weights, DiT and
+VAE activations.
+• We design a trace-guided memory optimization layer
+for diffusion serving. It exploits template-static tensor
+2
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+lifetimes to locate short memory-pressure intervals,
+applies memory control only where and by the amount
+needed, and constructs a static memory layout to re-
+duce memory fragmentation.
+• We design an offline auto-configuration planner that
+jointly selects parallelism, concurrency, and memory
+control under GPU memory and SLO constraints. The
+planner uses offline-derived memory traces to prune
+infeasible candidates, restrict mitigation search to memory-
+pressure intervals, and select the highest-goodput fea-
+sible plan for each request template.
+• We implement Xema on production diffusion pipelines
+and evaluate it on Flux.2, CogVideoX-5B, and LTX-2.
+Xema improves SLO attainment by up to 3.7×, expands
+the range of request templates that can be served un-
+der limited GPU memory, and reduces planning cost
+compared with exhaustive search.
+2 Background
+2.1 Diffusion Inference Pipeline
+Diffusion inference consists of three stages: a text encoder, a
+denoiser, and a VAE decoder. The text encoder converts the
+user prompt into conditioning embeddings and is executed
+once at the beginning of a request.
+The denoiser then iteratively refines a latent representa-
+tion over multiple denoising steps. Modern image and video
+diffusion models commonly use a Diffusion Transformer
+(DiT) denoiser composed of repeated transformer blocks.
+This stage usually dominates inference computation.
+After denoising, the VAE decoder maps the final latent
+representation back to pixels, producing the output image
+or video frames. The VAE decoder is executed once at the
+end of the request and is commonly built from convolution,
+normalization, residual, and upsampling modules. Although
+the VAE decoder runs only once, it can still create large acti-
+vation peaks for high-resolution outputs because it operates
+close to the final spatial resolution.
+Image and video generation services usually support a
+finite set of request specifications, such as model type, output
+resolution, and video length. We refer to each supported
+specification as a request template and denote it as
+𝑟=(𝑚𝑜𝑑𝑒𝑙,𝐻,𝑊,𝑇),
+where𝑚𝑜𝑑𝑒𝑙 is the diffusion model,𝐻 and𝑊 are the output
+height and width, and𝑇 is the number of output frames. For
+image generation,𝑇= 1. Requests with different templates
+execute the same high-level pipeline, but their tensor shapes
+and per-stage workloads differ according to the requested
+resolution and frame count.
+2.2 Memory Overhead in Diffusion Inference
+The GPU memory footprint of diffusion inference mainly
+comes from four sources: model weights, DiT activations,
+VAE activations, and reserved-memory overhead from the
+runtime allocator. These sources have different scaling be-
+haviors across models and request templates.
+Model weights.Model weights include the parameters
+of the text encoder, DiT denoiser, and VAE decoder. For a
+fixed model and precision, this footprint is independent of
+output resolution and frame count, but it can still dominate
+memory for large models because modern diffusion models
+usually contain tens of billions of parameters. For example,
+Flux.2 has 32B of parameters.
+DiT activations.The DiT denoiser materializes activa-
+tions and operator intermediates from attention and feed-
+forward blocks at each denoising step. Their footprint grows
+with the latent sequence length, which scales approximately
+with𝐻×𝑊×𝑇 , making DiT activations a dominant memory
+source for long-video generation.
+V AE activations.The VAE decoder maps the final latent
+representation back to pixels. For videos, VAE decoding is
+usually performed sequentially over frames or small tem-
+poral chunks rather than over the entire video at once, so
+its peak activation footprint is mainly determined by spatial
+resolution and the frames decoded per call, scaling approxi-
+mately with𝐻×𝑊 . Since decoding operates near the output
+resolution, high-resolution outputs can still create substan-
+tial memory pressure.
+Reserved-memory overhead.In addition to live tensors,
+GPU runtimes reserve memory through caching allocators.
+We distinguishactive memory, occupied by live tensors, from
+reserved memory, held by the allocator. Reserved memory
+can exceed active memory because freed blocks may not
+match the size requirements of later allocations, creating
+allocator overhead and fragmentation. This distinction mat-
+ters because an execution must fit its reserved memory, not
+only its active memory, within GPU capacity.
+2.3 Execution Configurations
+Diffusion serving systems expose several execution configu-
+rations that determine how inference is mapped to available
+GPUs and how requests are executed. We summarize three
+common dimensions: parallelism, concurrency, and memory
+control.
+Parallelism.Parallelism controls how inference is dis-
+tributed across GPUs. Data parallelism (DP) assigns different
+requests to different GPUs or GPU groups, sequence paral-
+lelism (SP) partitions the latent sequence across GPUs, and
+hybrid sharded data parallelism (HSDP) shards model pa-
+rameters and gathers them during execution These parallel
+modes affect request-level concurrency, activation memory,
+and weight memory in different ways.
+Concurrency.Concurrency specifies how many requests
+are executed together, typically represented by batch size in
+diffusion serving. Requests are usually batched only within
+3
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+the same request template because tensor shapes and exe-
+cution schedules differ across templates; larger batches im-
+prove GPU utilization but increase resident activations and
+intermediates.
+Memory control.Memory control refers to execution
+techniques that reduce GPU memory usage. Existing dif-
+fusion serving systems commonly provide weight offload-
+ing and VAE slicing. Weight offloading stores part of the
+model weights in CPU memory and transfers them back to
+GPU when they are needed. VAE slicing reduces VAE mem-
+ory usage by processing the VAE computation in smaller
+slices rather than materializing the full computation at once.
+There are alsolossyapproaches for reducing memory usage,
+such as quantization and VAE tiling. These lossy techniques
+are complementary to our work, which focuses on lossless
+system-level optimizations.
+3 Motivation
+3.1 GPU Memory Is the Bottleneck
+The memory pressure of modern diffusion inference is rapidly
+increasing. As image generation moves to higher resolutions
+and video generation moves to longer durations, even a sin-
+gle request can exceed the capacity of common GPUs, as
+discussed in the introduction. Therefore, GPU memory ca-
+pacity already limits which request templates can be served
+before considering higher concurrency or throughput opti-
+mization.
+We further dive into the memory breakdown and find that
+the memory bottleneck differs across request templates. First,
+the bottleneck may come from either model weights or acti-
+vations. Image generation can be weight-dominated because
+the latent sequence is relatively short while the model param-
+eters are large. For example, in Flux.210242 image generation,
+weights occupy 60.2 GB while activations occupy 4.1 GB. In
+contrast, video generation can be activation-dominated be-
+cause the latent sequence grows with both spatial resolution
+and frame count. For CogVideoX1080𝑝× 49𝑓 , weights oc-
+cupy only 10.8 GB, but activations occupy 89.6 GB.
+Second, activation peaks may appear in different stages of
+the diffusion pipeline. During DiT denoising, intermediate
+tensors inside transformer blocks are repeatedly material-
+ized across denoising steps and can form large per-block
+peaks. During VAE decoding, high-resolution feature maps
+produced by convolution and upsampling modules can also
+create substantial peaks, even though the VAE decoder is
+executed only once at the end of the request. Thus, as shown
+in memory trace from Figure 2, the peak activation footprint
+may be determined by either the repeated DiT stage or the
+final VAE stage, depending on the request template.
+Third, the actual memory requirement can be further am-
+plified by allocator fragmentation. The active memory occu-
+pied by live tensors can be lower than the memory reserved
+by the runtime allocator, because freed blocks may not match
+later allocation requests. In our measurements, the PyTorch
+caching allocator achieves only 58%–89% memory utilization
+on diffusion workloads. As a result, an execution may run
+out of memory even when its active tensor footprint appears
+to fit the GPU capacity.
+3.2 Existing Memory Controls Are Insufficient
+Existing diffusion serving systems provide several memory-
+control mechanisms, but they do not fully address the het-
+erogeneous memory bottlenecks discussed in Section 3.1.
+First, existing controls are often too coarse-grained. Weight
+offloading and HSDP reduce GPU weight memory by moving
+or sharding model parameters, but they introduce CPU–GPU
+transfers or cross-GPU communication. Since they are com-
+monly applied as large-scope switches, they may reduce
+more memory than necessary and add avoidable latency.
+For example, in Flux.2, offloading16blocks is already suffi-
+cient to fit a 48 GB GPU, while full offloading with56blocks
+increases per-step latency from 3.1 s to 8.4 s without improv-
+ing goodput. VAE slicing has a similar issue: it reduces VAE
+activation memory by slicing the VAE computation, but it
+usually slows down the whole VAE stage even if only a short
+interval exceeds the memory budget.
+Second, existing controls do not cover all important mem-
+ory sources. Weight offloading and HSDP mainly target
+model weights, while VAE slicing targets VAE activations.
+However, large video requests can be dominated by DiT ac-
+tivations and operator intermediates during denoising. In
+such cases, existing mechanisms may still fail even when all
+of them are enabled. For example, vLLM-Omni still OOMs
+when serving CogVideoX1080𝑝× 289𝑓 on four 48 GB A6000
+GPUs with all existing memory controls enabled.
+Third, allocator-level mechanisms only partially address
+reserved-memory overhead. PyTorch’sexpandable_segments
+can reduce fragmentation by mapping physical pages into a
+larger virtual address range, but it remains a runtime alloca-
+tion policy. Its reserved-memory peak can still exceed the
+active tensor peak, and page-level mapping can add overhead
+for large requests with frequent tensor allocations.
+3.3 Memory Pressure Is Predictable and Localized
+Although diffusion inference creates severe memory pres-
+sure, its memory behavior has two useful properties. First,
+diffusion inference hastemplate-static execution. For a fixed
+request template𝑟=(𝑚𝑜𝑑𝑒𝑙,𝐻,𝑊,𝑇) and a fixed number of
+denoising steps, the operator sequence, tensor shapes, and
+allocation/free events are determined by the model architec-
+ture and request specification. They do not depend on the
+concrete content. Therefore, a lightweight shape-only exe-
+cution can derive tensor lifetimes and construct the memory
+trace for a request template before serving real inputs.
+Second, memory pressure is highly localized over the re-
+quest lifecycle. Diffusion inference does not stay near its
+peak memory usage throughout execution. Instead, large
+4
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+(a) DiT memory trace
+0 25 50 75 100
+0
+25
+50
+75
+100Events (%)
+(b) DiT phase CDF
+peak 38.6 GB
+79% < 50% peak
+94% < 70% peak
+98% < 90% peak
+(c) VAE memory trace
+0 25 50 75 100
+Memory (% of phase peak)
+0
+25
+50
+75
+100Events (%)
+(d) VAE phase CDF
+peak 39.1 GB
+62% < 50% peak
+83% < 70% peak
+98% < 90% peak
+Figure 2.Memory usage is highly uneven during CogVideoX
+inference. Most allocation events are far below the phase
+peak, while only a small fraction of events reach near-peak
+memory usage.
+memory demand appears only in short intervals. Figure 2
+shows the memory-usage CDF of CogVideoX720𝑝× 289𝑓 .
+In the DiT phase, 94% of allocation events are below 70% of
+the phase peak; in the VAE phase, 83% of allocation events
+are below 70% of the phase peak. In both phases, only about
+2% of events reach at least 90% of the peak.
+These properties create an opportunity for more targeted
+memory optimization. Since the memory trace can be pre-
+dicted for each request template, the system can identify
+the intervals where memory may exceed the GPU budget
+before execution. Since those intervals are short, memory
+reduction does not need to be applied globally across the
+whole model or the entire request lifecycle. We only need
+to reduce memory at the few intervals where the predicted
+memory trace exceeds the budget.
+3.4 Configuration Planning Remains Necessary
+The predictability and locality of memory pressure create
+an opportunity for fine-grained memory control, but they
+do not remove the need for configuration planning. Once
+the system has multiple memory-control primitives, it must
+decide how to combine them with parallelism and concur-
+rency. These choices are tightly coupled: increasing batch
+size can improve GPU utilization but also increases activa-
+tion memory; increasing SP can reduce per-GPU activation
+memory but introduces communication; HSDP can reduce
+weight memory but requires weight-gather communication;
+memory mitigation can avoid OOM but may increase latency.
+The best combination also varies across request templates.
+Figure 1 shows that LTX-2 requires different highest-goodput
+configurations under different resolutions and frame counts.
+A small480𝑝× 49𝑓 request benefits from lower SP and higher
+batch size, while larger1080𝑝 requests require higher SP and,
+for longer videos, additional memory mitigation. Therefore,
+Offline 
+Planning
+Online Runtime
+Request Template Memory Budget
+SLO Offline Planner (§ 7)
+Memory Control
+Library (§ 5)
+Static
+Memory
+Allocator
+(§ 6)
+Memory
+Analyzer (§ 7)
+Latentcy 
+Profiler (§ 7)
+Plan Table (Parallelism, BS, Memory Control, Tensor Layout)
+Incoming
+Requests Execution Engine 
+query /result
+plan table lookup execution plan
+query /result
+Figure 3.System architecture.
+a fixed rule or manually tuned configuration cannot consis-
+tently achieve high goodput across templates. It motivates
+an offline planner that selects, for each request template, the
+execution configuration that satisfies the memory budget
+and SLO while maximizing goodput.
+4 System Overview
+Xema is a diffusion serving system that exploits template-
+static tensor lifetimes to support low-overhead memory mit-
+igation and automatic execution-configuration planning un-
+der GPU memory and SLO constraints.
+Using the offline-derived memory trace, Xema identifies
+memory-pressure intervals where execution would exceed
+the GPU budget. It then applies mitigation only to these
+intervals and only at the intensity needed to fit the bud-
+get. This fine-grained control lowers the performance tax of
+memory mitigation compared with globally enabling con-
+servative memory controls. To cover different sources of
+memory pressure, Xema also extends the memory-control
+library with primitives such as activation offloading, chunk-
+ing, and fusion (§5).
+Xema further uses a static memory allocator. By assigning
+address ranges according to tensor lifetimes, the allocator
+allows non-overlapping tensors to reuse the same memory
+region and reduces fragmentation-induced reserved memory.
+Because managed tensors are allocated at their precomputed
+offsets, the offline memory trace and the runtime memory
+trace are identical for these tensors (§6).
+To maximize serving goodput under memory and SLO
+constraints, Xema uses an offline planner to select execu-
+tion configurations for each request template. The planner
+jointly considers memory control, parallelism, and concur-
+rency; uses memory traces to prune infeasible candidates and
+restrict memory-control search to memory-pressure inter-
+vals; and uses profiling results to select the highest-goodput
+feasible plan (§7).
+5
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+Figure 4.Full offloading adds latency after memory fits the
+budget.
+Figure 3 shows the architecture of Xema. In the offline
+stage, the Memory Analyzer derives template-specific ten-
+sor lifetimes and memory traces. The Memory Control Li-
+brary provides primitives for reducing memory pressure.
+The Static Memory Allocator produces precomputed tensor
+placements, and the Profiler measures the latency cost of
+candidate execution configurations. The Planner combines
+these outputs to generate a plan table for each request tem-
+plate and hardware configuration. In the online stage, the
+Serving Runtime maps each request to its template, looks
+up the selected plan, and executes the planned parallelism,
+batch size, memory-control actions, and static allocation.
+5 Fine-Grained Memory Mitigation
+Existing systems often apply memory mitigation coarsely.
+Once a mechanism is enabled, it is applied globally across
+the request lifecycle. For example, vLLM-Omni’s layerwise
+offloading keeps all non-executing layers on CPU through-
+out inference. For an execution configuration, memory only
+needs to stay below the budget; extra headroom does not
+improve goodput and often adds overhead. Xema therefore
+refines memory mitigation along two dimensions: applying
+only the minimum amount needed, and applying it only
+where memory may exceed the budget.
+5.1 Applying Only as Much Mitigation as Needed
+Existing systems often execute memory mitigation in full
+once a mechanism is enabled. We model a request as an
+execution traceE=(𝑒 1,...,𝑒 𝑛), where each trace segment
+𝑒𝑖 is a maximal contiguous interval whose operator pattern
+remains unchanged. For a mitigation plan 𝜋, letu 𝑖(𝜋) be
+the mitigation action applied to segment 𝑒𝑖, and let 𝐿𝑖(·)
+and𝑀𝑖(·) be the profiled latency and peak memory of that
+segment. Existing systems can only apply mitigation at full
+intensity, which may reduce memory more than needed and
+add unnecessary latency. Xema instead applies only as much
+Figure 5.Selective mitigation increases the overlap window
+for weight transfers.
+mitigation as needed by selecting
+𝜋∗ =arg min
+𝜋
+𝑛∑︁
+𝑖=1
+(𝐿𝑖(u𝑖(𝜋))−𝐿 𝑖(0))
+s.t.𝑀 𝑖(u𝑖(𝜋))≤𝐵,∀𝑖∈{1,...,𝑛}.
+Here,0denotes no mitigation, so the objective minimizes
+the latency overhead added by mitigation while satisfying
+the memory budget.
+For transfer-based mitigation, this cost appears as com-
+munication on the critical path. Layerwise offloading must
+prefetch weights before each block, and HSDP must all-
+gather sharded weights before forward execution; when
+these transfers cannot be hidden by block computation, infer-
+ence stalls. Figure 4 shows the tradeoff for block offloading
+in Flux.2. Increasing the number of offloaded blocks low-
+ers peak memory but monotonically increases latency. The
+minimum feasible point offloads𝐾= 16blocks and fits the
+48GB budget, whereas full offloading (𝐾= 56) raises per-step
+latency from 3.1s to 8.4s without improving goodput.
+Selective offloading and HSDP.Xema applies only as
+much mitigation as needed at block granularity. Xema ex-
+poses each weight block as an independent unit for weight-
+memory control. Given a memory budget, Xema applies
+offloading or HSDP only to the subset of blocks needed to
+fit the budget, rather than applying to all blocks.
+This selection reduces overhead in two ways. It reduces the
+amount of transferred data, and it increases the computation
+window available to hide each transfer. For a denoiser with
+𝑁 DiT blocks, if𝐾 mitigated blocks are selected uniformly,
+adjacent mitigated blocks are separated by about𝑁/𝐾 blocks.
+Thus, the overlap window grows from roughly one block
+under full mitigation to about𝑁/𝐾 blocks. Figure 5 illustrates
+how this wider window makes CPU-GPU transfer or all-
+gather communication easier to overlap while still satisfying
+the memory budget.
+5.2 Applying Mitigation Only Where Needed
+Section 3 shows that memory pressure appears only in short
+parts of the request lifecycle. Existing systems use one global
+6
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+Memory
+ Memory Budget
+peak exceeds budget
+Fully Parallel (BS = 3)
+Memory
+ Memory Budget
+Fully Sequential
+Time
+Memory
+ Memory Budget
+serialize only the OOM region
+Temporary Serialization
+Figure 6.Temporary serialization lowers concurrency only
+within memory-pressure intervals.
+mitigation setting for the entire request lifecycle, so mitiga-
+tion also affects segments whose baseline memory already
+fits the budget. For mitigations that can be applied locally,
+this adds overhead without improving feasibility. We define
+the memory-pressure segments under the baseline execution
+as
+P={𝑖|𝑀 𝑖(0)>𝐵}.
+Xema applies local mitigation only overPby selecting
+𝜋∗
+P =arg min
+𝜋
+∑︁
+𝑖∈P
+(𝐿𝑖(u𝑖(𝜋))−𝐿 𝑖(0))
+s.t.𝑀 𝑖(u𝑖(𝜋))≤𝐵,∀𝑖∈P,
+u𝑖(𝜋)=0,∀𝑖∉P.
+Here,0denotes no mitigation, so the objective confines
+mitigation to memory-pressure segments and minimizes
+the resulting latency overhead while satisfying the memory
+budget. In our measurements, these memory-pressure seg-
+ments cover only a small fraction of allocation events. Under
+CogVideoX-5B 1080p×49f and LTX-2 1080p×49f, only 3.70%
+and 1.74% of allocation events exceed the memory budget,
+respectively.
+Localized chunking and fusion.Chunking and fusion
+can reduce short-lived activation peaks, but they may add
+kernel overhead or restrict efficient operator implementa-
+tions. Xema therefore enables them only near operators
+whose execution may exceed the memory budget, such as
+DiT attention and VAE upsampling, and applies the mini-
+mum amount of chunking or fusion needed to fit the budget.
+Temporary serialization.When batched requests ex-
+ceed the memory budget only near a few peaks, reducing
+batch size globally wastes throughput. Xema instead tem-
+porarily serializes part of the batch only at those peaks and
+restores the original batch size elsewhere. Figure 6 illustrates
+this tradeoff: full sequential execution avoids OOM but seri-
+alizes the whole lifecycle, whereas temporary serialization
+keeps most execution parallel while lowering concurrency
+only where memory may exceed the budget.
+6 Static Memory Layout
+PyTorch memory allocator assigns GPU memory addresses
+using only the current memory state. Because tensor allo-
+cation and release orders differ, freed blocks often do not
+match later tensor sizes, leaving holes that cannot be fully
+reused and increasing reserved memory beyond active mem-
+ory. This fragmentation not only wastes available memory,
+but also leads to mismatch between offline-derived memory
+trace and runtime reserved-memory trace.
+Limitations of expandable segments.PyTorch’sexpand
+able_segments reduces fragmentation by reserving a con-
+tiguous virtual address range and mapping physical pages
+on demand, but it remains a runtime policy. The reserved
+peak still depends on execution-time allocation order, live
+blocks, and mapping decisions, so it cannot provide the of-
+fline memory bound required by Xema. Expandable segments
+also incur runtime overhead from page-level memory map-
+ping. PyTorch treats map/unmap operations as expensive,
+and larger requests tend to trigger these operations more
+often because they create larger and more frequent tensor
+allocations. This overhead can noticeably increase latency
+for high-resolution images or long videos. These limitations
+motivate an offline layout that uses template-static tensor
+lifetimes to assign addresses before execution.
+6.1 Offline Static Layout
+For each request template, most GPU memory isstatic: model
+weights and graph-visible tensors have deterministic shapes
+and lifetimes across runs. The remainingdynamicmemory,
+such as CUDA contexts, NCCL buffers, and runtime-internal
+buffers, is not fully visible in the graph and depends on the
+runtime environment. Dynamic memory is typically only
+hundreds of MB in diffusion model serving, so Xema can
+reserve a small margin for it and plan the dominant static
+portion offline.
+Xema obtains static tensor lifetimes by running the pipeline
+once with shape-only placeholder tensors. Data-independent
+control flow guarantees that this lightweight run produces
+the same allocation and release events as real inference.
+Xema then casts layout as rectangle packing on an address-
+time plane: each tensor occupies a rectangle with lifetime
+as width and size as height, and tensors with overlapping
+lifetimes must use disjoint address ranges. The objective is
+to minimize the highest used address, which determines the
+static reserved peak.
+Algorithm 1 sorts tensors by size and uses best-fit place-
+ment for each tensor. Among the address gaps formed by
+tensors with overlapping lifetimes, it chooses the smallest
+gap that can hold the tensor; if no gap fits, it places the ten-
+sor above all conflicts. Placing large tensors first preserves
+large contiguous regions, while smaller tensors can fill the
+remaining gaps.
+7
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+Algorithm 1Offline static memory layout
+Require:Tensor setT
+Require:Size𝑠 𝑖 and lifetime[𝑏 𝑖,𝑒𝑖)for each tensor𝑖
+Ensure:Address offset𝑎 𝑖 for each tensor𝑖
+1:SortTin descending order of𝑠 𝑖
+2:P←∅
+3:foreach tensor𝑖∈Tdo
+4:O 𝑖←{𝑗∈P|[𝑏 𝑖,𝑒𝑖)∩[𝑏 𝑗,𝑒𝑗)≠∅}
+5:G 𝑖←address gaps induced byO 𝑖
+6:𝑔←arg min 𝑔∈G 𝑖 :|𝑔|≥𝑠 𝑖|𝑔|
+7:if𝑔existsthen
+8:𝑎 𝑖←bottom address of𝑔
+9:else
+10:𝑎 𝑖←address above all tensors inO 𝑖
+11:end if
+12:P←P∪{𝑖}
+13:end for
+14:return{𝑎 𝑖}
+0
+10
+20
+30
+40
+50GPU Memory Address Reserved:  43
+Active:    28
+Ratio:    1.54x
+time-ordered best-fit  ·  runtime dynamic
+PyTorch Caching Allocator
+0 5 10 15 20 25 30 35 40
+Dispatch Step (logical time)
+0
+10
+20
+30
+40
+50GPU Memory Address
+ Static Region
+ Dynamic Region
+ (cuDNN / CUDA ctx)
+Reserved  Active:  28
+Ratio:             1.00x
+offline 2D best-fit  ·  DICF-scheduled
+Xema Static Layout
+Reserved Active
+Figure 7.Xema reuses address ranges across non-
+overlapping tensor lifetimes.
+Figure 7 contrasts this offline layout with PyTorch’s on-
+line best-fit allocation. PyTorch only sees the current one-
+dimensional address space and cannot use future lifetime
+information, so reserved memory can exceed active memory.
+Xema uses the full lifetime trace to reuse the same address
+range across tensors whose lifetimes do not overlap, making
+the reserved peak closely track active memory.
+6.2 Runtime Memory Management
+Static layout covers only graph-visible tensors. At runtime,
+Xema divides GPU memory into two regions: the Static Re-
+gion stores tensors at addresses determined by Algorithm 1,
+while the Dynamic Region is a contiguous region above it
+and is managed by the PyTorch allocator. Since dynamic
+memory is small in diffusion model serving, Xema reserves
+an additional 5% memory margin beyond the static reserved
+peak for the Dynamic Region.
+7 Planner
+After fine-grained memory mitigation expands the configu-
+ration space, Xema must select an execution configuration
+that maximizes goodput under a memory budget and an
+SLO bound. Grid search is impractical because the search
+space spans parallelism layouts, batch sizes, memory control
+choices, and their fine-grained locations and intensities, and
+this search must be repeated for all request templates be-
+cause their best configurations differ. As shown in Figure 8,
+Xema makes the search tractable by using memory traces to
+identify the lifecycle regions where memory demand may
+exceed the budget, and by restricting mitigation search in
+each region to the mechanisms that can reduce memory for
+the operators executed in that region.
+7.1 Problem Formulation
+For each request template𝑟=(𝑚𝑜𝑑𝑒𝑙,𝐻,𝑊,𝑇) , the planner
+takes as input the available GPU resources𝐺, the per-GPU
+memory budget𝐵, and the SLO bound𝑆. The output is an
+execution configuration𝑥 for serving𝑟 on𝐺. This configura-
+tion specifies parallelism, concurrency, and memory control,
+including where applicable mechanisms are applied and at
+what intensity.
+The planner optimizes goodput under memory and latency
+constraints:
+𝑥∗ =arg max
+𝑥∈X(𝑟,𝐺)
+Goodput(𝑟,𝑥)
+s.t.PeakMem(𝑟,𝑥)≤𝐵,Latency(𝑟,𝑥)≤𝑆.
+Here,X(𝑟,𝐺) is the legal execution-configuration space for
+request template𝑟 on GPU resources𝐺. Because this space
+includes the three configuration dimensions as well as fine-
+grained placement and intensity choices, direct enumeration
+is expensive.
+7.2 Memory Analysis and Latency Profiling
+Memory analyzer.Given a request template and an execu-
+tion configuration, the Memory Analyzer calculates the GPU
+memory requirement offline. It first performs a shape-only
+run of the diffusion pipeline to collect tensor lifetimes and
+derive the active-memory trace. It then passes this trace to
+the Static Memory Allocator to obtain the amount of GPU
+memory that must be reserved for this configuration.
+8
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+(a) Parallelism and Batch Search
+(SP ,DP ,BS) status
+mem [GB] L0 [s]
+1,4,1 retained
+1,4,2 pruned: mem
+2,2,1 retained
+2,2,2 retained
+2,2,3 pruned: mem
+4,1,1 retained
+4,1,2 retained
+4,1,3 pruned: SLO
+(b) Locate Memory-Pressure Intervals
+0
+20
+40
+60
+0 50 100
+(c) Memory Mitigation Search
+combo M
+ L
+ status
+(d) Select the Best Plan
+6417
+8423
+4020
+6022
+7846
+24 30
+34 42
+44 66
+B D
+Planner input
+Request template : (model, H, W, T)
+GPU resources : NGPU
+Memory budget : B
+SLO : D
+Memory-Control Library : S = {p1, , p|S|}
+Memory Analyzer
+ Latency Profiler
+5 candidates retained
+M0 [GB]
+dispatch step
+2 OOM intervals
+Memory mitigation candidate table (interval 1)
+{p1, p2} 6 GB +1 s infeasible
+{p1, p2, p4} 16 GB +3 s
+{p1, p4} 18 GB +6 s dominated
+{p2, p4, p5}
+ bound prune
+{p1, p2, p4, p5}
+ bound prune
+ similar search for interval 2
+M0 [GB]
+interval 1: { p1, p2, p4 }   ( M=16 GB,  L=+3 s)
+(1,4,1) L=30 s g=0.133
+(2,2,1) L=20 s g=0.100
+(2,2,2) L=28 sg=0.143 BEST
+(4,1,1) L=30 s g=0.033
+(4,1,2) L=42 s g=0.048
+Output
+x* = ((2, 2), 2, *)
+*: best mitigation for each OOM interval
+best
+before after mitigation
+B
+ candidate
+ interval
+assemble
+B
+interval 1
+60 GB (+12)
+interval 2
+54 GB (+6)
+16 GB
+Figure 8.Xema planning workflow.
+Latency profiler.Given a request template and an execu-
+tion configuration, the Latency Profiler measures the ex-
+ecution time of the request. Profiling a complete request
+can take minutes or even hours, so Xema profiles the la-
+tency of the operator combination executed at each point
+in the trace and reuses a measurement whenever the same
+combination appears again. For example, many DiT blocks
+share the same structure; under the same execution config-
+uration, the latency measured at one point inside one DiT
+block can be reused for the corresponding points in other
+DiT blocks. Across different configurations, regions that do
+not encounter OOM also execute the same operator combi-
+nations at the same points, so their profiling results can be
+reused as well.
+7.3 Planning Workflow
+Stage 1: Parallelism and Batch Search.The planner first
+enumerates the parallelism and batch-size candidates (Fig-
+ure 8(a)). Given𝑁GPU GPUs, Xema enumerates each factor
+of𝑁GPU as the SP degree and sets𝐷𝑃=𝑁 GPU/𝑆𝑃 . For each
+(𝑆𝑃,𝐷𝑃) layout, it increases the batch size𝐵𝑆 from one and
+applies two pruning rules.
+First, the memory rule removes candidates that still ex-
+ceed the memory budget even after all applicable memory
+mitigation mechanisms are enabled. Second, the SLO rule
+removes candidates whose latency without additional mem-
+ory mitigation already exceeds the SLO, since mitigation can
+only add overhead. Once a batch size is pruned under a fixed
+(𝑆𝑃,𝐷𝑃) layout, Xema stops considering larger batch sizes
+for that layout because larger batches usually increase both
+memory pressure and latency. The remaining(𝑆𝑃,𝐷𝑃,𝐵𝑆)
+candidates are kept for later planning stages.
+Stage 2: Locating Where Memory Exceeds the Bud-
+get.For each remaining (𝑆𝑃,𝐷𝑃,𝐵𝑆) candidate, the plan-
+ner sends the corresponding request template and execution
+configuration to the Memory Analyzer, which returns the
+reserved-memory trace for that configuration. The planner
+then scans this trace and marks each contiguous range whose
+reserved memory exceeds the GPU budget (Figure 8(b)). Each
+marked range records the corresponding portion of the ex-
+ecution trace and the operators executed there, indicating
+where memory mitigation may be needed.
+Stage 3: Memory Mitigation Search.For each remain-
+ing(𝑆𝑃,𝐷𝑃,𝐵𝑆) candidate, the planner processes all ranges
+whose reserved memory exceeds the GPU budget. For each
+range, it examines the operator combinations executed there
+and identifies the memory mitigation mechanisms applicable
+to those operators. The planner first tries mitigation choices
+that do not increase measured latency, such as offloading
+transfers that can be fully hidden by computation or chunk-
+ing that keeps the operator throughput unchanged. If these
+choices are not sufficient, it enumerates the remaining combi-
+nations of applicable mechanisms and intensities, determines
+which combinations can reduce reserved memory below the
+budget, and uses the Latency Profiler to choose the lowest-
+latency feasible combination for that range (Figure 8(c)). Af-
+ter all such ranges are processed, the selected mitigation
+choices are combined with the candidate’s parallelism and
+batch size, producing a complete execution configuration for
+that candidate.
+Stage 4: Selecting the Best Plan.After Stage 3, each re-
+maining(𝑆𝑃,𝐷𝑃,𝐵𝑆) candidate has a complete execution
+configuration. The planner uses the profiling results to com-
+pute the end-to-end latency and goodput of each config-
+uration, filters out configurations whose latency exceeds
+9
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+the SLO, and selects the remaining configuration with the
+highest goodput as the deployment plan (Figure 8(d)).
+8 Implementation
+Framework integration.Xema is built on Diffusers and
+uses xDiT as the distributed execution backend for SP, DP,
+and HSDP. The offline planner emits a plan table indexed
+by request template and hardware configuration, which the
+runtime uses to launch the planned execution.
+Memory mitigation primitives.Xema implements a
+unified planner interface for memory mitigation primitives,
+each parameterized by target location and intensity. For ac-
+tivation memory, Xema supports activation offloading for
+long-lived VAE feature caches and cross-step DiT-cache acti-
+vations, using asynchronous CPU-GPU transfer hooks. For
+weight memory, Xema extends layerwise offloading and xDiT
+HSDP with per-layer or per-block control, so the planner can
+keep only selected weights on CPU or shard only selected
+blocks. For concurrency and activation peaks, Xema supports
+temporary serialization, which splits only planned logical
+steps into sub-batches and rejoins them afterward. Xema
+also supports chunking and fusion for selected operators: for
+example, it chunks DiT attention over planned dimensions
+and fuses selected operators around VAE upsampling, with
+chunk sizes and fusion locations controlled by the plan.
+Static memory runtime.Xema implements the static
+allocator with CUDAPluggableAllocator. Offline analysis
+produces a mapping from tensor identifiers to planned off-
+sets; at runtime, allocation becomes a table lookup. Atorch.cuda.
+MemPool routes planned tensor allocations to this alloca-
+tor, while memory usage that cannot be derived offline like
+CUDA contexts and NCCL buffers remain on PyTorch’s de-
+fault allocator.
+9 Evaluation
+9.1 Experiment Setup
+Hardware and models.We run experiments on a single
+server with 8 NVIDIA RTX A6000 GPUs, each with 48GB
+memory. The machine has two NUMA domains; GPUs are
+connected through PCIe 4.0, with four NVLink-connected
+GPU pairs. We evaluate three production diffusion models:
+Flux.2, a 32B-parameter image generation model; CogVideoX-
+5B, a 5B-parameter video generation model; and LTX-2, a
+13B-parameter video generation model.
+Baselines.We evaluate Xema against three baselines:
+• vLLM-Omni.Uses vLLM-Omni, a state-of-the-art dif-
+fusion serving system, and selects its best configura-
+tion by grid search.
+• vLLM-Omni + ExtendedLib.Adds the extended memory-
+control primitives introduced by Xema to vLLM-Omni
+and selects the best configuration by grid search. How-
+ever, each primitive is applied globally rather than at
+fine granularity.
+2 5 8 11 14
+Rate (req/min)
+0
+50
+100SLO Attain. (%)
+Flux.2
+1 3 5 7 9
+Rate (req/min)
+LTX-2
+0.1 0.2 0.3 0.4 0.5
+Rate (req/min)
+CogVideoX-5B
+1 2 4 8
+#GPUs
+0
+50
+100SLO Attain. (%)
+1 2 4 8
+#GPUs
+1 2 4 8
+#GPUs
+1 2 3 4 5
+SLO Scale
+0
+50
+100SLO Attain. (%)
+1 2 3 4 5
+SLO Scale
+1 2 3 4 5
+SLO Scale
+vLLM-Omni vLLM+ExtendedLib Heuristic Xema
+Figure 9.End-to-end SLO attainment under different arrival
+rates, GPU counts, and SLO scales.
+• Heuristic.Uses the extended memory-control prim-
+itives and fine-grained execution support, but greed-
+ily searches parallelism, memory control, and concur-
+rency.
+Xema uses the extended memory-control primitives and
+jointly searches parallelism, concurrency, and memory con-
+trol.
+Workloads.We generate request streams using a Poisson
+arrival process [43]. The request mix covers 21 request tem-
+plates: Flux.2 uses six image resolutions,256 × 256,512 ×
+512,768× 768,1024× 1024,1280× 1280, and2048 × 2048;
+CogVideoX-5B uses 720p, 900p, and 1080p, each with 49, 65,
+or 81 frames; and LTX-2 uses 480p, 720p, and 1080p, each
+with 49, 65, or 81 frames. The default arrival rates are 5.0
+reqs/min for Flux.2, 7.0 reqs/min for LTX-2, and 0.2 reqs/min
+for CogVideoX-5B. Following prior work [ 49], we set the
+base SLO of each request template to2 .5× the latency of
+its best feasible strategy in the shared candidate space; the
+default SLO scale is 1.0 for all models.
+9.2 End-to-End Performance
+SLO attainment vs. arrival rate.The first row of Figure 9
+varies the request arrival rate on four GPUs. Xema achieves
+the largest improvement on Flux.2 under high load: at 8
+req/min, Xema reaches 66.6% SLO attainment, compared
+with 18.2% for vLLM-Omni and vLLM-Omni + ExtendedLib,
+giving the 3.7× improvement reported in the introduction.
+At 11 and 14 req/min, all baselines drop to 0% attainment,
+while Xema still reaches 50.4% and 49.5%, respectively. This
+10
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+2 5 8 11 14
+Rate (req/min)
+0
+50
+100SLO Attain. (%)
+Flux.2
+1 3 5 7 9
+Rate (req/min)
+LTX-2
+0.1 0.2 0.3 0.4 0.5
+Rate (req/min)
+CogVideoX-5B
+vLLM-Omni vLLM+ExtendedLib Heuristic Xema
+Figure 10.SLO attainment under a skewed request mix.
+gap comes from the combination of batching and selective
+memory mitigation: Flux.2 benefits from concurrency, but
+coarse or poorly planned mitigation quickly turns the extra
+latency into SLO violations.
+For video workloads, Xema also maintains higher attain-
+ment as requests become more memory intensive. On LTX-2,
+Xema reaches 68.8% attainment at 9 req/min, while the best
+baseline reaches 55.8%. On CogVideoX-5B, vLLM-Omni stays
+at 33.3% across all arrival rates because several request tem-
+plates remain infeasible under its native memory controls.
+Adding more controls improves feasibility, but global mitiga-
+tion and greedy planning still lose attainment at high load:
+at 0.5 req/min, Xema reaches 58.1%, compared with 45.1%
+for vLLM-Omni + ExtendedLib and 44.4% for Heuristic.
+SLO attainment vs. GPU count.The second row of Fig-
+ure 9 varies the number of GPUs while scaling the arrival
+rate proportionally. Xema remains stable as the deployment
+scales because the planner can make each request template
+feasible and then exploit additional GPUs mainly through DP.
+On CogVideoX-5B, Xema maintains 95.3%–99.6% attainment
+from 1 to 8 GPUs, while vLLM-Omni remains fixed at 33.3%
+because adding GPUs does not resolve the per-template mem-
+ory infeasibility. On LTX-2, Xema improves from 85.8% on
+one GPU to 89.4% on eight GPUs, whereas Heuristic drops
+from 85.9% to 52.4%. This drop indicates that greedy choices
+can select unnecessary SP or HSDP, whose communication
+overhead becomes more costly as the system scales.
+SLO attainment vs. SLO scale.The third row of Figure 9
+varies the SLO scale on four GPUs. Xema’s advantage is most
+visible under tight SLOs, where extra communication, serial-
+ization, or global mitigation directly causes deadline misses.
+At SLO scale 1.0, Xema reaches 82.2%, 75.6%, and 83.9% at-
+tainment on Flux.2, LTX-2, and CogVideoX-5B, respectively.
+In contrast, Heuristic reaches only 30.0%, 54.6%, and 69.3% on
+the same workloads. As the SLO scale increases, all feasible
+systems improve, but Xema reaches near-saturated attain-
+ment earlier: it reaches 97.3% on Flux.2 at scale 4.0 and 100%
+on LTX-2 and CogVideoX-5B at scale 4.0, while vLLM-Omni
+remains limited on CogVideoX-5B at 33.3% due to OOM
+rather than latency.
+Skewed request mix.Figure 10 evaluates a skewed request
+mix on four GPUs. Following TetriServe [25], each template
+𝑖 is sampled with probability𝑝𝑖∝exp(𝛼𝐿 𝑖/𝐿max), where𝐿𝑖
+720p 1080p 2K 4K
+0
+12
+24
+36
+48
+60
+Peak Memory (GB)
+(a) Resolution42.3
+44.6
+43.1
+46.7
+39.3
+89.6
+OOM
+159.8
+OOM
+353.9
+OOM
+49 129 209 289
+0
+12
+24
+36
+48
+60
+(b) Frames
+44.6
+44.6
+44.6
+44.6
+89.6
+OOM
+89.6
+OOM
+89.6
+OOM
+89.8
+OOM
+Xema vLLM-Omni
+Figure 11.Peak memory when scaling CogVideoX-5B re-
+quest templates on one A6000 GPU.
+is its latent length,𝐿max is the maximum latent length, and
+larger𝛼 biases the mix toward larger requests; we set𝛼= 1.0.
+This setting increases the fraction of memory-intensive re-
+quests and therefore stresses both feasibility and mitigation
+overhead. Under this skew, Xema still maintains 39.9% at-
+tainment for Flux.2 at 14 req/min, while all baselines fall to
+0%. On CogVideoX-5B, Xema reaches 54.9% at 0.5 req/min,
+compared with 25.0% for vLLM-Omni, 37.7% for vLLM-Omni
++ ExtendedLib, and 35.4% for Heuristic. On LTX-2, Xema
+reaches 52.9% at 9 req/min, about 10 percentage points higher
+than all baselines. These results show that Xema’s gains per-
+sist when the workload shifts toward larger templates, where
+both fine-grained mitigation and joint configuration plan-
+ning become more important.
+9.3 Extreme Workloads
+This section evaluates extreme single-request feasibility on
+one 48GB A6000 GPU using CogVideoX-5B, whose memory
+demand grows most rapidly with resolution and frame count
+among our evaluated models. Figure 11 shows two sweeps:
+increasing resolution at 49 frames and increasing frame
+count at 1080p. vLLM-Omni can only complete 720p×49f
+and OOMs for all larger resolution or frame-count settings.
+In contrast, Xema combines activation offloading, fusion,
+and chunking to reduce intermediate peaks, allowing all
+tested requests up to 4K×49f and 1080p×289f to fit within
+the single-GPU budget. The near-flat peak memory in the
+frame-count sweep comes from the VAE-dominated peak,
+whose size is determined mainly by spatial resolution rather
+than frame count.
+9.4 Memory Layout Comparison
+Figure 12 compares Xema’s static allocator with PyTorch’s
+caching allocator and PyTorch with expandable_segments.
+Figure 12(a) shows that PyTorch reserves 33.1GB, 45.5GB,
+and 43.4GB on CogVideoX-5B, LTX-2, and Flux.2, while the
+corresponding active peaks are only 19.2GB, 37.9GB, and
+38.4GB. expandable_segments reduces this allocator over-
+head, but still leaves 26.0GB, 41.3GB, and 40.8GB reserved.
+11
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+CogVideoX LTX-2 Flux.2
+0
+20
+40
+60Memory (GB)
+33.1
+45.5
+43.4
+26.0
+41.3
+40.8
+21.7
+38.3
+39.6
+19.2
+37.9
+38.4
+1080p
+×49f
+Per-step Latency (s)
+71.3
+71.6
+72.7
+1080p
+×113f 294.3
+294.7
+326.1
+1080p
+×289f 1761.2
+1762.4
+1947.6
+2K
+×113f 1069.6
+1070.5
+1263.8
+(a) (b)
+PyT orch allocator
+Static allocator
++ expandable segments
+Active memory
+Figure 12.Memory usage and per-step latency of different
+allocators.
+Figure 13.Memory trace of CogVideoX-5B 1080p×289f on
+one A6000 GPU.
+In contrast, Xema keeps reserved memory close to the active
+peak, reducing the reserved peak to 21.7GB, 38.3GB, and
+39.6GB. This improves effective memory utilization from
+58% to 88% on CogVideoX-5B and from 83%–89% to 97%–99%
+on LTX-2 and Flux.2. Figure 12(b) shows that this reduc-
+tion does not add runtime overhead. The static allocator
+matches PyTorch’s latency across the tested CogVideoX-5B
+requests because runtime allocation becomes a table lookup
+from tensor identifiers to preplanned addresses. By contrast,
+expandable_segments introduces page-level mapping over-
+head on larger requests: for 2K×113f, latency increases from
+1069.6s with Xema to 1263.8s withexpandable_segments.
+Memory trace.Figure 13 shows why controlling fragmenta-
+tion matters near the GPU memory limit. For CogVideoX-5B
+1080p×289f on one A6000, PyTorch’s reserved memory ex-
+ceeds the 48GB budget before DiT denoising begins, even
+though active memory still fits. Xema’s static layout keeps
+reserved memory close to active memory, allowing the same
+request to complete both DiT denoising and VAE decoding.
+9.5 Planning Cost
+Table 1 compares the planning cost of Xema and exhaustive
+grid search for CogVideoX-5B 1080p×49f. Grid search must
+enumerate the full combination space of parallelism, con-
+currency, and memory control, and therefore profiles many
+Table 1.Planning time breakdown.
+Step Xema Grid Search
+Lifecycle analysis 12.6 s N/A
+Pruning 1.1 ms N/A
+Profiling 184.4 s 6.3 hours
+Total 197.0 s 6.3 hours
+Figure 14.Configuration ablation on LTX-2 and Flux.2.
+infeasible or unnecessary configurations, taking 6.3 hours
+in total. Xema first performs lifecycle analysis to obtain the
+memory trace, then prunes candidates that are clearly infea-
+sible or already violate the SLO. It further restricts memory-
+mitigation search to the regions where memory may exceed
+the budget. As a result, Xema reduces profiling time to 184.4
+seconds and finishes planning in 197.0 seconds, two orders
+of magnitude faster than grid search.
+9.6 Configuration Ablation
+Figure 14 ablates the three planning dimensions on LTX-2
+and Flux.2 using restricted variants.w/o Mem. Controlre-
+moves memory-control planning by enabling all memory-
+control mechanisms globally,w/o Parallelismfixes SP and
+HSDP to their maximum settings, andw/o Concurrencyfixes
+batch size to one. Each variant therefore keeps the system
+feasible, but forces one dimension to a conservative choice
+instead of letting the planner select it per request template.
+The results show that all three dimensions affect SLO at-
+tainment, but their impact depends on the workload. On LTX-
+2 at 9 req/min, Xema reaches 68.8% attainment, compared
+with 32.9% without memory-control planning, 58.5% with-
+out parallelism planning, and 61.3% without concurrency
+planning. The large drop without memory-control planning
+shows that globally enabling mitigation pays unnecessary
+latency overhead even when only localized intervals need
+memory reduction. On Flux.2, the interaction is more pro-
+nounced: at 8 req/min, Xema reaches 66.6%, whilew/o Mem.
+Controlandw/o Parallelismdrop to 12.3% and 8.5%, respec-
+tively; at 11 req/min, both variants fall to 0% while Xema
+still reaches 50.4%. This is because Flux.2 needs batching
+12
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+for GPU utilization, but excessive HSDP/SP or global mem-
+ory controls add enough latency to turn feasible requests
+into SLO violations. Fixing batch size to one is less cata-
+strophic, but still reduces attainment from 49.5% to 36.7%
+at 14 req/min. These results confirm that memory control,
+parallelism, and concurrency must be planned jointly rather
+than independently fixed to conservative settings.
+10 Related Work
+Diffusion model serving.Recent systems optimize diffu-
+sion serving through batching, model selection, adapter and
+image-editing workflows, patch-level or stage-level schedul-
+ing, adaptive sequence parallelism, and multimodal serving
+runtimes [1, 13, 19, 20, 25, 38, 43, 49, 51]. They do not jointly
+plan parallelism, concurrency, fine-grained memory mitiga-
+tion, and static memory layout for each request template
+under memory and SLO constraints.
+Diffusion inference acceleration.Other work reduces
+single-request generation cost using faster samplers, latent
+or transformer backbones, multi-GPU execution, patch-level
+pipelining, feature caching, or denoising-step approxima-
+tion [6, 8, 10, 14, 18, 22–24, 26, 30, 36, 40, 42, 50]. These
+techniques are orthogonal to Xema, which chooses feasi-
+ble, high-goodput configurations for heterogeneous request
+streams.
+GPU memory management.Prior memory systems use
+recomputation, swapping, offloading, partitioning, alloca-
+tor redesign, memory virtualization, or compiler/runtime
+buffer reuse [2, 7, 11, 12, 15–17, 29, 32–34, 44, 48]. Training-
+oriented systems trade activation memory for recomputation
+or host-device movement, while KV-cache systems optimize
+long-lived token caches. Compiler and allocator approaches
+can reuse buffers or reduce fragmentation when graph or
+lifetime information is visible. Xema instead uses predictable
+diffusion lifetimes to build a static runtime allocator and
+integrate memory layout with serving-time goodput opti-
+mization.
+11 Conclusion
+This paper presents Xema, a diffusion serving system that
+exploits template-static tensor lifetimes to reduce the cost of
+memory mitigation and automatically plan execution config-
+urations under GPU memory and SLO constraints. For each
+request template, Xema derives memory traces offline, ap-
+plies mitigation only where and by the amount needed, and
+uses a static memory allocator to reduce fragmentation and
+keep runtime allocation consistent with offline analysis. Built
+on these mechanisms, Xema selects high-goodput configura-
+tions across memory control, parallelism, and concurrency.
+Compared with existing serving systems, Xema improves
+SLO attainment on production image and video diffusion
+models, expands the range of feasible request templates, and
+reduces configuration search cost.
+References
+[1] Sohaib Ahmad, Qizheng Yang, Haoliang Wang, Ramesh K. Sitara-
+man, and Hui Guan. 2024. DiffServe: Efficiently Serving Text-
+to-Image Diffusion Models with Query-Aware Model Scaling.
+arXiv:2411.15381 [cs.DC] doi:10.48550/arXiv.2411.15381
+[2] Apache TVM Contributors. 2021. Unified Static Memory Plan-
+ning.https://discuss.tvm.apache.org/t/rfc-unified-static-memory-
+planning/10099
+[3] Tim Brooks, Aleksander Holynski, and Alexei A. Efros. 2022.
+InstructPix2Pix: Learning to Follow Image Editing Instructions.
+arXiv:2211.09800 [cs.CV] doi:10.48550/arXiv.2211.09800
+[4] Junsong Chen, Jincheng Yu, Chongjian Ge, Lewei Yao, Enze Xie, Yue
+Wu, Zhongdao Wang, James Kwok, Ping Luo, Huchuan Lu, and Zhen-
+guo Li. 2023. PixArt-𝛼: Fast Training of Diffusion Transformer for
+Photorealistic Text-to-Image Synthesis. arXiv:2310.00426 [cs.CV]
+doi:10.48550/arXiv.2310.00426
+[5] Chin-Yi Cheng, Forrest Huang, Gang Li, and Yang Li. 2023. PLay:
+Parametrically Conditioned Layout Generation using Latent Diffusion.
+arXiv:2301.11529 [cs.LG] doi:10.48550/arXiv.2301.11529
+[6] Jiarui Fang, Jinzhe Pan, Jiannan Wang, Aoyu Li, and Xibo Sun. 2024.
+PipeFusion: Patch-level Pipeline Parallelism for Diffusion Transform-
+ers Inference. arXiv:2405.14430 [cs.CV] doi:10.48550/arXiv.2405.14430
+[7] Cong Guo, Rui Zhang, Jiale Xu, Jingwen Leng, Zihan Liu, Ziyu Huang,
+Minyi Guo, Hao Wu, Shouren Zhao, Junping Zhao, and Ke Zhang. 2024.
+GMLake: Efficient and Transparent GPU Memory Defragmentation for
+Large-scale DNN Training with Virtual Memory Stitching. InProceed-
+ings of the 29th ACM International Conference on Architectural Support
+for Programming Languages and Operating Systems, Volume 2 (ASPLOS
+’24). ACM, La Jolla, CA, USA, 450–466. doi:10.1145/3620665.3640423
+[8] Yoav HaCohen, Nisan Chiprut, Benny Brazowski, Daniel Shalem, Dudu
+Moshe, Eitan Richardson, Eran Levin, Guy Shiran, Nir Zabari, Ori
+Gordon, Poriya Panet, Sapir Weissbuch, Victor Kulikov, Yaki Bitterman,
+Zeev Melumian, and Ofir Bibi. 2024. LTX-Video: Realtime Video Latent
+Diffusion. arXiv:2501.00103 [cs.CV] doi:10.48550/arXiv.2501.00103
+[9] Jonathan Ho, William Chan, Chitwan Saharia, Jay Whang, Ruiqi Gao,
+Alexey Gritsenko, Diederik P. Kingma, Ben Poole, Mohammad Norouzi,
+David J. Fleet, and Tim Salimans. 2022. Imagen Video: High Definition
+Video Generation with Diffusion Models. arXiv:2210.02303 [cs.CV]
+doi:10.48550/arXiv.2210.02303
+[10] Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising Diffusion
+Probabilistic Models. InAdvances in Neural Information Processing
+Systems.https://arxiv.org/abs/2006.11239
+[11] Zixiao Huang, Junhao Hu, Hao Lin, Chunyang Zhu, Yueran Tang,
+Quanlu Zhang, Zhen Guo, Zhenhua Li, Shengen Yan, Zhenhua Zhu,
+Guohao Dai, and Yu Wang. 2025. STAlloc: Enhancing Memory Effi-
+ciency in Large-Scale Model Training with Spatio-Temporal Planning.
+arXiv:2507.16274 [cs.LG] doi:10.48550/arXiv.2507.16274
+[12] Paras Jain, Ajay Jain, Tianjun Zhang, Pieter Abbeel, Joseph E. Gonzalez,
+and Ion Stoica. 2020. Checkmate: Breaking the Memory Wall with
+Optimal Tensor Rematerialization. InProceedings of Machine Learning
+and Systems.https://arxiv.org/abs/1910.02653
+[13] Xiaoxiao Jiang, Suyi Li, Lingyun Yang, Tianyu Feng, Zhipeng Di, Weiyi
+Lu, Guoxuan Zhu, Xiu Lin, Kan Liu, Yinghao Yu, Tao Lan, Guodong
+Yang, Lin Qu, Liping Zhang, and Wei Wang. 2026. FlashPS: Efficient
+Generative Image Editing with Mask-aware Caching and Scheduling.
+InProceedings of the 21st European Conference on Computer Systems
+(EuroSys ’26). ACM, Edinburgh, United Kingdom, 2109–2125. doi:10.
+1145/3767295.3769379
+[14] Kumara Kahatapitiya, Haozhe Liu, Sen He, Ding Liu, Menglin Jia,
+Chenyang Zhang, Michael S. Ryoo, and Tian Xie. 2024. Adaptive
+Caching for Faster Video Generation with Diffusion Transformers.
+arXiv:2411.02397 [cs.CV] doi:10.48550/arXiv.2411.02397
+[15] Marisa Kirisame, Steven Lyubomirsky, Altan Haan, Jennifer Bren-
+nan, Mike He, Jared Roesch, Tianqi Chen, and Zachary Tatlock. 2021.
+13
+Conference’17, July 2017, Washington, DC, USA Kang et al.
+Dynamic Tensor Rematerialization. InInternational Conference on
+Learning Representations.https://arxiv.org/abs/2006.09616
+[16] Ioannis Lamprou, Zhen Zhang, Javier de Juan, Hang Yang,
+Yongqiang Lai, Etienne Filhol, and Cédric Bastoul. 2023.
+Safe Optimized Static Memory Allocation for Parallel Deep
+Learning. InProceedings of Machine Learning and Systems.
+https://proceedings.mlsys.org/paper_files/paper/2023/file/
+676d8419c61f299feb88c28b40edd3b1-Paper-mlsys2023.pdf
+[17] Maksim Levental. 2022. Memory Planning for Deep Neural Networks.
+arXiv:2203.00448 [cs.LG] doi:10.48550/arXiv.2203.00448
+[18] Muyang Li, Tianle Cai, Jiaxin Cao, Qinsheng Zhang, Han Cai, Junjie Bai,
+Yangqing Jia, Ming-Yu Liu, Kai Li, and Song Han. 2024. DistriFusion:
+Distributed Parallel Inference for High-Resolution Diffusion Models.
+arXiv:2402.19481 [cs.CV] doi:10.48550/arXiv.2402.19481
+[19] Suyi Li, Lingyun Yang, Xiaoxiao Jiang, Hanfeng Lu, Dakai An,
+Zhipeng Di, Weiyi Lu, Jiawei Chen, Kan Liu, Yinghao Yu, Tao Lan,
+Guodong Yang, Lin Qu, Liping Zhang, and Wei Wang. 2024. Swift-
+Diffusion: Efficient Diffusion Model Serving with Add-on Modules.
+arXiv:2407.02031 [cs.DC] doi:10.48550/arXiv.2407.02031
+[20] Suyi Li, Lingyun Yang, Xiaoxiao Jiang, Hanfeng Lu, Dakai An, Zhipeng
+Di, Weiyi Lu, Jiawei Chen, Kan Liu, Yinghao Yu, Tao Lan, Guodong
+Yang, Lin Qu, Liping Zhang, and Wei Wang. 2025. Katz: Efficient
+Workflow Serving for Diffusion Models with Many Adapters. In2025
+USENIX Annual Technical Conference (USENIX ATC 25). USENIX As-
+sociation, Boston, MA, USA, 1037–1052.https://www.usenix.org/
+conference/atc25/presentation/li-suyi-katz
+[21] Chen-Hsuan Lin, Jun Gao, Luming Tang, Towaki Takikawa, Xiaohui
+Zeng, Xun Huang, Karsten Kreis, Sanja Fidler, Ming-Yu Liu, and Tsung-
+Yi Lin. 2022. Magic3D: High-Resolution Text-to-3D Content Creation.
+arXiv:2211.10440 [cs.CV] doi:10.48550/arXiv.2211.10440
+[22] Dong Liu, Yanxuan Yu, Jiayi Zhang, Yifan Li, Ben Lengerich,
+and Ying Nian Wu. 2025. FastCache: Fast Caching for Dif-
+fusion Transformer Through Learnable Linear Approximation.
+arXiv:2505.20353 [cs.LG] doi:10.48550/arXiv.2505.20353
+[23] Feng Liu, Shiwei Zhang, Xiaofeng Wang, Yujie Wei, Haonan Qiu,
+Yuzhong Zhao, Yingya Zhang, Qixiang Ye, and Fang Wan. 2025.
+Timestep Embedding Tells: It’s Time to Cache for Video Diffusion
+Model. InIEEE/CVF Conference on Computer Vision and Pattern Recog-
+nition.https://arxiv.org/abs/2411.19108
+[24] Xuewen Liu, Zhikai Li, and Qingyi Gu. 2025. CacheQuant: Comprehen-
+sively Accelerated Diffusion Models. InIEEE/CVF Conference on Com-
+puter Vision and Pattern Recognition.https://arxiv.org/abs/2503.01323
+[25] Runyu Lu, Shiqi He, Wenxuan Tan, Shenggui Li, Ruofan Wu,
+Jeff J. Ma, Ang Chen, and Mosharaf Chowdhury. 2026. TetriS-
+erve: Efficient DiT Serving for Heterogeneous Image Generation.
+arXiv:2510.01565 [cs.LG] doi:10.48550/arXiv.2510.01565
+[26] Xinyin Ma, Gongfan Fang, and Xinchao Wang. 2024. DeepCache:
+Accelerating Diffusion Models for Free. InIEEE/CVF Conference on
+Computer Vision and Pattern Recognition.https://arxiv.org/abs/2312.
+00858
+[27] Chenlin Meng, Yutong He, Yang Song, Jiaming Song, Jiajun Wu,
+Jun-Yan Zhu, and Stefano Ermon. 2021. SDEdit: Guided Im-
+age Synthesis and Editing with Stochastic Differential Equations.
+arXiv:2108.01073 [cs.CV] doi:10.48550/arXiv.2108.01073
+[28] Alex Nichol, Prafulla Dhariwal, Aditya Ramesh, Pranav Shyam, Pamela
+Mishkin, Bob McGrew, Ilya Sutskever, and Mark Chen. 2021. GLIDE:
+Towards Photorealistic Image Generation and Editing with Text-
+Guided Diffusion Models. arXiv:2112.10741 [cs.CV] doi:10.48550/arXiv.
+2112.10741
+[29] OpenXLA Contributors. 2026. XLA: Optimizing Compiler for Machine
+Learning.https://openxla.org/xla
+[30] William Peebles and Saining Xie. 2023. Scalable Diffusion Models
+with Transformers. InIEEE/CVF International Conference on Computer
+Vision. 4195–4205.https://arxiv.org/abs/2212.09748
+[31] Ben Poole, Ajay Jain, Jonathan T. Barron, and Ben Milden-
+hall. 2022. DreamFusion: Text-to-3D using 2D Diffusion.
+arXiv:2209.14988 [cs.CV] doi:10.48550/arXiv.2209.14988
+[32] Ramya Prabhu, Ajay Nayak, Jayashree Mohan, Ramachandran Ramjee,
+and Ashish Panwar. 2025. vAttention: Dynamic Memory Management
+for Serving LLMs without PagedAttention. InProceedings of the 30th
+ACM International Conference on Architectural Support for Program-
+ming Languages and Operating Systems.https://arxiv.org/abs/2405.
+04437
+[33] PyTorch Contributors. 2026. CUDA Semantics: Memory Manage-
+ment.https://docs.pytorch.org/docs/main/notes/cuda.html#cuda-
+memory-management
+[34] Samyam Rajbhandari, Jeff Rasley, Olatunji Ruwase, and Yuxiong He.
+2020. ZeRO: Memory Optimizations Toward Training Trillion Param-
+eter Models. InInternational Conference for High Performance Comput-
+ing, Networking, Storage and Analysis. 1–16. doi:10.1109/SC41405.2020.
+00024
+[35] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu, and Mark
+Chen. 2022. Hierarchical Text-Conditional Image Generation with
+CLIP Latents. arXiv:2204.06125 [cs.CV] doi:10.48550/arXiv.2204.06125
+[36] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser,
+and Björn Ommer. 2022. High-Resolution Image Synthesis with Latent
+Diffusion Models. InIEEE/CVF Conference on Computer Vision and
+Pattern Recognition. 10684–10695. doi:10.1109/CVPR52688.2022.01042
+[37] Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang,
+Emily Denton, Seyed Kamyar Seyed Ghasemipour, Burcu Karagol
+Ayan, S. Sara Mahdavi, Rapha Gontijo Lopes, Tim Salimans, Jonathan
+Ho, David J. Fleet, and Mohammad Norouzi. 2022. Photorealistic
+Text-to-Image Diffusion Models with Deep Language Understanding.
+arXiv:2205.11487 [cs.CV] doi:10.48550/arXiv.2205.11487
+[38] SGLang Team. 2026. SGLang Diffusion Models.https://docs.sglang.
+io/supported_models/diffusion_models.html
+[39] Yujun Shi, Chuhui Xue, Jun Hao Liew, Jiachun Pan, Hanshu Yan, Wen-
+qing Zhang, Vincent Y. F. Tan, and Song Bai. 2023. DragDiffusion:
+Harnessing Diffusion Models for Interactive Point-based Image Editing.
+arXiv:2306.14435 [cs.CV] doi:10.48550/arXiv.2306.14435
+[40] Andy Shih, Suneel Belkhale, Stefano Ermon, and Dorsa Sadigh. 2023.
+Parallel Sampling of Diffusion Models. InAdvances in Neural Informa-
+tion Processing Systems.https://arxiv.org/abs/2305.16317
+[41] Uriel Singer, Adam Polyak, Thomas Hayes, Xi Yin, Jie An, Songyang
+Zhang, Qiyuan Hu, Harry Yang, Oron Ashual, Oran Gafni, Devi Parikh,
+Sonal Gupta, and Yaniv Taigman. 2022. Make-A-Video: Text-to-Video
+Generation without Text-Video Data. arXiv:2209.14792 [cs.CV] doi:10.
+48550/arXiv.2209.14792
+[42] Jiaming Song, Chenlin Meng, and Stefano Ermon. 2021. Denoising
+Diffusion Implicit Models. InInternational Conference on Learning
+Representations.https://arxiv.org/abs/2010.02502
+[43] Desen Sun, Zepeng Zhao, and Yuke Wang. 2026. MixFusion: A Patch-
+Level Parallel Serving System for Mixed-Resolution Diffusion Models.
+InProceedings of the 31st ACM SIGPLAN Symposium on Principles
+and Practice of Parallel Programming (PPoPP ’26). ACM. doi:10.1145/
+3774934.3786420
+[44] Yu Tang, Chenyu Wang, Yufan Zhang, Yuliang Liu, Xingcheng Zhang,
+Linbo Qiao, Zhiquan Lai, and Dongsheng Li. 2022. DELTA: Dy-
+namically Optimizing GPU Memory beyond Tensor Recomputation.
+arXiv:2203.15980 [cs.LG] doi:10.48550/arXiv.2203.15980
+[45] vLLM-Omni Team. 2026. CPU Offloading for Diffusion Mod-
+els.https://docs.vllm.ai/projects/vllm-omni/en/stable/user_guide/
+diffusion/cpu_offload_diffusion/
+[46] vLLM-Omni Team. 2026. HSDP.https://docs.vllm.ai/projects/vllm-
+omni/en/latest/design/feature/hsdp/
+[47] vLLM-Omni Team. 2026. vllm-omni serve.https://docs.vllm.ai/
+projects/vllm-omni/en/latest/cli/serve/
+14
+Xema: Efficient Diffusion Serving through Fine-Grained Memory Management and Auto-Configuration Conference’17, July 2017, Washington, DC, USA
+[48] Linnan Wang, Jiarui Fang, Xijie Zhang, Xupeng Miao, Yang Yu, Xi-
+aowen Chu, and Bin Cui. 2020. SwapAdvisor: Pushing Deep Learn-
+ing Beyond the GPU Memory Limit via Smart Swapping. InProceed-
+ings of the Twenty-Fifth International Conference on Architectural Sup-
+port for Programming Languages and Operating Systems. 1341–1355.
+doi:10.1145/3373376.3378530
+[49] Yifei Xia, Fangcheng Fu, Hao Yuan, Hanke Zhang, Xupeng Miao, Yijun
+Liu, Suhan Ling, Jie Jiang, and Bin Cui. 2025. TridentServe: A Stage-
+level Serving System for Diffusion Pipelines. arXiv:2510.02838 [cs.DC]
+doi:10.48550/arXiv.2510.02838
+[50] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu Huang,
+Jiazheng Xu, Yuanming Yang, Wenyi Hong, Xiaohan Zhang, Guanyu
+Feng, Da Yin, Xiaotao Gu, Yuxuan Zhang, Weihan Wang, Bin Xu,
+Yuxiao Dong, and Jie Tang. 2024. CogVideoX: Text-to-Video Diffusion
+Models with An Expert Transformer. arXiv:2408.06072 [cs.CV] doi:10.
+48550/arXiv.2408.06072
+[51] Peiqi Yin, Jiangyun Zhu, Han Gao, Chenguang Zheng, Yongxiang
+Huang, Taichang Zhou, Ruirui Yang, Weizhi Liu, Weiqing Chen, Canlin
+Guo, Didan Deng, Zifeng Mo, Cong Wang, James Cheng, Roger Wang,
+and Hongsheng Liu. 2026. vLLM-Omni: Fully Disaggregated Serving
+for Any-to-Any Multimodal Models. arXiv:2602.02204 [cs.DC] doi:10.
+48550/arXiv.2602.02204
+[52] Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. 2023. Adding
+Conditional Control to Text-to-Image Diffusion Models.
+arXiv:2302.05543 [cs.CV] doi:10.48550/arXiv.2302.05543
+[53] Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xu-
+anzhe Liu, Xin Jin, and Hao Zhang. 2024. DistServe: Disaggregat-
+ing Prefill and Decoding for Goodput-optimized Large Language
+Model Serving. In18th USENIX Symposium on Operating Systems
+Design and Implementation (OSDI 2024). USENIX Association, Santa
+Clara, CA, USA, 193–210.https://www.usenix.org/conference/osdi24/
+presentation/zhong-yinmin
+15

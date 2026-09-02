@@ -1,0 +1,1461 @@
+TURBOSERVE: Serving Streaming Video Generation
+Efficiently and Economically
+Youhe Jiang12∗, Haoxu Wang23∗, Haotong Bao1∗, Kai Jiang23, Jianfei Chen23,
+Jun Zhu23, Fangcheng Fu1, Jintao Zhang23†
+1Shanghai Jiao Tong University, 2Shengshu Technology, 3Tsinghua University
+∗Equal contribution, †Corresponding author
+Abstract
+Streaming video generation is emerging as a new serving workload in which users interact with
+long-lived sessions that generate video progressively , chunk by chunk. Unlike offline video generation
+or typical LLM serving, streaming video generation must preserve session state across active and idle
+periods, repeatedly schedule ongoing sessions, and deliver each chunk under a tight latency target.
+This creates two key serving challenges in multi-user, multi-GPU environments: session duration
+heterogeneity, where long-running sessions make placement decisions suboptimal over time, and
+temporal user-demand heterogeneity , where the number of active sessions fluctuates sharply across
+bursts and idle periods.
+We present TURBOSERVE, thefirstserving system designed specifically for streaming video generation
+workloads. TURBOSERVEformulates serving as an online scheduling problem that jointly coordinates
+session placement and GPU provisioning. Itsclosed-loop scheduling algorithmcombines a migration-
+aware placement controller, which rebalances sessions across GPUs to reduce the maximum per-chunk
+latency , with a load-driven autoscaling controller, which adapts the GPU budget to workload variation
+for improved cost efficiency . To support these decisions at runtime, TURBOSERVEimplements coalesced
+chunk processing for batching concurrent active sessions on the same GPU, GPU-CPU offloading for
+session suspension and resumption, and NCCL-based GPU-GPU migration for online rebalancing. We
+evaluate TURBOSERVEon real-world production traces from Shengshu Technology across multiple
+model sizes and GPU clusters with up to 64 NVIDIA B300 GPUs. Compared with baseline serving
+configurations, TURBOSERVEreduces worst-case per-chunk latency by 37.5% and total GPU operating
+cost by 37.2% on average. These results demonstrate the effectiveness of TURBOSERVEin delivering
+cost-efficient, latency-stable serving for dynamic streaming video generation workloads. Our code is
+publicly available athttps://github.com/shengshu-ai/TurboServe.
+1 Introduction
+Video generation models, such as Sora [3], Veo [40], HunyuanVideo [24], Wan [41], CogVideoX [48], and
+MovieGen [35], have achieved remarkable progress in synthesizing high-fidelity , temporally consistent videos
+from natural language prompts. These advances have unlocked a broad range of applications spanning film
+production, advertising, education, gaming, and personalized content creation, establishing video generation
+as one of the fastest-growing workloads in generative AI services [4, 31, 39].
+Traditional video generation pipelines, such as Sora and HunyuanVideo, operate in an offline, one-shot
+fashion: the user submits a prompt and waits seconds to minutes for a complete video to be returned, with
+no opportunity to steer the output mid-generation. This waiting time becomes increasingly impractical for
+1
+arXiv:2606.19271v1  [cs.DC]  17 Jun 2026
+IdleIdle
+IdleIdle
+Idle
+IdleIdle
+StateInit,StartGenGenends,StateReleased
+Gen Suspended,StatePreservedGen Resumed,StatePreserved
+12121 2121212
+13 42
+43 434 343
+1 2
+3 4
+StatelessIsolatedJobs
+StatefulStreamingSessions
+GenerationState
+User
+Figure 1Stateless isolated generation jobs ( top) compared with stateful streaming generation sessions ( bottom) in
+multi-user scenarios. In stateless generation, each user request initializes temporary generation state, starts generation,
+and releases the state once the generation job completes. In stateful streaming generation, each user corresponds to
+a persistent session that alternates between active generation and idle periods; generation can be suspended and later
+resumed while preserving the session state across periods.
+Session Duration
+< 5s
+5-10s
+10-30s
+30-60s
+60-120s
+> 120s
+0 5 10 15 20 25 30
+Time (min)
+0.0
+40.1
+80.1
+120.2# Active Workloads
+Active Workloads
+Figure 2Example streaming generation workload characteristics from Shengshu Technology’s production trace. Left:
+distribution of session durations.Right: number of active sessions over a 30-minute period.
+long videos, where generation latency grows quadratically with video length and delays user feedback until
+the entire video is completed. This offline generation paradigm is now being supplanted by a new wave of
+streaming video generation pipelines, such as StreamDiffusionV2 [10], Self-Forcing [15], HYWorldPlay [16],
+and LongLive [47], among others [13, 29], which generate video progressively chunk by chunk, accept user
+prompts and interaction signals on-the-fly , and emit each chunk under a tight per-chunk latency target so that
+users observe the video as it is being generated.This paradigm shift motivates a serving system purpose-built for
+streaming video generation.
+Current diffusion-based video generation systems, such as FastVideo [ 9], xDiT [8], vLLM-Omni [51], Tur-
+boDiffusion [53], and TridentServe [44], are primarily optimized for stateless, one-shot generation requests,
+where each request can be scheduled, resourced, and completed in isolation. Streaming video generation
+violates this stateless serving assumption: serving is organized around persistent sessions that preserve prompt
+context and cached temporal states (typically , KV cache and related metadata), while continuously accepting
+new prompts or interaction signals. As a result, the system must coordinate evolving session states over time,
+rather than treating each generation as an isolated job, as demonstrated in Figure 1. From this mismatch,
+building an efficient serving system for streaming video generation in a multi-user, multi-GPU environment
+introduces two primary dimensions of heterogeneity:
+• Challenge 1: Session duration heterogeneity.Different sessions persist for vastly different durations,
+ranging from a single short clip to tens of minutes of iterative prompting and refinement, as illustrated
+in Figure 2 (Left). Systems that treat sessions as fungible short-lived requests make placement decisions
+that become suboptimal as long-running sessions accumulate, causing some users to lose real-time
+generation capability .
+• Challenge 2: Temporal user-demand heterogeneity.Within and across sessions, demand fluctuates
+2
+sharply over time: users alternate between bursts of activity and idle periods, and the number of active
+sessions rises and falls as new sessions arrive and existing ones complete, as illustrated in Figure 2
+(Right). Systems with static provisioning face a fundamental trade-off: provisioning for peak demand
+over-provisions GPUs and wastes resources during low-demand periods, while provisioning for average
+demand under-provisions the system during bursts and prevents sessions from sustaining real-time
+generation.
+Resolving these challenges requires coordinated control over both session placement and GPU provisioning.
+On the session side, long-lived sessions need to be dynamically placed and migrated across GPUs so that load
+remains balanced as sessions arrive, depart, and transition between active and idle. On the resource side, the
+system needs to elastically adjust the provisioned GPU budget, scaling out during demand bursts to preserve
+latency headroom and scaling in during low-demand periods to avoid resource waste. Critically, these two
+controls are tightly coupled: the available GPU budget bounds which placements are feasible, while the current
+placement determines whether that budget is sufficient. Treating placement and autoscaling as independent
+components therefore leaves significant performance on the table, motivating a closed-loop design that jointly
+manages session placement and GPU provisioning for streaming video generation.
+To address these challenges, we propose TURBOSERVE, to the best of our knowledge, thefirstserving sys-
+tem designed specifically for streaming video generation workloads in multi-user, multi-GPU environments.
+TURBOSERVEjointly coordinates session placement and GPU provisioning in multi-session, multi-GPU environ-
+ments with heterogeneous session durations and dynamic user demand. Our contributions are summarized as
+follows:
+•Contribution 1: We formulate streaming video generation serving as an online scheduling problem that
+jointly determines session placement and GPU provisioning under per-chunk latency constraints. To solve
+this problem efficiently, we design aclosed-loop scheduling algorithmthat combines a migration-aware
+placement controller with a load-driven autoscaling controller. Concretely, the placement controller
+performs event-driven min-max rebalancing, migrating sessions away from bottleneck GPUs to reduce
+the worst-case per-chunk latency; and the autoscaling controller adjusts the GPU budget based on
+runtime load feedback, provisioning additional GPUs during demand bursts and releasing GPUs during
+low-demand periods to improve cost efficiency .
+•Contribution 2: We implement TURBOSERVEwith runtime support for multi-session chunk execution
+and session mobility. TURBOSERVEuses coalesced chunk processing to batch chunk generation for
+concurrent active sessions on the same GPU while preserving per-session states, and supports both
+GPU-CPU offloading for idle-session suspension/resumption as well as NCCL-based GPU-GPU migration
+for online rebalancing. These mechanisms improve GPU utilization, free GPU memory occupied by idle
+sessions, and enable fast load redistribution to reduce bottleneck per-chunk latency .
+•Contribution 3: We evaluate TURBOSERVEon real-world production traces from Shengshu Technology
+across multiple video generation model sizes. We compare TURBOSERVEagainst baseline serving
+configurations using two key metrics: worst-case per-chunk latency and total GPU operating cost.
+Experimental results show that TURBOSERVEreduces worst-case per-chunk latency by 37.5% and total
+GPU operating cost by 37.2% on average, demonstrating its effectiveness in balancing serving latency
+and cost under dynamic streaming workloads.
+2 Background and Related Work
+Streaming video generation workflow.Streaming video generation serves a user session rather than a
+one-shot generation request (Figure 1). In the workflow adopted by autoregressive streaming video models
+such as Self-Forcing [15], the model generates video progressively: it first produces an initial video chunk from
+the user prompt, then generates subsequent chunks conditioned on the prompt together with the previously
+generated chunks and their cached state. During the session, the user may provide new prompts or interaction
+signals, or may become temporarily idle, causing the session to transition between active and idle periods.
+The serving system must therefore repeatedly schedule the same long-lived session, preserve its generation
+state, and deliver each video chunk within a tight latency target.
+3
+Streaming video generation.Recent streaming diffusion and video-generation models have begun to
+shift video generation from offline batch synthesis toward online and interactive streaming. Systems such
+as StreamDiffusionV2 [ 10], StreamingT2V [ 13], and StreamV2V [ 29] demonstrate that diffusion-based
+video generation can be organized around continuous or autoregressive generation, enabling long videos,
+dynamic inputs, and interactive use cases. Concurrent efforts such as LongLive [47], Self-Forcing [15], and
+HYWorldPlay [16] further demonstrate this shift toward long-horizon, interactive, and real-time streaming
+video/world generation. These model-level advances create a new class of workloads in which video chunks
+must be generated continuously and delivered with low latency. However, most existing work focuses on
+model architecture, inference pipeline design, or frame-level generation quality , rather than multi-user serving
+efficiency at the cluster level. This leaves a gap between the capabilities of streaming video-generation models
+and the infrastructure needed to serve them efficiently at scale. TURBOSERVEtargets this gap by designing a
+system-level scheduling framework for streaming generation workloads.
+LLM serving.Recent LLM serving systems have significantly improved the efficiency of online inference [17,
+30, 42, 43, 50, 52, 54–56]. Representative systems such as vLLM [26], Sarathi-Serve [1], and AlpaServe [28]
+consider each request as a finite sequence of decoding iterations with dynamically growing KV-cache state.
+However, streaming video generation differs from typical LLM serving in two important aspects. First,state
+lifetime: LLM serving usually maintains request state only until the response is completed, while streaming
+video generation must preserve session state across multiple active and idle periods. Second,latency target:
+LLM serving commonly optimizes request completion time or token-level latency, while streaming video
+generation must satisfy a hard per-chunk latency target so that users can observe the video continuously
+as it is being synthesized. Existing LLM serving systems therefore do not explicitly optimize session-based
+streaming video generation workloads, where the serving system must jointly handle long-lived session state
+across active/idle periods and repeatedly schedule chunk generation under hard per-chunk latency targets.
+Autoscaling for LLM serving.Autoscaling and elastic resource management have become increasingly
+important for cost-efficient LLM serving [ 5, 11, 27, 37, 45]. Existing systems dynamically adjust GPU
+allocation, model placement, execution capacity , or checkpoint loading according to workload variation and
+latency objectives, substantially improving resource efficiency under fluctuating demand. However, these
+systems primarily target request-centric inference workloads, where requests are relatively short-lived and
+can often be scheduled independently . In contrast, streaming video generation introduces long-lived, stateful
+sessions that continuously alternate between active and idle periods while maintaining persistent generation
+states. As a result, scaling decisions affect not only the amount of available GPU resources, but also how
+long-lived session states are suspended, resumed, migrated, and redistributed during resource changes. This
+motivates a serving framework that jointly coordinates autoscaling and session scheduling under dynamic
+streaming workloads.
+3 Motivation
+Given the distinct aspects discussed in §2, serving streaming video generation necessitates specific system
+optimizations. In this section, we first introduce TURBOSERVE base, which is the production runtime framework
+tailored for streaming video generation in Shengshu Technology. Subsequently, we use a characterization
+study to motivate the design of TURBOSERVE.
+3.1 Basic Streaming Serving Runtime
+This subsection introduces TURBOSERVE base, which provides the basic runtime support required by streaming
+video generation: (i) concurrent chunk execution under per-chunk latency constraints, (ii) persistent session-
+state and lifecycle management, and (iii) GPU-CPU state offloading for suspension and resumption.
+Concurrent chunk execution.Streaming video generation executes at the granularity of video chunks, where
+each GPU worker hosts a model replica and serves multiple active sessions assigned to that worker. At each
+chunk step, the runtime follows a coalesced execution procedure: (i) it collects sessions whose next chunks
+are ready to be generated; (ii) it groups ready sessions on the same GPU into a coalesced chunk batch; and
+(iii) it invokes the model once for the batch and writes the generated chunks and updated states back to their
+4
+60%35%46%25%30%31%35%Worst-caselatency(a)Loadimbalancelowloadperiod(b)Underutilizationhighloadperiod(c)Overutilization99%
+95%95%95%90%
+Figure 3Illustration of the observations. ( a) Evolving session activity causes load imbalance across GPUs, where the most
+heavily loaded GPU determines the worst-case per-chunk latency . (b) During low-demand periods, a fixed GPU allocation
+leads to resource underutilization. ( c) During high-demand periods, the same static allocation becomes overutilized,
+resulting in high per-chunk latency .
+corresponding sessions. Coalescing improves GPU utilization by amortizing model execution across concurrent
+sessions. However, as discussed in §2, streaming serving requires each active session to deliver chunks within
+the target per-chunk latency , so the number of co-located sessions on each GPU must be bounded (detailed
+in §5.1).
+Session state and lifecycle.Unlike stateless one-shot generation jobs, streaming video generation maintains
+persistent session state across multiple active and idle periods. Accordingly , the runtime distinguishes three
+session states: (i)execution, where the session is assigned to a GPU and generates chunks; ( ii)suspend, where
+the session is idle and its GPU slot is released while its state is preserved; and ( iii)terminate, where the
+session has completed and all associated resources are released. These states are updated through lifecycle
+operations such as initialization, suspension, resumption, and termination, which are triggered by session
+arrivals, departures, and active/idle user transitions.
+GPU-CPU state offloading.To avoid occupying GPU memory and execution slots for idle sessions, TUR-
+BOSERVE base supports GPU-CPU state offloading for suspension and resumption.1 The offloading procedure
+follows three steps: ( i) when a session becomes idle or must release its GPU slot, the runtime copies its
+persistent session state from GPU memory to host memory; (ii) the session is marked as suspended and its
+GPU slot is released for other active sessions; and (iii) when the session becomes active again, the state is
+restored to the selected GPU before chunk generation resumes. This mechanism decouples session lifetime
+from GPU residency: long-lived sessions can remain alive across idle periods without continuously occupying
+GPU resources, while preserving the context needed for later resumption.
+3.2 Characterization and Motivation
+This characterization focuses on understanding how session and GPU management affect the latency and cost
+of streaming video generation serving.
+Experiment setup.We evaluate on a cluster with 8 NVIDIA H100 GPUs. Each GPU can host multiple
+concurrent sessions, and each active session continuously generates video chunks under a target per-chunk
+latency constraint. We replay production traces fromShengshu Technology, which contain time-varying online
+arrivals, departures, and active/idle session transitions (detailed in Table 11 in Appendix B). We report two
+primary metrics: the worst-case per-chunk latency across active sessions and the total GPU operating cost over
+the trace. All configurations use the same model, trace, and latency target.
+Baseline system configuration.We first evaluate TURBOSERVE base on the given experimental setup. In this
+baseline, each newly activated session is assigned to the GPU with the least current load among the available
+GPUs. Once assigned, the session remains on the same GPU until it is suspended or terminated. The system
+uses a fixed GPU allocation for the entire trace, providing a simple reference configuration for streaming video
+generation. This baseline reaches a worst-case per-chunk latency of0.71 s, with a total GPU cost of3.99 $ 2.
+1We do not consider recomputation for state rematerialization, which is widely used in LLM serving. The primary reason is that video
+generation is generally compute-heavy while LLM serving is often bottlenecked by the memory-bound autoregressive generation.
+2We run experiments on an in-house Shengshu Technology cluster, but report GPU operating cost in cloud-price-equivalent [2] dollars
+5
+0
+215
+430
+645
+860Latency (ms)
+27%
+8%
+0.00
+1.20
+2.39
+3.59
+4.79Cost ($)
+33%
+ 40%
+Baseline A1 A2 A3
+Figure 4Case study on the impact of session and GPU management on latency and cost.Latencyis the worst-case
+per-chunk latency;Costis the total GPU operating cost. A1-3 represents Approach 1-3.
+Observation: baseline configuration leads to latency imbalance and resource inefficiency.The baseline exposes
+two limitations. First, session activity evolves over time, so a placement that is initially balanced can become highly
+imbalanced as users transition between active and idle states. Since the worst-case per-chunk latency is determined by
+the most heavily loaded GPU, such imbalance directly increases system latency, as illustrated in Figure 3 (a). Second,
+using a fixed GPU allocation throughout the trace leads to resource underutilization during low-demand periods while
+still incurring high latency during bursty periods, because the GPU budget cannot adapt to workload variation, as
+illustrated in Figure 3 (b-c).
+Approach 1: session migration.We next evaluate a migration policy to isolate the benefit of session
+rebalancing. This policy uses the same fixed GPU allocation as the baseline, but periodically rebalances active
+sessions across GPUs every 10 seconds. At each rebalancing point, the system observes the current session
+distribution and migrates sessions to minimize the maximum per-GPU load. Since the GPU budget remains
+unchanged, any latency improvement comes from better session placement rather than additional resources.
+As shown in Figure 4, compared with the baseline, session migration reduces the worst-case per-chunk latency
+by26.53%while incurring the same GPU cost.
+Insight 1: migration reduces bottleneck latency.Migration improves latency by moving sessions away from overloaded
+GPUs and equalizing load across the cluster. Periodic rebalancing prevents stale session placements from persisting after
+workload changes, especially when multiple sessions become active within a short interval.
+Approach 2: GPU autoscaling.We next evaluate a GPU autoscaling policy to isolate the benefit of elastic
+GPU provisioning. Instead of maintaining a fixed GPU allocation throughout the workload trace, this policy
+dynamically adjusts the GPU budget according to the current workload demand. During high-demand periods,
+additional GPUs are provisioned to preserve latency headroom, while during low-demand periods unnecessary
+GPUs are released to reduce operating cost. As shown in Figure 4, compared with the baseline, GPU autoscaling
+reduces the total GPU cost by32.57%while maintaining the worst-case per-chunk latency within0.71 s.
+Insight 2: autoscaling improves resource efficiency.Autoscaling improves cost efficiency by adapting the GPU budget
+to workload variation over time. Dynamic GPU provisioning preserves latency headroom during bursty periods while
+avoiding resource underutilization during low-demand periods.
+Approach 3: joint migration and autoscaling.We finally evaluate a joint policy that combines session
+migration with GPU autoscaling. Similar to Approach 1, the policy periodically rebalances active sessions across
+GPUs every 10 seconds, while additionally performing rebalancing around each scaling decision according to
+the updated GPU set: scale-out adds GPUs and then redistributes active sessions to utilize the new capacity,
+while scale-in consolidates sessions before releasing unnecessary GPUs. As shown in Figure 4, compared with
+the baseline, joint migration and autoscaling reduces the worst-case per-chunk latency by8.17%and the total
+GPU cost by40.25%.
+Insight 3: migration and autoscaling should be coordinated.Migration and autoscaling address complementary
+bottlenecks: migration reduces load imbalance across GPUs, while autoscaling adapts the resource budget to workload
+demand. When combined, scale-out benefits from rebalancing to immediately use newly provisioned GPUs, and scale-in
+requires consolidation before GPUs can be safely released; meanwhile, balanced placement enables the load signal to
+better reflect true system demand rather than temporary imbalance introduced by stale placements, further improving
+for readability .
+6
+TurboServeWorkloadDetectorPlacementController
+AutoscalingControllerSessionManager
+Workloads GPUCluster
+HostMemory
+GPU1
+…
+GPU2
+…
+GPUN
+…
+GPU3
+…
+…
+ModelPool
+Closed-loopscheduling
+ReqsReqsReqs
+1
+2
+3
+4
+PlacementdecisionsScalingdecisionsLoad/Util./LatencySuspend/Resumestate
+“Arobotexploringafuturecity.”…
+User1Interaction
+User2Interaction
+UserNInteraction
+Streamingvideochunks
+…
+Figure 5TURBOSERVEsystem overview. TURBOSERVEprocesses streaming requests and session events through a closed-
+loop scheduler that places and migrates sessions across GPU workers, adjusts GPU provisioning, and offloads suspended
+states to host memory. Runtime load, utilization, and latency feedback guide these decisions to balance serving latency
+and GPU cost.
+the effectiveness of load-driven autoscaling.
+The three insights together motivate the design of TURBOSERVE. Session migration reduces bottleneck per-
+chunk latency by balancing workload across GPUs, while GPU autoscaling improves resource efficiency under
+time-varying workload demand; a joint policy combines the benefits of both. Based on these observations,
+TURBOSERVEintegrates migration-aware placement and GPU autoscaling into a unified closed-loop scheduling
+framework for streaming video generation serving. We demonstrate the detailed system overview (§4),
+framework (§5), and design (§6) in the following sections.
+4 TURBOSERVEOverview
+In this section, we demonstrate the system overview of TURBOSERVE. The architecture overview of TUR-
+BOSERVEis shown in Figure 5. TURBOSERVEconsists of four major components: the workload detector,
+placement controller, autoscaling controller, and session manager.
+Overall routine.The overall routine of TURBOSERVEis as follows. ( i) Theworkload detectormonitors recent
+session events, including arrivals, departures, and active/idle transitions, and extracts workload signals such
+as recent demand and demand variation using a sliding window. (ii) Theplacement controlleruses the current
+session states, GPU status, and workload signals to assign sessions to GPU workers. It performs migration-
+aware rebalancing to reduce bottleneck latency across GPUs (detailed in §5.2.1). (iii) Theautoscaling controller
+adjusts the GPU budget according to runtime feedback, including load, utilization, and per-chunk latency . It
+provisions or removes GPUs through scale-out and scale-in decisions (detailed in §5.2.2). ( iv) Thesession
+managertracks session lifecycle states, including execution, suspension, termination, and migration (detailed
+in §6.1). Active sessions are executed on GPUs to generate streaming video chunks, while suspended session
+states are stored in host memory and resumed when needed. By continuously feeding runtime measurements
+back to TURBOSERVE, it jointly adapts session placement and GPU provisioning, thereby balancing per-chunk
+serving latency and GPU cost under dynamic streaming workloads.
+5 Scheduling Framework
+In this section, we first present the problem formulation for streaming-based serving in §5.1. We then describe
+the placement controller for runtime session scheduling (§5.2.1) and the autoscaling controller for GPU budget
+7
+Table 1Frequently used notations used in the scheduling framework.
+Notation Description
+S(t) Active session set at eventt
+G(t) Currently provisioned GPUs at eventt
+M(t) Number of active GPUs at eventt
+C(t) GPU operating cost at eventt
+K Max. concurrent sessions per GPU
+ϕi(t) Placement of sessionsi at eventt
+αi(t) User-activity indicator for sessionsi at eventt
+L(t) Worst-case per-chunk serving latency
+L∗(M, t) Min. worst-case latency under budgetM(t)
+ρmax(t) Max. normalized GPU load after placement
+ˆρ(t) Target per-GPU utilization
+λ(t) Latency weight in the optimization objective
+Mtar(t) Target GPU budget computed by autoscaling
+management (§5.2.2), which together constitute the closed-loop scheduling framework presented in §5.2.
+Table 1 summarizes the essential notations used throughout this section.
+5.1 Problem Formulation
+We formulate the serving problem as anonline scheduling problemwith two tightly coupled control components:
+(i) session placement, which determines how active sessions are assigned to GPUs, and (ii) cluster autoscaling,
+which controls the number of GPUs provisioned in the system. The system maintains a dynamically sized
+pool of GPUs, each capable of serving up to K concurrent sessions without violating the per-chunk latency
+constraint. This induces a constrained resource allocation problem in which both the mapping of sessions to
+GPUs and the number of active GPUs must be continuously adjusted in response to workload dynamics. Our
+goal is to jointly minimize the cost of GPU provisioning and the per-chunk serving latency across all active
+sessions.
+Event-driven scheduling.We adopt an event-driven scheduling model to capture the online nature of
+the system. The scheduler is invoked upon system events, including session arrivals, departures, and state
+transitions (e.g., a user becoming active or idle). Each invocation corresponds to a decision epoch indexed
+by t= 1,2, . . ., at which the scheduler observes the current system state (e.g., active sessions and resource
+utilization) and produces a scheduling decision. Between consecutive events, the system state evolves without
+intervention.
+Sessions and states.At each event t, sessions arrive and depart online; let S(t) denote the active session set
+with |S(t)|=N(t) . Each session si ∈ S(t)is in one of three states:execution(running on a GPU),suspend
+(state offloaded to host memory , GPU slot released), orterminate(session ended, all resources released and
+removed from the system). Let αi(t)∈ {0,1}indicate whether the user is actively interacting with session si
+at eventt; transitions ofα i constitute state-change events that trigger the scheduler.
+Decision variables.At each event t, the scheduler jointly determines two quantities: ( i) the number of
+active GPUs M(t)∈ {0,1, . . . , Mmax}, which defines the set of active GPUs G(t) ={g 1, . . . , gM(t) }, and (ii) a
+placement function ϕi(t) that assigns each session si ∈ S(t)to either an active GPU gj ∈ G(t)(placing the
+session in the execution state) or to∅(placing it in the suspend state).
+Optimization objective.At each event t, the scheduler solves amulti-objective optimization problem, aiming
+to jointly minimize the GPU operating cost and the per-chunk serving latency . Specifically , the operating cost
+is defined as C(t) =c gpu ·M(t) , where cgpu is the per-GPU rental cost, and M(t) includes all provisioned GPUs,
+including those in the scale-out initialization phase (e.g., VM boot, model loading, and warm-up) that are
+not yet serving sessions. The latency is defined as the worst-case per-chunk latency across executing sessions,
+L(t) = maxsi∈S(t):ϕ i(t)̸=∅ ℓi(t), where ℓi(t) denotes the per-chunk latency of session si, which increases with
+8
+per-GPU session co-location and may experience transient spikes during migration (e.g., due to state offloading,
+transfer, and resumption). The resulting optimization problem at eventtis:
+arg min
+M(t), ϕ(t)
+C(t) +λ(t)· L(t),
+s.t.|{i:ϕ i(t) =g j}| ≤K,∀g j ∈ G(t),
+αi(t) = 1 =⇒ϕ i(t)̸=∅,∀s i ∈ S(t).
+(1)
+The first constraint enforces the per-GPU capacity limit, ensuring that no GPU serves more than K sessions.
+The second constraint guarantees service responsiveness by requiring that any session receiving user input
+must be actively executed on a GPU.
+Objective trade-off.The weight λ >0 balances the trade-off between cost and latency. Optimizing either
+objective in isolation leads to degenerate outcomes:
+• A large λ reduces the problem to minimizing L(t), driving aggressive scale-out and migration that inflate
+C(t)without bound.
+• A small λ reduces the problem to minimizing C(t), driving M(t) toward its minimum with sessions
+concentrated near K, which leaves no headroom for workload variation and easily pushes L(t) past the
+per-chunk latency deadline.
+A properly tuned λ avoids both failure modes, restraining C(t) while preserving sufficient slack in L(t) to
+absorb workload variation. The determination and adaptation ofλare described in §5.2.2.
+5.2 Closed-Loop Scheduling Algorithm
+We design a closed-loop scheduling algorithm that jointly optimizes session placement and cluster autoscaling.
+It consists of two tightly coupled components: (i) aplacement controllerthat updates the assignment ϕ(t) and
+provides load feedback at each event t, and (ii) anautoscaling controllerthat adjusts the GPU budget M(t)
+based on this feedback. Together, they form a closed control loop that regulates the system toward a desired
+operating point.
+5.2.1 Placement Controller
+The placement controller operates at each event t and determines the assignment ϕ(t) of sessions to the
+currently provisioned GPUs G(t). Given a fixed GPU budget M(t), it approximately solves the placement
+optimization problem:
+L∗(M, t) = arg min
+ϕ(t)feasible underM(t)
+L(t),(2)
+i.e., it seeks a feasible placement that minimizes the worst-case per-chunk latency under the current capacity
+while limiting unnecessary migration.
+Initialization.At each event t, the controller initializes from ϕ(t−) by removing terminated sessions and re-
+taining existing assignments. This initialization enables incremental updates and limits unnecessary migration.
+Session assignment.The controller first handles sessions whose placement must be updated (e.g., newly
+arrived sessions and sessions that become active). The set of sessions requiring assignment is defined as:
+U(t) =
+
+si ∈ S(t) :αi(t) = 1∧ϕ −
+i (t) =∅
+	
+.(3)
+For each si ∈ U(t), the controller evaluates all feasible GPUs gj ∈ G(t), and selects the assignment that
+minimizes the resulting bottleneck latency L(t). When multiple assignments yield similar L(t), the controller
+selects among feasible GPUs using a fixed tie-breaking rule (e.g., preferring less-loaded GPUs).
+Migration-aware min-max rebalancing.After session assignment, the controller performsmigration-aware
+min-max rebalancingat each event t to reduce the bottleneck latency L(t). Let nj(t) =|{i:ϕ i(t) =g j}|
+9
+Algorithm 1Closed-Loop Scheduling Workflow
+Require: Event stream {t}; session state S(t); placement ϕ(t); previous placement ϕ(t−); GPU budget M(t); previous
+GPU budget M(t −); load signal ρmax(t); target GPU budget Mtar(t); placement controller PLACE(·) ; autoscaling
+controller SCALE(·)
+Ensure:Updated placementϕ(t); updated budgetM(t)
+1:foreach eventtdo
+/* Placement and GPU budget update */
+2:(ϕ(t), ρ max(t))←PLACE(S(t), ϕ(t −), M(t−))
+3:M tar(t)←SCALE(ρ max(t), M(t−))
+4:ifM tar(t)< M(t−)then
+/* Scale-in: rebalancing precedes removal */
+5:(ϕ(t), ρ max(t))←PLACE(S(t), ϕ(t), Mtar(t))
+6:M(t)←M tar(t)
+7:else ifM tar(t)> M(t−)then
+/* Scale-out: expansion precedes rebalancing */
+8:M(t)←M tar(t)
+9:(ϕ(t), ρ max(t))←PLACE(S(t), ϕ(t), M(t))
+10:else
+/* No scaling: keep current budget */
+11:M(t)←M(t −)
+12:end if
+13:end for
+denote the number of sessions assigned to GPU gj, and let gmax(t)∈arg max gj ∈G(t) ˆℓj
+ 
+nj(t)
+
+denote a GPU
+attaining the maximum per-chunk latency . The controller considers migrating a sessionsi currently assigned
+to gmax(t) to a target GPU gj′ ∈ G(t)\ {gmax(t)}, constructs the resulting placement ϕ′(t), and evaluates the
+new bottleneck latency L′(t). The migration cost κi(t) captures the overhead of reassigning si and is modeled
+using theα-βmodel [14]. The benefit of each candidate move is quantified by the gain function:
+Γi,j′(t) =L(t)− L′(t)−η·κ i(t),(4)
+where η >03 controls the trade-off between latency reduction and migration overhead. At each iteration, the
+controller selects the move (i∗, j′∗) = arg maxi, j′ Γi,j′(t) and applies it if Γi∗,j′∗(t)>0 , and repeats until no
+candidate move yields a positive gain. This event-driven local search progressively reduces the bottleneck
+latency while ensuring that migration is performed only when its benefit outweighs its cost.
+Complexity analysis.Let N(t) =|S(t)| and M(t) =|G(t)| . The session assignment step evaluates up to M(t)
+GPUs per session in U(t), yielding O(|U(t)| ·M(t))time. In rebalancing, each iteration considers at most K
+sessions on the bottleneck GPU and evaluates their migration to up to M(t) targets, resulting in O(K·M(t))
+time per iteration. The overall complexity is linear in M(t) per event and negligible relative to the per-chunk
+generation latency .
+Integration with autoscaling.The placement controller is tightly coupled with the autoscaling controller,
+where rebalancing serves two distinct purposes:
+• Scale-in:rebalancing consolidates sessions onto a reduced GPU set, ensuring that GPUs selected for
+removal are immediately freed, enabling prompt deprovisioning.
+• Scale-out:rebalancing redistributes sessions onto the expanded GPU set, ensuring that newly added
+GPUs are immediately utilized, enabling prompt load balancing.
+We next describe the autoscaling controller in detail.
+3Since migration overhead is minimized through system-level optimizations described in §6, η is chosen to be small, enabling more
+aggressive rebalancing toward reducing bottleneck latency .
+10
+5.2.2 Autoscaling Controller
+The autoscaling controller determines the GPU budget M(t) at each event t based on feedback from the
+placement controller. Let ρmax(t) = max gj ∈G(t) nj(t)/K denote the maximum normalized GPU load after
+placement, which reflects the current load pressure and remaining headroom under the current budget. While
+the placement controller approximately minimizes the worst-case per-chunk latency L∗(M, t)under a fixed
+GPU budgetM(t), the autoscaling controller adjustsM(t)to minimize the overall objective:
+arg min
+M(t)
+cgpu ·M(t) +λ(t)· L∗(M, t),(5)
+which is a decomposition of Equation 1. Rather than solving this objective explicitly , the controller approxi-
+mates it through target tracking by regulating the system toward a target utilization ˆρ(t), thereby balancing
+cost and latency through load-driven scaling decisions. Here, λ(t) and ˆρ(t)jointly form the autoscaling
+controller’s control parameters; their adaptive adjustment is described later in this section.
+Hysteresis-based scaling trigger.(When to scale?) Scaling decisions are driven by the load signal ρmax(t)
+provided by the placement controller, relative to the target utilization ˆρ(t), which represents the desired
+fraction of the maximum capacity K (e.g., ˆρ(t) = 0.7corresponds to 70% utilization). To avoid oscillations
+under fluctuating workloads, the controller employs ahysteresis mechanism[ 36] with a tolerance parameter
+δ >0 (e.g., δ= 0.1 ), which defines the stability margin around the target utilization: scale-out is triggered
+whenρ max(t)>ˆρ(t) +δ, and scale-in is triggered whenρ max(t)<ˆρ(t)−δ.
+Proportional scaling adjustment.(How much to scale?) The scaling magnitude follows aproportional (target-
+tracking) policy[ 25], which adjusts the GPU budget in proportion to the deviation between the current load
+and the target utilization, enabling rapid convergence to the target utilization. Let Nreq(t) =|{i:ϕ i(t)̸=∅}|
+denote the total number of sessions requiring GPU execution. The target GPU budget is then computed as
+Mtar(t) =
+l
+Nreq(t)
+Kˆρ(t)
+m
+, and the scaling adjustment is ∆M(t) =M tar(t)−M(t) . After each scaling action, the
+updated load signal ρmax(t) is obtained from the placement controller after recomputing ϕ(t) under the new
+budget, and is then used for subsequent decisions.
+Adaptive control parameters.(How to adapt?) The autoscaling controller regulates the trade-off between
+GPU cost and worst-case per-chunk latency through the joint adjustment of the control parameters (λ(t),ˆρ(t)),
+where λ(t) controls the latency weight in Equation 1 and ˆρ(t)specifies the target per-GPU utilization. To
+adapt to workload dynamics, the controller dynamically adjusts (λ(t),ˆρ(t))according to recent workload
+characteristics (e.g., session arrivals and activation patterns)4:
+• During highly fluctuating periods, the controller selects a larger λ(t) and a smaller ˆρ(t)to preserve
+additional headroom and avoid latency spikes.
+• During stable periods, the controller selects a smallerλ(t) and a larger ˆρ(t)to improve resource efficiency .
+As a result, the control parameters (λ(t),ˆρ(t))evolve over time, enabling the autoscaling controller to adapt
+the system between latency-oriented and cost-oriented operating regimes in response to workload dynamics.
+Put it together.The interaction between the placement controller and autoscaling controller constitutes a
+closed control loop (as demonstrated in Algorithm 1 and illustrated in Figure 6). In this loop, the placement
+controller provides the load feedback ρmax(t), which informs autoscaling decisions, while the autoscaling
+controller updates the GPU budget M(t), thereby regulating system load and worst-case per-chunk latency
+under dynamic workloads.
+6 TURBOSERVEDeployment
+Building on the basic streaming serving runtime introduced in §3.1, this section describes the deployment-level
+mechanisms that make TURBOSERVEefficient under dynamic multi-session workloads. Since the scheduling
+4Following the workload-classification paradigm of Quasar [7], we classify workloads into a small set of levels based on a sliding-
+window volatility metric over session activations, profile offline the cost-optimal control parameters for each level, and at runtime apply
+the parameters associated with the level of the current workload. The full procedure and a comparison against an offline trace-tuned
+oracle (near-optimality validation) are detailed in Appendix A.
+11
+GPU1g1GPU2g2BeforeM(t)=2,G(t)={g1,g2}
+S7
+S8
+S9
+S10
+4newsessionsScale-out+Rebalance
+GPU1g1GPU2g2
+GPU3g3AfterM(t)=3,G(t)={g1,g2,g3}
+AddGPU,thenrebalance𝜙(t)
+GPU1g1GPU2g2
+GPU3g3BeforeM(t)=3,G(t)={g1,g2,g3}
+S6
+S9
+S10
+3finishedsessions
+S1
+S2
+S3
+S4
+S5
+S6
+S1
+S2
+S4
+S5
+S6
+S7
+S8
+S9
+S3
+S10
+S1
+S2
+S4
+S5
+S6
+S7
+S8
+S9
+S3
+S10
+GPU1g1GPU2g2AfterM(t)=2,G(t)={g1,g2}
+S1
+S2
+S4
+S5
+S7
+S3
+S8
+Rebalance,thenremove
+Rebalance+Scale-in
+SessionExamplesofScalingandRebalance
+n=4n=3n=3
+n=4n=3
+Figure 6Illustrative examples of closed-loop GPU autoscaling and session rebalancing. The top example shows scale-out
+followed by session rebalancing, where new GPUs are added and sessions are redistributed to reduce load concentration.
+The bottom example shows rebalancing followed by scale-in, where sessions are first consolidated onto fewer GPUs before
+underutilized GPUs are removed.
+framework in §5 continuously updates session placement and GPU provisioning, the runtime must efficiently
+manage session states and cluster resources during these updates. TURBOSERVEtherefore focuses on two
+implementation aspects:session managementandGPU management.
+6.1 Session Management
+Session memory layout.Each GPU worker organizes runtime memory into three parts: ( i) a shared model
+replica used by all sessions on the worker; (ii) isolated per-session state regions that store the session descriptor,
+prompt/control embeddings, temporal or KV-cache states, chunk-history features, intermediate latent buffers,
+and output metadata; and (iii) a session ownership table that maps each active session to its current worker
+and state buffers. This layout separates static model resources from dynamic session state. As a result,
+TURBOSERVEcan migrate or offload a session by moving only its per-session state region, without moving the
+model replica or completed output chunks.
+GPU-GPU state migration.When the placement controller decides to move an active session from one GPU
+to another, TURBOSERVEmigrates only the corresponding per-session state region. To support low-overhead
+transfer, each worker registers the memory space used for session states with the communication runtime. The
+target worker can then fetch the registered state buffers from the source worker through RDMA/NIXL-style
+one-sided GPU memory access [6, 32, 33] and install them into its local session table. This avoids unnecessary
+CPU staging and keeps migration scoped to the state needed to continue generation.
+Migration consistency.TURBOSERVEperforms GPU-GPU migration only at chunk boundaries to avoid
+interrupting an in-flight generation step. The consistency protocol follows three steps: (i) the source worker
+completes the current chunk update and freezes the session state to be migrated; (ii) the target worker fetches
+the state and verifies that the required buffers have been installed; and (iii) session ownership is updated only
+after the transfer completes, ensuring that future chunks are generated on the target GPU and preventing
+duplicated execution. This design preserves session correctness while enabling fast rebalancing of active
+sessions to reduce bottleneck per-chunk latency .
+6.2 GPU Management
+Shengshu Technology-managed GPU pool.TURBOSERVEis deployed on top of Shengshu Technology’s
+internal GPU cluster management system. The cluster manager maintains a pool of available GPU workers
+whose container images, runtime dependencies, and model checkpoints are pre-staged on local storage.
+12
+TURBOSERVEdoes not directly manage physical machines; instead, it maintains a logical serving pool consisting
+of GPU workers currently admitted for streaming video generation. Each active worker hosts a model replica
+and periodically reports its load, health status, and availability to the autoscaling controller (§5.2.2). This
+separation allows TURBOSERVEto make serving-level scaling decisions while relying on Shengshu Technology’s
+existing infrastructure for resource allocation, isolation, and cleanup.
+Scale-out procedure.When the autoscaling controller triggers scale-out, TURBOSERVErequests additional
+GPU workers from the Shengshu Technology cluster manager. The scale-out procedure follows two steps: (i)
+the cluster manager reserves available GPUs and attaches them to the TURBOSERVEserving pool; and ( ii)
+TURBOSERVElaunches the worker runtime, loads the model replica from the locally staged checkpoint, and
+marks the worker ready for session assignment. Once a worker is ready , the placement controller (§5.2.1) can
+assign new sessions or migrate existing sessions to the added GPU. Since images and checkpoints are already
+staged by the cluster manager, scale-out avoids expensive remote image pulling or checkpoint downloading on
+the critical path.
+Scale-in procedure.When the autoscaling controller triggers scale-in, TURBOSERVEmarks selected workers as
+draining before releasing them. Draining workers no longer accept new sessions, and the placement controller
+migrates active sessions to remaining GPUs or offloads idle sessions through the session-state migration
+mechanism in §6.1. After all resident sessions have been moved or suspended, TURBOSERVEunloads the
+model replica, frees GPU memory , and removes the worker from the serving pool. The released GPU is then
+returned to the Shengshu Technology cluster manager and becomes available for other workloads.
+7 System Evaluation
+7.1 Experimental Setup
+Hardware environments.We evaluate TURBOSERVEon Shengshu Technology ’s internal GPU serving clusters
+consisting of 16 NVIDIA H20 GPUs (Cluster 1) and 64 NVIDIA B300 GPUs (Cluster 2) for streaming video
+generation deployment. Each server contains 8 GPUs connected through high-bandwidth NVLink interconnects
+(956 GB/s), while cross-node communication is supported through RDMA-enabled InfiniBand networking (50
+GB/s).
+Models and workloads.We evaluate TURBOSERVEusing LongLive-style streaming video generation mod-
+els with multiple model sizes (LongLive-1.3B and its larger variants). The workload is replayed from
+Shengshu Technology ’s production traces, which contain heterogeneous session durations, bursty online
+activation patterns, and time-varying numbers of active sessions. Detailed statistics of the evaluated traces
+(Trace 1-6) are provided in Appendix B.
+Evaluation metrics.We evaluate TURBOSERVEusing two primary metrics: ( i) worst-case per-chunk latency ,
+defined as the maximum chunk-generation latency across all active sessions, which captures the latency
+bottleneck perceived by users; and (ii) GPU operating cost, defined as the total accumulated cost of provisioned
+GPUs during serving. Lower values are better for both metrics. In each experiment, we evaluate worst-case
+per-chunk latency under matched GPU operating cost, and GPU operating cost under matched worst-case
+per-chunk latency constraints.
+Baseline implementations.Since no prior work specifically focuses on serving infrastructure design for
+streaming video generation tasks, we compare TURBOSERVEagainst three representative generic serving
+strategies adapted to our setting: (i)TURBOSERVE base:basic runtime in §3.1. Newly activated sessions are
+assigned to GPUs in round-robin order, while each GPU executes sessions in a first-come-first-served (FCFS)
+manner without migration or autoscaling. (ii)TURBOSERVE base+LAG(Load-Aware Greedy): newly activated
+sessions are assigned to the currently least-loaded GPU according to runtime GPU utilization, providing a
+stronger load-balancing baseline. ( iii)TURBOSERVE base+MAG(Memory-Aware Greedy): newly activated
+sessions are assigned to the GPU with the lowest memory utilization, aiming to balance memory pressure
+and avoid GPU memory exhaustion under long-lived session workloads. In addition, we further ablate the
+effectiveness of individual TURBOSERVEmechanisms in §7.3, including ( i)TURBOSERVE(w/o autoscaling)
+and (ii)TURBOSERVE(w/o migration).
+13
+0
+1600
+3199
+4799
+83%
+ 73%
+41%
+1.3B - T1 (H20)
+0
+1458
+2917
+4375
+95%
+63%
+ 82%
+1.3B - T2 (H20)
+0
+1707
+3414
+5121
+43%
+10%
+28%
+1.3B - T3 (H20)
+0
+1842
+3684
+5526
+93%
+22%
+58%
+7B - T1 (H20)
+0
+1988
+3975
+5962
+104%
+43%
+ 63%
+7B - T2 (H20)
+0
+2215
+4431
+6646
+107%
+60%
+ 67%
+7B - T3 (H20)
+0
+1336
+2672
+4008
+39%
+ 26%
+ 36%
+1.3B - T4 (B300)
+0
+1728
+3456
+5184
+91%
+58%
+ 67%
+1.3B - T5 (B300)
+0
+1568
+3136
+4704
+52%
+ 36%
+ 33%
+1.3B - T6 (B300)
+0
+2048
+4095
+6142
+85%
+ 73%
+ 72%
+7B - T4 (B300)
+0
+2212
+4425
+6638
+85%
+ 83%
+ 76%
+7B - T5 (B300)
+0
+2519
+5038
+7556
+96%
+ 94%
+70%
+7B - T6 (B300)
+0.00
+8.48
+16.96
+25.44
+66%
+ 65%
+21%
+1.3B - T1 (H20)
+0.00
+8.22
+16.44
+24.67
+72%
+29%
+50%
+1.3B - T2 (H20)
+0.00
+8.54
+17.08
+25.62
+78%
+28%
+66%
+1.3B - T3 (H20)
+0.00
+8.35
+16.69
+25.04
+64%
+21%
+63%
+7B - T1 (H20)
+0.00
+8.22
+16.45
+24.67
+51%
+32%
+50%
+7B - T2 (H20)
+0.00
+8.55
+17.10
+25.65
+67%
+ 60%
+ 57%
+7B - T3 (H20)
+0.0
+133.2
+266.4
+399.6
+62%
+ 56%
+20%
+1.3B - T4 (B300)
+0.0
+134.3
+268.6
+402.9
+88%
+61%
+84%
+1.3B - T5 (B300)
+0.0
+131.4
+262.8
+394.1
+96%
+72%
+47%
+1.3B - T6 (B300)
+0.0
+131.4
+262.8
+394.1
+92%
+45%
+ 51%
+7B - T4 (B300)
+0.0
+136.6
+273.2
+409.8
+88%
+ 83%
+ 87%
+7B - T5 (B300)
+0.0
+132.8
+265.6
+398.4
+98%
+ 89%
+ 72%
+7B - T6 (B300)
+Worst-Case Latency (ms)Per-Chunk Cost ($)
+TurboServe_base TurboServe_base+LAG TurboServe_base+MAG TurboServe
+Figure 7End-to-end experimental results comparing TURBOSERVEagainst baseline systems across different models, traces,
+and clusters. The first two rows report the maximum per-chunk latency under the same cost budget, while the last two
+rows report the per-chunk cost under the same latency constraint.
+0.00
+6.17
+12.33
+18.50 21%
+ 19%
+1.3B - T1 (H20)
+0.00
+6.17
+12.33
+18.50 29%
+ 14%
+1.3B - T2 (H20)
+0.00
+6.17
+12.33
+18.50 28%
+ 28%
+1.3B - T3 (H20)
+0.00
+6.17
+12.33
+18.50 21%
+ 20%
+7B - T1 (H20)
+0.00
+7.19
+14.39
+21.58 32%
+1%
+7B - T2 (H20)
+0.00
+8.22
+16.44
+24.67 60%
+20%
+7B - T3 (H20)
+0.0
+98.5
+197.1
+295.6 20%
+ 14%
+1.3B - T4 (B300)
+0.0
+115.0
+229.9
+344.9 61%
+15%
+1.3B - T5 (B300)
+0.0
+98.5
+197.1
+295.6 47%
+16%
+1.3B - T6 (B300)
+0.0
+98.5
+197.1
+295.6 44%
+12%
+7B - T4 (B300)
+0.0
+131.4
+262.8
+394.1 80%
+15%
+7B - T5 (B300)
+0.0
+115.0
+229.9
+344.9 72%
+8%
+7B - T6 (B300)
+Per-Chunk Cost ($)
+TurboServe (w/o autoscaling) TurboServe (w/o migration) TurboServe
+Figure 8Cost efficiency ablation of TURBOSERVEmechanisms, including session migration and GPU autoscaling, across
+different model sizes and workload traces under matched latency constraints.
+7.2 End-to-end Experimental Results
+End-to-end latency performance.We first compare TURBOSERVEagainst the baseline systems in terms of
+worst-case per-chunk latency under matched GPU operating cost, across different model sizes, workload
+traces, and cluster configurations. As shown in Figure 7 (rows 1-2), TURBOSERVEconsistently outperforms
+all baseline systems, reducing worst-case per-chunk latency by 37.5% on average and up to 51.6% across
+all baseline comparisons. For example, on the 1.3B model with Trace 1 on Cluster 2, TURBOSERVEreduces
+latency by 20.5% and 26.6% compared with the TURBOSERVE base+LAG and TURBOSERVE base+MAG baselines,
+respectively , and by 28.2% compared with TURBOSERVEbase. Similar trends are observed across all evaluated
+traces and model sizes. These improvements come from TURBOSERVE’s ability to continuously rebalance
+sessions according to runtime load conditions, preventing bottleneck GPUs from emerging as session activity
+evolves.
+End-to-end cost efficiency.We next compare TURBOSERVEagainst the baseline systems in terms of GPU
+operating cost under matched worst-case per-chunk latency constraints, across different model sizes, workload
+traces, and cluster configurations. As shown in Figure 7 (rows 3-4), TURBOSERVEconsistently achieves the
+14
+4 8 16 32 64 128 256
+Number of GPUs
+0.0
+37.6
+75.3
+112.9Time (ms)
+0.250.832.075.1214.42
+40.23
+90.34
+4 8 16 32 64 128256
+Number of GPUs
+0.000
+0.433
+0.867
+1.300Norm. Latency
+2.0%
+1.9%
+2.4%
+3.0%
+3.9%
+5.5%
+6.2%
+Ours Oracle
+Figure 9 Left: Scheduling efficiency of the migration-aware min-max rebalancing. Right: Scheduling effectiveness of the
+migration-aware min-max rebalancing (vs. oracle).
+lowest serving cost among all evaluated methods, reducing GPU operating cost by 37.2% on average and up to
+49.0% across all baseline comparisons. For example, on the 1.3B model with Trace 1 on Cluster 2, TURBOSERVE
+reduces GPU cost by 38.3%, 35.9%, and 16.7% compared with TURBOSERVE base, TURBOSERVE base+LAG, and
+TURBOSERVE base+MAG, respectively , while maintaining the same worst-case per-chunk latency target. Similar
+trends are observed across all evaluated traces and model sizes. These improvements stem from TURBOSERVE’s
+ability to dynamically adjust the GPU budget according to workload demand while simultaneously rebalancing
+sessions across available resources. By avoiding both resource underutilization during low-demand periods
+and excessive latency during bursts, TURBOSERVEachieves a more efficient latency-cost trade-off than static
+serving strategies.
+Analysis: The end-to-end results show that TURBOSERVEremains effective across model sizes, traces, and GPU clusters.
+This suggests that production streaming serving needs both latency control and cost control: by jointly rebalancing
+sessions and adapting GPU capacity, TURBOSERVEimproves latency stability under fixed cost and reduces GPU cost
+under fixed latency targets.
+7.3 Mechanism Ablation Study
+Ablation of migration and autoscaling.We next evaluate the contribution of TURBOSERVE’s two key
+mechanisms, session migration and GPU autoscaling, through ablation experiments across different model
+sizes, workload traces, and GPU types. As shown in Figure 8, removing either mechanism generally degrades
+cost efficiency compared with the full system. Disabling migration increases GPU operating cost by 15.0%
+on average and up to 28.0%, because the system can no longer effectively rebalance sessions across GPUs,
+resulting in persistent load imbalance under the same latency constraint. Disabling autoscaling increases GPU
+operating cost by 42.9% on average and up to 80.4%, by preventing the system from adapting the GPU budget
+to workload fluctuations and forcing resources to be provisioned more conservatively to maintain latency
+guarantees. Across all evaluated models and traces, the full TURBOSERVEconfiguration achieves the best cost
+efficiency .
+Analysis: In production streaming workloads, migration and autoscaling address different system bottlenecks. Migration
+prevents persistent GPU imbalance, while autoscaling adapts capacity to workload variation; together, they enable
+TURBOSERVEto consistently achieve the best cost efficiency across different models, workload traces, and clusters.
+7.4 Effectiveness of Closed-Loop Scheduling
+Scheduling efficiency of the rebalancing algorithm.As shown in Figure 9 (Left), we evaluate the scheduling
+efficiency of our migration-aware min-max rebalancing algorithm across a range of GPU scales (from 4 to
+256 GPUs). The results show that our algorithm is fast enough for online video generation tasks and scales
+efficiently to large clusters. On clusters with up to 64 GPUs, scheduling completes within 15 ms, less than 2%
+of the per-chunk generation time (on the order of hundreds of milliseconds). Even on larger clusters with 256
+GPUs, scheduling completes within 0.1 s. In the rare cases where scheduling time becomes a bottleneck, we
+can partition the cluster into sub-groups (e.g., 64 GPUs each) and schedule each sub-group independently
+using additional CPU threads.
+Scheduling effectiveness of the rebalancing algorithm.To evaluate the effectiveness of our scheduling
+15
+approach, we compare our migration-aware min-max rebalancing algorithm against an oracle that performs
+an exhaustive search for the best session placement across different cluster sizes. The oracle traverses all
+possible session placements across all GPUs to obtain the optimal solution, but at a much higher computational
+cost. We run each method on Trace 1 for 80 times and report the mean gap. As shown in Figure 9 (Right),
+TURBOSERVEcloses the gap to the oracle to 3.6% on average (6.5% maximum), while reducing the scheduling
+time by more than 10×on average.
+Analysis: In real-world streaming serving, scheduling latency is part of the serving critical path. An overly expensive
+placement optimizer may produce slightly better placements, but its runtime overhead can offset the benefit and
+hurt end-to-end serving efficiency. The results show that TURBOSERVEstrikes a practical system balance: it achieves
+near-oracle placement quality while keeping scheduling overhead low enough for online deployment.
+Table 2Autoscaling cost (USD) of TURBOSERVEcompared with the offline oracle on Cluster 2 across three traces. Lower
+is better.
+Method Trace 1 Trace 2 Trace 3
+Oracle 188.03 $ 158.55 $ 160.74 $
+TURBOSERVE 196.87 $ (↑4.7%)171.71 $ (↑8.3%)152.36 $ (↑5.5%)
+Scheduling effectiveness of the autoscaling mechanism.To evaluate the effectiveness of our autoscaling
+mechanism, we compare its resource cost against an offline lower-bound oracle. Given the full trace in
+advance, including all future session arrivals, resumes, suspends, and departures, the oracle computes the
+minimum number of GPUs needed at each 1-minute slot to satisfy the target GPU utilization, then solves a
+dynamic program over GPU budgets to obtain the cost-optimal scaling schedule. We run both methods on
+three production traces on Cluster 2 and report the resulting cost in Table 2. As shown, TURBOSERVEstays
+within 6.1% of the oracle cost on average (8.3% maximum), despite operating online without any knowledge
+of future requests.
+Analysis: In production streaming workloads, future demand is unavailable and can change rapidly . The small gap to the
+offline oracle shows that TURBOSERVEcaptures most of the cost-saving opportunity using only online load feedback,
+making its autoscaling policy practical for real-world deployment.
+7.5 Runtime Breakdown and Overhead Analysis
+Table 3Twelve-minute snapshot of scheduling decisions for TURBOSERVEin the Trace 1 experiment on Cluster 1. The
+autoscaling-decision column reports the actual GPU-budget changes in each two-minute window. The migration-decision
+column reports representative session movements, wheresdenotes a session ID andgdenotes a GPU ID.
+Time Window Autoscaling DecisionsMigration Decisions
+(0,2]min 8→1→2→3→4→5→6 s1:g1→g0,s2:g1→g0,. . .(+32)
+(2,4]min 6→7→8→9→10 s49:g1→g2,s44:g1→g0,. . .(+21)
+(4,6]min 10→11 s18:g2→g5,s52:g6→g8,. . .(+22)
+(6,8]min 11→10→9→7→8 s111:g7→g5,s16:g2→g7,. . .(+27)
+(8,10]min 8→6→7→6→4 s111:g5→g4,s45:g5→g2,. . .(+23)
+(10,12]min 4→5→7→8→7→6→7 s102:g1→g3,s102:g3→g2,. . .(+68)
+Runtime scheduling breakdown.Table 3 presents a representative 12-minute snapshot of TURBOSERVE’s
+scheduling decisions on Trace 1 running on Cluster 1. The autoscaling decisions show that TURBOSERVE
+continuously adjusts the active GPU budget according to workload demand. For example, the budget first
+contracts from 8 GPUs and then gradually expands during the initial window, continues scaling out as the
+workload increases in (2,6] minutes, and later scales in during lower-demand periods. The migration decisions
+demonstrate how the placement controller reacts to these budget changes and runtime load imbalance by
+moving sessions across GPUs. Most windows involve tens of session movements, and the final window contains
+more movements because session placement becomes more imbalanced under the current GPU budget.
+16
+Analysis: In real-world streaming workloads, GPU demand and session-placement imbalance evolve at different
+timescales. The scheduling snapshot shows that autoscaling gradually adjusts cluster capacity according to work-
+load demand, while migration frequently refines session placement to correct imbalance. This highlights a key system
+requirement: online deployment needs both coarse-grained resource adaptation and fine-grained session rebalancing.
+Table 4Session migration overhead across different cluster and model configurations on Trace 1. Per-chunk latency
+and migration overhead report the average chunk-generation latency and average GPU-GPU session migration latency,
+respectively .
+Metric H20 (1.3B) H20 (7B) B300 (1.3B) B300 (7B)
+Per-chunk Latency 1054 ms 1201 ms 917 ms 1181 ms
+Migration Overhead23 ms (2%) 24 ms (2%) 24 ms (3%) 30 ms (3%)
+Migration overhead analysis.Table 4 reports the average session-migration overhead across different cluster
+and model configurations. We measure the end-to-end migration latency during online GPU-GPU rebalancing,
+including buffer allocation/release, NCCL-based state transfer, and session ownership updates. Across all
+settings, the migration overhead remains a small fraction of the per-chunk generation latency , ranging from
+23-30 ms (2%-3% of per-chunk latency). Larger models incur higher absolute migration overhead due to
+larger per-session states, but the overhead remains a small and stable fraction of per-chunk latency across
+both H20 and B300 deployments.
+Analysis: In modern production clusters, GPU-GPU migration overhead is small relative to per-chunk generation latency ,
+while the latency penalty from persistent GPU imbalance can be substantial. This makes session migration practical as a
+regular system control action, as long as migrations are triggered only when the expected latency reduction outweighs
+the transfer cost.
+8 Conclusion
+This paper presents TURBOSERVE, thefirstserving system designed specifically for streaming video generation
+workloads in multi-session, multi-GPU environments. TURBOSERVEaddresses the challenges of heterogeneous
+session duration and time-varying user demand through a closed-loop scheduling framework that jointly
+coordinates migration-aware session placement and load-driven GPU autoscaling. It further supports efficient
+runtime execution through coalesced chunk processing and session state migration. Evaluations on real-world
+production traces from Shengshu Technology show that TURBOSERVEreduces worst-case per-chunk latency
+by 37.5% and total GPU operating cost by 37.2% on average compared with baseline serving configurations.
+These results demonstrate the effectiveness of TURBOSERVEin delivering cost-efficient and latency-stable
+serving for dynamic streaming video generation workloads.
+References
+[1] Amey Agrawal, Nitin Kedia, Ashish Panwar, Jayashree Mohan, Nipun Kwatra, Bhargav Gulavani, Alexey Tumanov,
+and Ramachandran Ramjee. Taming {Throughput-Latency} tradeoff in {LLM} inference with {Sarathi-Serve}. In
+18th USENIX symposium on operating systems design and implementation (OSDI 24), pages 117–134, 2024.
+[2] Amazon Web Services. Amazon ec2 p5 instances.https://aws.amazon.com/ec2/instance-types/p5/, 2026.
+[3] Tim Brooks, Bill Peebles, Connor Holmes, Will DePue, Yufei Guo, Leo Jing, David Schnurr, Joe Taylor, Troy Luhman,
+Eric Luhman, et al. Video generation models as world simulators. OpenAI Blog, 1(8):1, 2024.
+[4] Jake Bruce, Michael D Dennis, Ashley Edwards, Jack Parker-Holder, Yuge Shi, Edward Hughes, Matthew Lai, Aditi
+Mavalankar, Richie Steigerwald, Chris Apps, et al. Genie: Generative interactive environments. In Forty-first
+International Conference on Machine Learning, 2024.
+[5] Bolin Chen. Flashserve: Cost-efficient serverless inference scheduling for large language models via tiered memory
+management and predictive autoscaling. In Proceedings of the 2025 6th International Conference on Computer
+Science and Management Technology, pages 1291–1298, 2025.
+17
+[6] Feras Daoud, Amir Watad, and Mark Silberstein. Gpurdma: Gpu-side library for high performance network-
+ing from gpu kernels. In Proceedings of the 6th international Workshop on Runtime and Operating Systems for
+Supercomputers, pages 1–8, 2016.
+[7] Christina Delimitrou and Christos Kozyrakis. Quasar: Resource-efficient and qos-aware cluster management. ACM
+Sigplan Notices, 49(4):127–144, 2014.
+[8] Jiarui Fang, Jinzhe Pan, Xibo Sun, Aoyu Li, and Jiannan Wang. xdit: an inference engine for diffusion transformers
+(dits) with massive parallelism. arXiv preprint arXiv:2411.01738, 2024.
+[9] FastVideo Team. Fastvideo: A unified framework for accelerated video generation. https://haoailab.com/blogs
+/fastvideo/, 2025.
+[10] Tianrui Feng, Zhi Li, Shuo Yang, Haocheng Xi, Muyang Li, Xiuyu Li, Lvmin Zhang, Keting Yang, Kelly Peng, Song
+Han, et al. Streamdiffusionv2: A streaming system for dynamic and interactive video generation. arXiv preprint
+arXiv:2511.07399, 2025.
+[11] Yao Fu, Leyang Xue, Yeqi Huang, Andrei-Octavian Brabete, Dmitrii Ustiugov, Yuvraj Patel, and Luo Mai.
+{ServerlessLLM}:{Low-Latency} serverless inference for large language models. In 18th USENIX Symposium
+on Operating Systems Design and Implementation (OSDI 24), pages 135–153, 2024.
+[12] Wenhao He, Youhe Jiang, Penghao Zhao, Quanqing Xu, Eiko Yoneki, Bin Cui, and Fangcheng Fu. Efficient multi-round
+llm inference over disaggregated serving. arXiv preprint arXiv:2602.14516, 2026.
+[13] Roberto Henschel, Levon Khachatryan, Hayk Poghosyan, Daniil Hayrapetyan, Vahram Tadevosyan, Zhangyang Wang,
+Shant Navasardyan, and Humphrey Shi. Streamingt2v: Consistent, dynamic, and extendable long video generation
+from text. In Proceedings of the Computer Vision and Pattern Recognition Conference, pages 2568–2577, 2025.
+[14] Roger W Hockney and James W Eastwood. Computer simulation using particles. crc Press, 2021.
+[15] Xun Huang, Zhengqi Li, Guande He, Mingyuan Zhou, and Eli Shechtman. Self forcing: Bridging the train-test gap in
+autoregressive video diffusion. Advances in Neural Information Processing Systems, 38:167283–167308, 2026.
+[16] Team HunyuanWorld. Hy-world 1.5: A systematic framework for interactive world modeling with real-time latency
+and geometric consistency .arXiv preprint, 2025.
+[17] Youhe Jiang, Ran Yan, Xiaozhe Yao, Yang Zhou, Beidi Chen, and Binhang Yuan. Hexgen: Generative inference of
+large language model over heterogeneous environment. arXiv preprint arXiv:2311.11514, 2023.
+[18] Youhe Jiang, Fangcheng Fu, Xiaozhe Yao, Guoliang He, Xupeng Miao, Ana Klimovic, Bin Cui, Binhang Yuan, and
+Eiko Yoneki. Demystifying cost-efficiency in llm serving over heterogeneous gpus. arXiv preprint arXiv:2502.00722,
+2025.
+[19] Youhe Jiang, Fangcheng Fu, Xiaozhe Yao, Taiyi Wang, Bin Cui, Ana Klimovic, and Eiko Yoneki. Thunderserve:
+High-performance and cost-efficient llm serving in cloud environments. Proceedings of Machine Learning and
+Systems, 7, 2025.
+[20] Youhe Jiang, Fangcheng Fu, Wanru Zhao, Stephan Rabanser, Jintao Zhang, Nicholas D Lane, and Binhang Yuan.
+Cascadia: An efficient cascade serving system for large language models. arXiv preprint arXiv:2506.04203, 2025.
+[21] Youhe Jiang, Ran Yan, and Binhang Yuan. Hexgen-2: Disaggregated generative inference of llms in heterogeneous
+environment. arXiv preprint arXiv:2502.07903, 2025.
+[22] Youhe Jiang, Fangcheng Fu, Taiyi Wang, Guoliang He, and Eiko Yoneki. Oserve: Accelerating llm serving via
+spatial-temporal workload orchestration. arXiv preprint arXiv:2602.12151, 2026.
+[23] Youhe Jiang, Fangcheng Fu, and Eiko Yoneki. Boute: Cost-efficient llm serving with heterogeneous llms and gpus via
+multi-objective bayesian optimization. arXiv preprint arXiv:2602.10729, 2026.
+[24] Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo Dai, Jin Zhou, Jiangfeng Xiong, Xin Li, Bo Wu, Jianwei Zhang,
+et al. Hunyuanvideo: A systematic framework for large video generative models. arXiv preprint arXiv:2412.03603,
+2024.
+[25] Kubernetes. Horizontal pod autoscaler. https://kubernetes.io/docs/tasks/run-application/horizontal-p
+od-autoscale/, 2024.
+18
+[26] Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin Zheng, Cody Hao Yu, Joseph Gonzalez, Hao Zhang,
+and Ion Stoica. Efficient memory management for large language model serving with pagedattention. In Proceedings
+of the 29th symposium on operating systems principles, pages 611–626, 2023.
+[27] Rongzhi Li, Ruogu Du, Zefang Chu, Sida Zhao, Chunlei Han, Zuocheng Shi, Yiwen Shao, Huanle Han, Long Huang,
+Zherui Liu, et al. Taming the chaos: Coordinated autoscaling for heterogeneous and disaggregated llm inference.
+arXiv preprint arXiv:2508.19559, 2025.
+[28] Zhuohan Li, Lianmin Zheng, Yinmin Zhong, Vincent Liu, Ying Sheng, Xin Jin, Yanping Huang, Zhifeng Chen, Hao
+Zhang, Joseph E Gonzalez, et al. {AlpaServe}: Statistical multiplexing with model parallelism for deep learning
+serving. In 17th USENIX Symposium on Operating Systems Design and Implementation (OSDI 23), pages 663–679,
+2023.
+[29] Feng Liang, Akio Kodaira, Chenfeng Xu, Masayoshi Tomizuka, Kurt Keutzer, and Diana Marculescu. Looking
+backward: Streaming video-to-video translation with feature banks. In International Conference on Learning
+Representations, volume 2025, pages 46425–46445, 2025.
+[30] Ziming Mao, Tian Xia, Zhanghao Wu, Wei-Lin Chiang, Tyler Griggs, Romil Bhardwaj, Zongheng Yang, Scott Shenker,
+and Ion Stoica. Skyserve: Serving ai models across regions and clouds with spot instances. In Proceedings of the
+Twentieth European Conference on Computer Systems, pages 159–175, 2025.
+[31] Andrew Melnik, Michal Ljubljanac, Cong Lu, Qi Yan, Weiming Ren, and Helge Ritter. Video diffusion models: A
+survey .arXiv preprint arXiv:2405.03150, 2024.
+[32] NVIDIA. Gpudirect rdma.https://docs.nvidia.com/cuda/gpudirect-rdma/, 2026.
+[33] NVIDIA. Nvidia inference xfer library (nixl).https://github.com/ai-dynamo/nixl, 2026.
+[34] You Peng, Youhe Jiang, Wenqi Jiang, Chen Wang, and Binhang Yuan. Hexgen-flow: Optimizing llm inference request
+scheduling for agentic text-to-sql. arXiv preprint arXiv:2505.05286, 2025.
+[35] Adam Polyak, Amit Zohar, Andrew Brown, Andros Tjandra, Animesh Sinha, Ann Lee, Apoorv Vyas, Bowen Shi, Chih-
+Yao Ma, Ching-Yao Chuang, et al. Movie gen: A cast of media foundation models. arXiv preprint arXiv:2410.13720,
+2024.
+[36] Chenhao Qu, Rodrigo N Calheiros, and Rajkumar Buyya. Auto-scaling web applications in clouds: A taxonomy and
+survey .ACM Computing Surveys (CSUR), 51(4):1–33, 2018.
+[37] Biao Sun, Ziming Huang, Hanyu Zhao, Wencong Xiao, Xinyi Zhang, Yong Li, and Wei Lin. Llumnix: Dynamic schedul-
+ing for large language model serving. In 18th USENIX symposium on operating systems design and implementation
+(OSDI 24), pages 173–191, 2024.
+[38] Chris Tong, Youhe Jiang, Gufeng Chen, Tianyi Zhao, Sibian Lu, Wenjie Qu, Eric Yang, Lynn Ai, and Binhang Yuan.
+Parallax: Efficient llm inference service over decentralized environment. arXiv preprint arXiv:2509.26182, 2025.
+[39] Dani Valevski, Yaniv Leviathan, Moab Arar, and Shlomi Fruchter. Diffusion models are real-time game engines. In
+International Conference on Learning Representations, volume 2025, pages 73754–73776, 2025.
+[40] Veo Team, Google DeepMind. Veo 3 technical report. Technical report, Google DeepMind, 2025. URL https:
+//storage.googleapis.com/deepmind-media/veo/Veo-3-Tech-Report.pdf.
+[41] Team Wan, Ang Wang, Baole Ai, Bin Wen, Chaojie Mao, Chen-Wei Xie, Di Chen, Feiwu Yu, Haiming Zhao, Jianxiao
+Yang, et al. Wan: Open and advanced large-scale video generative models. arXiv preprint arXiv:2503.20314, 2025.
+[42] Bingyang Wu, Yinmin Zhong, Zili Zhang, Shengyu Liu, Fangyue Liu, Yuanhang Sun, Gang Huang, Xuanzhe Liu, and
+Xin Jin. Fast distributed inference serving for large language models. arXiv preprint arXiv:2305.05920, 2023.
+[43] Bingyang Wu, Shengyu Liu, Yinmin Zhong, Peng Sun, Xuanzhe Liu, and Xin Jin. Loongserve: Efficiently serving
+long-context large language models with elastic sequence parallelism. In Proceedings of the ACM SIGOPS 30th
+Symposium on Operating Systems Principles, pages 640–654, 2024.
+[44] Yifei Xia, Fangcheng Fu, Hao Yuan, Hanke Zhang, Xupeng Miao, Yijun Liu, Suhan Ling, Jie Jiang, and Bin Cui.
+Tridentserve: A stage-level serving system for diffusion pipelines. arXiv preprint arXiv:2510.02838, 2025.
+[45] Yuxing Xiang, Xue Li, Kun Qian, Yufan Yang, Diwen Zhu, Wenyuan Yu, Ennan Zhai, Xuanzhe Liu, Xin Jin, and Jingren
+Zhou. Aegaeon: Effective gpu pooling for concurrent llm serving on the market. In Proceedings of the ACM SIGOPS
+31st Symposium on Operating Systems Principles, pages 1030–1045, 2025.
+19
+[46] Ran Yan, Youhe Jiang, Zhuoming Chen, Haohui Mai, Beidi Chen, and Binhang Yuan. Fsa: An alternative efficient
+implementation of native sparse attention kernel. arXiv preprint arXiv:2508.18224, 2025.
+[47] Shuai Yang, Wei Huang, Ruihang Chu, Yicheng Xiao, Yuyang Zhao, Xianbang Wang, Muyang Li, Enze Xie, Yingcong
+Chen, Yao Lu, et al. Longlive: Real-time interactive long video generation. arXiv preprint arXiv:2509.22622, 2025.
+[48] Zhuoyi Yang, Jiayan Teng, Wendi Zheng, Ming Ding, Shiyu Huang, Jiazheng Xu, Yuanming Yang, Wenyi Hong,
+Xiaohan Zhang, Guanyu Feng, et al. Cogvideox: Text-to-video diffusion models with an expert transformer. In
+International Conference on Learning Representations, volume 2025, pages 83048–83077, 2025.
+[49] Xiaozhe Yao. How SwissAI uses OpenTela for scalable LLM serving. Xiaozhe Yao (Blog), March 2026. URL
+https://about.yao.sh/posts/opentela-swissai/. Accessed: 2026-03-16.
+[50] Zihao Ye, Lequn Chen, Ruihang Lai, Wuwei Lin, Yineng Zhang, Stephanie Wang, Tianqi Chen, Baris Kasikci, Vinod
+Grover, Arvind Krishnamurthy , et al. Flashinfer: Efficient and customizable attention engine for llm inference serving.
+Proceedings of Machine Learning and Systems, 7, 2025.
+[51] Peiqi Yin, Jiangyun Zhu, Han Gao, Chenguang Zheng, Yongxiang Huang, Taichang Zhou, Ruirui Yang, Weizhi Liu,
+Weiqing Chen, Canlin Guo, et al. vllm-omni: Fully disaggregated serving for any-to-any multimodal models. arXiv
+preprint arXiv:2602.02204, 2026.
+[52] Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim, Soojeong Kim, and Byung-Gon Chun. Orca: A distributed serving
+system for {Transformer-Based} generative models. In 16th USENIX symposium on operating systems design and
+implementation (OSDI 22), pages 521–538, 2022.
+[53] Jintao Zhang, Kaiwen Zheng, Kai Jiang, Haoxu Wang, Ion Stoica, Joseph E Gonzalez, Jianfei Chen, and Jun Zhu.
+Turbodiffusion: Accelerating video diffusion models by 100-200 times. arXiv preprint arXiv:2512.16093, 2025.
+[54] Li Zhang, Youhe Jiang, Guoliang He, Xin Chen, Han Lv, Qian Yao, Fangcheng Fu, and Kai Chen. Efficient mixed-
+precision large language model inference with turbomind. arXiv preprint arXiv:2508.15601, 2025.
+[55] Lianmin Zheng, Liangsheng Yin, Zhiqiang Xie, Chuyue Sun, Jeff Huang, Cody H Yu, Shiyi Cao, Christos Kozyrakis,
+Ion Stoica, Joseph E Gonzalez, et al. Sglang: Efficient execution of structured language model programs. Advances
+in neural information processing systems, 37:62557–62583, 2024.
+[56] Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xuanzhe Liu, Xin Jin, and Hao Zhang. {DistServe}:
+Disaggregating prefill and decoding for goodput-optimized large language model serving. In 18th USENIX
+Symposium on Operating Systems Design and Implementation (OSDI 24), pages 193–210, 2024.
+20
+Table 5Workload characteristics of the ten profiling segments.Volatilityis the standard deviation of newly activated
+session counts across 5s bins;arrivalsis the total number of new sessions over the segment;peak activeis the maximum
+number of concurrent active sessions.
+Level Volatility Arrivals Peak active
+1 0.86 7 23
+2 1.32 11 27
+3 1.92 15 31
+4 2.66 19 35
+5 3.15 23 39
+6 3.77 27 43
+7 4.39 31 47
+8 5.14 35 51
+9 5.51 39 55
+10 6.38 43 59
+A Volatility-to-Parameter Mapping
+The autoscaling controller adapts the control parameters(λ(t),ˆρ(t))in response to workload dynamics (§5.2.2).
+We measure workload variability through a single scalar metric, thevolatilityσ(t)defined below, and realize
+the adaptation through a volatility-to-parameter mapping T:V →R >0 ×(0,1] that associates each volatility
+level vℓ ∈ V={v 1, . . . , vL} (e.g., L= 10 ) with a profiled control parameters (λℓ, ρ∗
+ℓ ). The mapping is
+constructed offline and queried online to update the active parameters.
+Volatility metric.Let aτ denote the number of newly activated sessions at event τ. Given a sliding event
+window of sizeWending at eventt, the workload volatility is defined as:
+σ(t) = std
+ 
+at−W+1 , . . . , at
+
+.(6)
+The volatility range observed across historical traces is partitioned intoL ordered intervals, with vℓ representing
+theℓ-th interval from low to high.
+Offline profiling.We subsample representative segments from historical real-world workload traces and
+group them by volatility level. For each level vℓ, we perform a grid search over candidate control parameters
+(λ, ρ∗), replay the corresponding trace segments through the scheduler, and select the parameters (λℓ, ρ∗
+ℓ )
+that minimizes GPU cost subject to the target worst-case per-chunk latency constraint. The resulting table
+{T(v ℓ) = (λℓ, ρ∗
+ℓ )}L
+ℓ=1 is persisted and loaded by the controller at startup.
+Online replacement workflow.At each event t, the controller updates the active control parameters via a
+four-stepmeasure-quantize-look-up-replaceworkflow:
+1.Measure.Compute the current volatilityσ(t)over the sliding window of recent events.
+2.Quantize.Mapσ(t)to the levelv ℓ(t) ∈ Vwhose interval containsσ(t).
+3.Look up.Retrieve the profiled parameters(λ ℓ(t), ρ∗
+ℓ(t)) =T(v ℓ(t)).
+4. Replace.Commit the update (λ(t),ˆρ(t))←(λ ℓ(t), ρ∗
+ℓ(t)), which takes effect in subsequent autoscaling
+decisions.
+Profiling case study.We illustrate the offline profiling and the resulting volatility-to-parameter mapping on a
+representative trace family consisting of L= 10 segments of monotonically increasing volatility, generated
+by progressively scaling the burst magnitude of a base activation pattern. Table 5 summarizes the workload
+characteristics of each segment, and Table 6 reports the profiled control parameters together with the cost
+and latency observed during replay under the latency constraint LSLO = 670ms . Three observations stand out
+from the profiled mapping:
+21
+Table 6Profiled control parameters and replay results per volatility level under the latency constraint LSLO = 670ms.
+Validindicates whether the configuration satisfies the latency constraint;pass rateis the fraction of generated chunks
+whose per-chunk latency falls withinL SLO;avg. costis the average GPU operating cost observed during replay .
+Level Volatility λ ρ∗ Valid Pass rate Avg. cost
+1 0.86 0.2 0.80 ✓ 100% 338.66
+2 1.32 0.2 0.80 ✓ 100% 369.35
+3 1.92 0.2 0.65 ✓ 100% 498.73
+4 2.66 0.2 0.65 ✓ 100% 526.14
+5 3.15 0.2 0.65 ✓ 100% 547.34
+6 3.77 0.2 0.50 ✓ 100% 700.77
+7 4.39 0.2 0.50 ✓ 100% 702.44
+8 5.14 0.2 0.50 ✓ 100% 705.05
+9 5.51 0.2 0.25 ✓ 100% 770.44
+10 6.38 0.2 0.25 ✓ 100% 769.46
+O1: Monotonic reduction of ρ∗ with volatility.The target utilization ρ∗
+ℓ decreases monotonically as the volatility
+level increases, dropping from 0.80 at level 1 to 0.25 at level 10. This directly realizes the design intuition stated
+in §5.2.2: at low volatility the controller can pack sessions densely without risking latency violations, while at
+high volatility it must reserve substantial per-GPU headroom to absorb activation bursts. Notably , the profiled
+ρ∗
+ℓ values fall into four discrete bands (0.80,0.65,0.50,0.25 ), each spanning two to three adjacent volatility
+levels, suggesting that the cost-latency frontier exhibits a piecewise-flat structure rather than continuously
+varying with volatility .
+O2: Stable λ across the entire range.The latency weight λℓ remains fixed at 0.2 across all ten levels, indicating
+that for this trace family the cost-latency trade-off is governed primarily by ρ∗, with λ playing a secondary
+role. Conceptually ,ρ∗ adapts the system’s safety margin in capacity space, while λ would primarily activate
+as a second axis under workloads where headroom adjustment via ρ∗ alone proves insufficient (e.g., when
+ρ∗ saturates at its lower bound and further headroom can only be obtained by penalizing latency more
+aggressively in the objective).
+O3: Monotonic increase of cost with volatility.The average GPU cost increases monotonically as the volatility
+level rises, from 338.66 at level 1 to 770.44 at level 9, roughly 2.3×. This growth mirrors the reduction in
+ρ∗ documented in O1: as ρ∗
+ℓ shrinks, each GPU carries fewer concurrent sessions, forcing the controller to
+provision additional GPUs to serve the same workload. The mapping therefore makes explicit the cost of
+accommodating burstiness: each volatility level pays exactly the additional GPU cost required to handle
+its bursts. A non-adaptive controller using a fixed ρ∗ would either incur level-9 cost at level-1 workloads
+(over-provisioning under stable load) or violate the latency constraint at high volatility (under-provisioning
+under bursts), whereas the volatility-keyed mapping recovers the cost-minimal feasible configuration at each
+level.
+Results analysis.All ten levels achieve a 100% pass rate under LSLO = 670ms , confirming that the constrained
+grid search consistently identifies feasible (λ, ρ∗) configurations across the entire volatility range. The mapping
+is therefore simultaneouslysafe(no per-chunk latency violations are observed), andcost-aware(each level
+pays only the cost required to absorb its own characteristic burstiness).
+Comparison with an offline oracle.We further evaluate how close the online mapping is to an offline
+trace-tuned oracle. The goal is to isolate the gap caused by online, adaptive control-parameter selection,
+rather than differences in scheduling primitives, so both methods use the same migration and autoscaling
+mechanisms, the same maximum GPU budget, and the same scale-out delay and cost model.
+Oracle. The oracle has access to the realized workload trace in each future control window. For every 30 s
+window, it searches over ρ∗ ∈ {0.50,0.55, . . . ,0.95}and selects the cost-minimizing value that still satisfies the
+latency constraint, knowing the future arrivals exactly . This baseline is not deployable in practice, but provides
+an upper bound for evaluating the quality of the online mapping.
+22
+Table 7Unseen fluctuating workload used for the oracle comparison.Avg./max active sessionscharacterize the per-window
+load.
+Window w1 w2 w3 w4 w5 w6 w7 w8 w9 w10
+Avg. active sessions 32.00 17.17 7.67 23.47 51.23 72.43 12.43 56.90 22.30 53.17
+Max active sessions 38 18 8 28 58 77 13 68 23 73
+Table 8Per-window target utilizationρ ∗.
+Window w1 w2 w3 w4 w5 w6 w7 w8 w9 w10
+Offline oracleρ ∗ 0.60 0.88 0.95 0.72 0.55 0.55 0.92 0.55 0.80 0.55
+Oursρ ∗ 0.66 0.72 0.88 0.78 0.60 0.60 0.60 0.60 0.60 0.60
+Ours. The online mapping does not observe the future trace. During serving, it computes the volatility from a
+recent sliding window, maps it to a profiled level, and applies the corresponding control parameters. In this
+experiment,λis fixed at0.20and adaptation is performed throughρ ∗ alone.
+Workload trace. We construct an unseen 5-minute workload comprising ten 30 s windows that alternate
+between low, medium, and high pressure. Each GPU hosts at most five concurrent sessions, and the maximum
+GPU budget is16. Table 7 summarizes the per-window load characteristics.
+Selected control parameters. Table 8 reports the target utilization selected by the oracle and by our online
+mapping. With full knowledge of future demand, the oracle picks the per-window cost-minimizing ρ∗, packing
+densely in low-pressure windows (ρ∗ up to 0.95 in w3) and lowering ρ∗ to 0.55 during high-pressure windows.
+Our method, observing only recent history, follows a qualitatively similar pattern in the early windows but
+settles into a steady ρ∗ = 0.60 once volatility has risen, retaining this conservative setting until the volatility
+estimate decays. Overall, the oracle tends toward sharp, per-window-optimal swings (range0.55 to 0.95), while
+our method tends toward smoother, more conservative selections (range 0.60 to 0.88), trading per-window
+optimality for stability against unforeseen bursts.
+Experimental results. Table 9 reports the headline simulation outcomes, and Table 10 shows the window-end
+GPU budgets. Both methods keep the served-chunk maximum latency at or below 668.05 ms, within the
+670 ms target, with comparable average latencies ( 410.47 ms for the oracle and 421.57 ms for our method).
+The oracle uses fewer GPUs in low-pressure windows where it can safely raise ρ∗ (e.g., w2, w3, w7, w9),
+while our method holds additional headroom in those windows because the recent volatility estimate has not
+yet decayed. On total operating cost, the online mapping (3721.93) comes within 0.73% of the offline oracle
+(3695.00).
+Results analysis. This near-equality is striking given the substantial information asymmetry between the two
+methods: the oracle has access to every future arrival in every window and selects ρ∗ per-window optimally
+(ranging from 0.55 to 0.95), whereas our method observes only a recent sliding window of activations and
+chooses ρ∗ from the volatility mapping (ranging from 0.60 to 0.88). The result demonstrates that the volatility-
+based mapping is robust across diverse workload regimes: it handles low-pressure intervals, sustained bursts,
+and abrupt transitions alike without exceeding the latency target, while incurring almost the same total
+cost as the oracle. The mapping therefore captures essentially all of the cost-relevant structure that future
+knowledge could exploit, and remains effective under the inherent delay between observing rising volatility
+and provisioning additional GPUs. Since the oracle requires future knowledge and is not deployable in practice,
+it represents an unrealizable upper bound, and the online mapping effectively closes the gap to it under
+realistic causality constraints. We also conduct the same comparison on two additional traces subsampled from
+real-world workloads, where the cost gap to the oracle is 2.25% and 3.99%, indicating that our volatility-based
+mapping generalizes beyond this single trace.
+B Workload Statistics
+Table 11 demonstrates the workload trace characteristics for characterization and motivation.
+23
+Table 9End-to-end comparison between the online mapping and the offline oracle.Costis the total GPU operating cost;
+avg./max lat.are the per-chunk latency statistics across the entire trace.
+Method Cost Avg. lat. Max lat.
+Offline oracle 3695.00 410.47 ms 668.05 ms
+Ours 3721.93 421.57 ms 667.46 ms
+Table 10Window-end GPU budgets selected by each method.
+Window w1 w2 w3 w4 w5 w6 w7 w8 w9 w10
+Offline oracle 13 5 2 8 16 16 3 16 6 16
+Ours 11 8 8 8 16 16 8 16 8 15
+Table 12 reports the detailed characteristics of the evaluated traces. Traces T1–T3 are evaluated on the H20
+cluster (Cluster 1) and traces T4–T6 on the B300 cluster (Cluster 2)
+24
+Table 11Workload trace characteristics.Arrivalsis the number of new jobs entering the system in each span;Departures
+is the number of jobs completing in each span;Avg. activeis the mean number of concurrently active jobs over the span.
+Time (min) [0,2) [2,4) [4,6) [6,8) [8,10]
+Arrivals 31 47 30 48 44
+Departures 17 24 26 39 49
+Avg. active 10.36 20.91 19.30 29.62 33.49
+Table 12Workload trace characteristics.Arrivalsis the number of new jobs entering the system in each span;Departures
+is the number of jobs completing in each span;Avg. activeis the mean number of concurrently active jobs over the span.
+Trace Metric [0,1) [1,2) [2,3) [3,4) [4,5) Total
+T1
+Arrivals 122 130 66 22 18 358
+Departures 44 86 88 64 38 320
+Avg. active 28.0 56.2 57.4 37.4 23.2 –
+T2
+Arrivals 218 214 248 192 204 1076
+Departures 60 124 204 196 204 788
+Avg. active 61.0 118.6 147.6 154.2 149.4 –
+T3
+Arrivals 74 148 156 264 156 798
+Departures 10 64 126 148 214 562
+Avg. active 13.2 49.4 112.8 121.4 148.4 –
+T4
+Arrivals 500 428 308 88 80 1404
+Departures 158 266 388 236 152 1200
+Avg. active 118.4 219.2 268.0 162.8 101.8 –
+T5
+Arrivals 874 862 998 762 814 4310
+Departures 238 504 810 784 814 3150
+Avg. active 245.8 475.2 589.2 616.8 598.4 –
+T6
+Arrivals 296 590 626 1062 618 3192
+Departures 36 260 502 608 846 2252
+Avg. active 54.4 198.4 451.4 487.2 592.0 –
+25

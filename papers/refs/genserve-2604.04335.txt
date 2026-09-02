@@ -1,0 +1,1750 @@
+GENSERVE: Efficient Co-Serving of Heterogeneous Diffusion Model Workloads
+Fanjiang Ye1 Zhangke Li1 Xinrui Zhong1 Ethan Ma1 Russell Chen1
+Kaijian Wang1 Jingwei Zuo1 Desen Sun2 Ye Cao3 Triston Cao4
+Myungjin Lee5 Arvind Krishnamurthy6 Yuke Wang1
+1Rice University 2University of Waterloo 3Independent Researcher
+4NVIDIA 5Cisco Research 6University of Washington
+Abstract
+Diffusion models have emerged as the prevailing approach for
+text-to-image (T2I) and text-to-video (T2V) generation, yet
+production platforms must increasingly serve both modalities
+on shared GPU clusters while meeting stringent latency SLOs.
+Co-serving such heterogeneous workloads is challenging: T2I
+and T2V requests exhibit vastly different compute demands,
+parallelism characteristics, and latency requirements, leading
+to significant SLO violations in existing serving systems. We
+present GENSERVE, a co-serving system that leverages the
+inherent predictability of the diffusion process to optimize
+serving efficiency. A central insight is that diffusion infer-
+ence proceeds in discrete, predictable steps and is naturally
+preemptible at step boundaries, opening a new design space
+for heterogeneity-aware resource management. GENSERVE
+introduces step-level resource adaptation through three co-
+ordinated mechanisms: intelligent video preemption, elastic
+sequence parallelism with dynamic batching, and an SLO-
+aware scheduler that jointly optimizes resource allocation
+across all concurrent requests. Experimental results show that
+GENSERVEimproves the SLO attainment rate by up to 44%
+over the strongest baseline across diverse configurations.
+1 Introduction
+Recently, diffusion models have achieved remarkable break-
+throughs and widespread popularity [9, 13, 30], demonstrat-
+ing unparalleled performance in generative tasks. From
+U-Net architectures [13, 30, 33] to Diffusion Transform-
+ers (DiT) [5, 10, 26], these models have established them-
+selves as the dominant paradigm for both text-to-image
+(T2I) [27, 29, 31] and text-to-video (T2V) [6, 32] genera-
+tion. As demand grows, production platforms need to serve
+both modalities under tight latency service-level objectives
+(SLOs) on heterogeneous diffusion workloads. In practice,
+serving image and video generation jointly on shared clusters
+is increasingly common in production platforms [25, 28, 43].
+Users frequently submit both T2I and T2V requests to the
+same service endpoint, and the workload mix fluctuates over
+time. Co-serving both modalities on a unified cluster is attrac-
+tive because DiT models are compact enough to fit on a single
+GPU without model parallelism [12, 24], and T2I and T2V
+can share the same DiT backbone, allowing a shared deploy-
+ment to achieve higher resource utilization than dedicating
+separate device pools to each modality.
+However, co-serving mixed image and video workloads on
+shared clusters remains highly challenging. The core difficulty
+is the mismatch between heterogeneous workload demands
+and the static resource management of existing systems. T2I
+and T2V requests differ by orders of magnitude in per-step
+runtime cost (up to 20× for 720p Image and Video) and im-
+pose vastly different latency targets, yet current systems treat
+them with a single, fixed serving configuration. Beyond the
+workload asymmetry, this heterogeneity interacts poorly with
+conventional scheduling policies. Under FIFO, a small frac-
+tion of long-running video requests causes severe head-of-line
+(HOL) blocking, starving latency-sensitive image requests.
+Under shortest-job-first (SJF), image requests are always pri-
+oritized, causing video starvation and missed video deadlines.
+Neither policy can balance the competing latency targets of
+both modalities, leading to widespread SLO violations. More-
+over, existing diffusion serving systems [3, 12] are designed
+for homogeneous workloads, applying a single, statically con-
+figured strategy for batching [3,8,44] and parallelism [11,21]
+that is tuned for one task type. These assumptions break down
+in mixed image and video serving, where no static strategy
+fits all requests: the optimal configuration varies continuously
+with the workload mix, request resolutions, and device state.
+To the best of our knowledge, no existing system supports co-
+serving heterogeneous diffusion workloads with coordinated
+resource management across task types.
+To overcome these issues, we identify several key opportu-
+nities. First, unlike LLM inference whose runtime depends on
+unpredictable output length [20, 44], diffusion models exhibit
+highly predictable execution: they perform a fixed number
+of denoising steps whose per-step cost is determined solely
+by input configuration (resolution and frame count). This
+1
+arXiv:2604.04335v2  [cs.DC]  8 Apr 2026
+I3
+Head-of-line Blocking
+I2
+SLO: 2/7
+V1
+V2
+V3
+I1
+GPU 0
+GPU 1
+GPU 2
+GPU 3
+（a)FIFO
+V4
+TimeI1& I2
+arrive
+I3
+arrives
+I1 & I2
+deadline
+I3
+deadline
+V3
+deadline
+V4
+deadline
+V1&V2
+deadline
+（b)GenServe
+GPU 0
+GPU 1
+GPU 2
+GPU 3
+V1
+V2
+V3
+V4I1+I2
+ V4
+I3
+ V3
+V3
+V4
+SLO: 7/7
+Batching
+Video
+Preemption
+SPDegree
+Switching
+480p Video
+720p Video
+480p Image
+720p Image
+TimeI1& I2
+arrive
+I3
+arrives
+I1 & I2
+deadline
+I3
+deadline
+V3
+deadline
+V4
+deadline
+V1&V2
+deadline
+Figure 1: Serving 4 videos (V1–V4) and 3 images (I1–I3) on
+4 GPUs. (a) FIFO: videos occupy all GPUs until completion;
+images must wait, causing HOL blocking and 5 deadline
+misses (SLO 2/7). (b) GENSERVE: when I1, I2 arrive, the
+scheduler preempts V3 and V4 at step boundaries, batches
+I1+I2 on GPU 3, and serves I3 on GPU 2. After images
+complete, V3 and V4 resume with SP degree switching (each
+scaling to 2 GPUs) to recover lost slack. All 7 requests meet
+their deadlines (SLO 7/7).
+predictability enables the system to accurately estimate the
+remaining cost of every in-flight request, making schedul-
+ing decisions controllable and resource-aware at step-level
+granularity. Second, current systems [12, 45, 46] execute the
+entire diffusion pipeline as an atomic unit, offering no mecha-
+nism to interrupt a long-running request once it begins. Yet
+diffusion models are naturally preemptible at step bound-
+aries: a request can be paused after any denoising step and
+resumed later without losing progress or quality. The inter-
+mediate state is a compact latent tensor [30, 42] (typically
+up to tens of MBs, Table 8) that can be retained in GPU
+memory, making pause and resume a millisecond-level opera-
+tion with negligible switching overhead (as measured in §6).
+Combined with predictable per-step costs, this enables fine-
+grained, deadline-aware preemption at near-zero cost. Third,
+the distinct computational profiles of T2I and T2V provide
+opportunities for workload-aware resource reallocation: dy-
+namic batching can improve T2I throughput on underutilized
+GPUs, while elastic Sequence Parallelism (SP) [12, 17, 23],
+which partitions the input token sequence across GPUs to re-
+duce per-step latency, can be dynamically adjusted to balance
+latency reduction against communication overhead for T2V
+tasks of varying resolutions. Rather than fighting heterogene-
+Listing 1: Example usage of GENSERVE.
+1import GenServe
+2
+3# Configure devices and models
+4server =GenServe.Server(
+5GPUs="0, 1, 2, 3, ..., 8",
+6image _model="stabilityai/stable-diffusion-3.5",
+7video _model="Wan-AI/Wan2.2-T2V-5B"
+8)
+9# Set per-modality SLO targets (in seconds)
+10server.set _slo(image_slo=3.0, video _slo=60.0)
+11# Load offline latency profiles for the scheduler
+12server.load _profiler(profile_dir="profiles/")
+13# Enable serving optimizations
+14server.enable(
+15preemption=True, # Preemption
+16elastic _sp=[1, 2, 4, 8], # Allowed SP degrees
+17dp _solver=True, # SLO-aware DP scheduler
+18batching=True, # Dynamic image batching
+19)
+20# Load mixed request trace and launch serving
+21server.load _requests("traces/workload.json")
+22results = server.serve()
+ity with a one-size-fits-all policy, the system can exploit it
+by adapting resource allocation per request type at step-level
+runtime.
+Based on the above insights, we propose GENSERVE, an
+efficient diffusion serving system for mixed image and video
+workloads that exploits the predictability of diffusion execu-
+tion to enable heterogeneity-aware and step-level resource
+adaptation. The core idea of GENSERVEis to transform a re-
+active serving problem into a proactive optimization: because
+per-step costs are stable and known, the system can predict the
+impact of every scheduling action, including batching, paral-
+lelism, reconfiguration and preemption before committing to
+it. At each scheduling round, the system solves a lightweight
+allocation that jointly considers all requests and maximizes
+global SLO attainment.
+Specifically, GENSERVEintegrates a set of complemen-
+tary mechanisms that jointly address the challenges of het-
+erogeneous diffusion serving (Figure 1). First, we design
+an intelligent video preemption mechanism that leverages
+per-step predictability to determine when and which running
+video requests can be paused at step boundaries to release
+GPUs for urgent image requests, while ensuring that each pre-
+empted video’s own deadline remains feasible upon resump-
+tion. Second, we introduce elastic resource allocation that
+dynamically adjusts sequence parallelism degrees for video
+tasks and batching strategies for image tasks based on runtime
+workload characteristics, exploiting the distinct computational
+profiles of each modality rather than applying a uniform pol-
+icy. Third, we develop a stepwise SLO-aware scheduler that
+formulates joint resource allocation as a knapsack-style dy-
+namic programming problem, selecting the combination of
+batching budgets, parallelism configurations, and preemption
+candidates that maximizes deadline satisfaction across all
+concurrent requests. To make these capabilities accessible,
+2
+we expose a simple usage example (Listing 1) that allows de-
+velopers to perform serving and easily extend other diffusion
+models.
+To sum up, we make the following contributions:
+• We propose the intelligent video preemption (§4.2) and
+elastic resource allocation (§4.3) that exploit the pre-
+dictability and step-level preemptibility of diffusion mod-
+els to dynamically adjust parallelism degrees and batch-
+ing strategies at runtime.
+• We design a stepwise SLO-aware scheduler (§4.4) that
+formulates joint resource allocation as a lightweight DP-
+based optimization to maximize deadline satisfaction
+across all concurrent requests.
+• Extensive evaluation demonstrates that GENSERVE
+achieves up to 44% improvement in SLO attainment
+over state-of-the-art baselines (§6).
+2 Background
+This section provides background on diffusion model infer-
+ence and summarizes prior serving systems. Section 2.1 in-
+troduces the diffusion generation pipeline and explains why
+mixed T2I/T2V serving on shared GPUs is challenging. Sec-
+tion 2.2 introduces existing diffusion serving optimizations
+and highlights the limitations on mixed workloads.
+2.1 Diffusion Models for Content Generation
+Latent Diffusion Models (LDMs) are the dominant paradigm
+for both text-to-image (T2I) and text-to-video (T2V) gener-
+ation. They operate in a compressed latent space where an
+encoder E maps input x to z=E(x), and generation proceeds
+via forward (noising) and reverse (denoising) phases. The
+forward phase adds Gaussian noise over T timesteps with
+schedule{β t}:
+q(zt|z t−1 ) =N
+
+zt;
+p
+1−β t zt−1 ,βtI
+
+.(1)
+The reverse phase iteratively recoversz0 from zT via a learned
+network:
+pθ(zt−1|z t ) =N(z t−1;µ θ(zt ,t),Σ θ(zt ,t)).(2)
+As shown in Figure 2, modern Diffusion Transformer
+(DiT) [14, 19, 37] pipelines share three components across
+T2I and T2V: a V AE for latent encoding/decoding, a text en-
+coder for prompt embeddings, and DiT blocks that performN
+denoising steps with cross-attention for text alignment. The
+critical difference lies in the latent structure: T2I operates
+on a 2D spatial grid, while T2V adds a temporal dimension
+proportional to the frame count, substantially increasing per-
+step token count and running latency. Combined with more
+denoising steps, a single video request can occupy multiple
+InitialNoised 
+Latent
+Text Prompt
+“Ablackand
+whitebutterfly
+onflowers”
+Timestep T
+Text
+Encoder
+Text
+Embeddings
+DiT Blocks
+VAE
+Decoder
+Random
+Noise
+Output 
+Image&Video 
+N X
+T0
+Figure 2: Overview of DiT inference process.
+GPUs for tens of minutes, orders of magnitude longer than
+an image.
+This asymmetry creates a core tension for mixed-workload
+serving. Unlike LLMs, whose KV caches can consume the
+majority of GPU memory, DiT models have a relatively com-
+pact memory footprint, e.g., a single GPU can host both a
+T2I and a T2V model weights simultaneously, with a peak
+memory around 50 Gigabytes. This compact footprint makes
+co-serving both modalities on shared GPUs feasible, while
+naively isolating the two workloads into dedicated GPU pools
+would leave substantial memory and compute capacity un-
+derutilized. However, co-serving without careful coordina-
+tion leads to poor user experience: long-running video tasks
+monopolize GPU compute, starving latency-sensitive image
+requests, while unmanaged contention causes deadline viola-
+tions on both sides.
+2.2 Diffusion Model Serving
+Recent work has advanced diffusion serving along three axes.
+On theparallelismfront, prior systems have combined se-
+quence parallelism with patch-level pipelining [12], disag-
+gregated pipeline stages with per-request SP degree selec-
+tion [15], and independently scaled each stage to reduce inter-
+stage imbalance [39]. On theschedulingfront, recent work has
+explored step-level dynamic SP with round-based deadline-
+aware scheduling [24] and prompt routing through model
+cascades under dynamic resource allocation [3]. Complemen-
+tarily, caching approaches [2, 35, 40] reduce per-request cost
+by reusing intermediate latents or final outputs for similar
+prompts, though these are inherently lossy, affecting the out-
+put quality.
+Despite these advances, all existing systems target a single
+task type and assume homogeneous workloads. The previ-
+ousparallelismstrategies are tuned for one workload profile,
+without accounting for the fundamentally different scaling
+behaviors of T2I and T2V , and the previousschedulingal-
+gorithms optimize for a single latency objective rather than
+balancing competing SLO targets. To the best of our knowl-
+edge, no existing system supports co-serving heterogeneous
+diffusion workloads, which demands coordinated resource
+3
+Table 1: Per-step DiT runtime stability across batch sizes
+and SP degrees. Std and CV (Coefficient of Variation) are
+measured over repeated 50-step runs.
+Image (SD 3.5) Video (Wan2.2-5B)
+BS SP Std (ms) CV (%) BS SP Std (ms) CV (%)
+1 1 0.03 0.04 1 1 0.12 0.02
+2 1 0.04 0.03 1 2 0.10 0.01
+4 1 0.05 0.02 1 4 0.16 0.02
+8 1 0.07 0.01 1 8 0.14 0.01
+Table 2: Stage-level runtime breakdown of T2V generation
+(Wan2.2-5B, 81 frames) on a single GPU. The DiT denoising
+stage dominates across all resolutions (92–95% of total time).
+Resolution Text Enc. (s) DiT (s) V AE Dec. (s) DiT Ratio
+256p 0.03 4.41 0.34 92.2%
+480p 0.03 16.03 1.01 93.9%
+720p 0.03 50.00 2.47 95.2%
+management across task types with diverse computational
+profiles and latency objectives.
+3 Motivation
+Insight 1 : Diffusion models have predictable and stable per-
+step runtime, yet heterogeneous workloads naturally cause
+HOL blocking, making step-level preemption both feasible
+and necessary.
+Unlike LLM inference, whose runtime depends on the un-
+predictable length of generated output, diffusion models per-
+form a fixed number of denoising steps whose per-step cost is
+determined by input configuration. As shown in Table 1, the
+per-step runtime remains highly stable across batch sizes and
+SP degrees (CV < 0.05%). Meanwhile, as shown in Table 2,
+the DiT denoising stage occupies 92–95% of the total gener-
+ation time, and the process is inherently iterative, executing
+tens of independent steps in sequence. This predictability and
+iterative structure make it possible to accurately estimate the
+remaining cost of any request and to pause execution at step
+boundaries during the DiT stage without losing progress.
+Furthermore, the compact memory footprint of DiT models
+(e.g., Wan2.2-T2V is only 5B) allows both sets of weights
+to reside in GPU memory simultaneously without swapping
+in and out GPUs, making time-based GPU sharing a nat-
+ural deployment choice that fully utilizes device memory
+capacity and avoids costly weight migration. Under this co-
+location model, T2I and T2V requests share GPU compute
+time, and the order-of-magnitude runtime gap between them
+(Figure 3) makes the scheduling policy critical. Conventional
+scheduling policies like First-in-First-out (FIFO) cause severe
+head-of-line blocking: as shown in Figure 4, under bursty
+video arrivals, long-running video requests monopolize GPUs,
+1 2 4 8
+Batch Size
+2.5
+5.0
+7.5E2E Latency (s)
+(a) Text-to-Image
+1 2 4 8
+Batch Size
+0
+100
+200
+(b) Text-to-Video
+256p 480p 720p Batching Sequential
+Figure 3: End-to-end latency of T2I and T2V workloads
+across batch sizes and resolutions. In T2I, batching yields
+noticeable savings over theoretical sequential execution at low
+resolutions, while T2V exhibits limited room for batching-
+based latency reduction even for low-resolution requests.
+Pois. 18 Pois. 24 Burst 18 Burst 24
+0
+20
+40
+60
+80
+100SLO Satisfaction (%)
+62
+17 17 12
+54
+23
+18 18
+(a) SLO Satisfaction
+Image
+Video
+Pois. 18 Pois. 24 Burst 18 Burst 24
+0
+10
+20
+30Image Wait Time (s)
+0.6
+4.2 5.8
+13.3
+7.3
+15.1 16.7
+37.4
+(b) Image Queue Wait Time
+Avg
+P99
+Figure 4: Head-of-line blocking under FCFS scheduling with
+workloads (70% video, 81 frames). Here Pois. means the
+Poisson arrival pattern. (a) SLO satisfaction drops sharply
+under bursty video arrivals, image SLO falls from 62% to
+12% as videos monopolize all GPUs. (b) Image P99 queue
+wait time increases by5× from 7.3 s to 37.4 s, confirming that
+FCFS cannot protect image requests, causing HOL blocking.
+causing image SLO satisfaction to drop from 62% to 12%.
+Shortest-Job-First (SJF) always prioritizes image requests due
+to their much shorter execution time, starving video requests
+and causing widespread video SLO violations (as measured in
+§6). None of these policies can balance the competing latency
+targets of both modalities.
+Opportunity 1 : We can leverage the predictable, iterative
+nature of diffusion models topreempt long-running video
+requestsat denoising step boundaries, releasing GPU com-
+pute for urgent image requests without wasting completed
+work or swapping model weights.
+Insight 2 : T2I and T2V workloads exhibit fundamentally
+different compute profiles, requiring specific batching and
+parallelism strategies rather than a uniform configuration.
+For batching, we first estimate the per-step arithmetic in-
+tensity (AI) of DiT in Table 3, showing that T2V tends to be
+compute-intensive at all resolutions, meaning the DiT stage al-
+ready saturates GPU compute even at batch size 1. Increasing
+the batch size, therefore, provides negligible throughput gain
+for T2V while worsening SLO attainment. In contrast, T2I
+at lower resolutions falls below the ridge point, leaving GPU
+utilization headroom that batching can exploit to improve
+4
+Table 3: Per-step arithmetic intensity of DiT for T2I (SD3.5)
+and T2V (Wan2.2-5B, 81 frames) in BF16.
+Model Res. Seq. Len. FLOPs/step (T) AI (FLOPs/B)
+SD3.5 (T2I)
+256p 256 0.36 243
+480p 900 1.34 764
+720p 2,304 3.91 1,646
+Wan2.2 (T2V)
+256p 1,344 10.81 1,197
+480p 4,725 43.90 3,437
+720p 12,096 145.26 6,941
+256p 480p 720p
+Resolution
+0
+20
+40
+60Latency (s)
+1.6×
+2.0×
+2.0×
+1.7×
+3.5×
+3.9×
+0.9×
+3.4×
+7.0×
+(a) DiT
+256p 480p 720p
+Resolution
+0
+1
+2
+3
+1.0×
+1.0×
+1.0×
+1.0×
+1.0×
+1.0×
+1.0×
+1.0×
+1.0×
+(b) VAE Decode
+SP = 1 SP = 2 SP = 4 SP = 8
+Figure 5: The runtime of different stages in T2V across differ-
+ent resolutions and Sequence Parallelism (SP) degrees. DiT
+and V AE Decode latency of T2V across resolutions and SP
+degrees. DiT benefits from higher SP at high resolutions (up
+to 7.0× at 720p/81f) but shows diminishing returns at low
+resolutions. V AE Decode latency is unaffected by SP degree.
+runtime latency, as confirmed in Figure 3.
+For Sequence Parallelism, its effectiveness depends on
+whether the per-GPU computation is large enough to amortize
+the communication overhead. Figure 5 and Figure 6 confirm
+this across both stages. For DiT, high-resolution video gen-
+eration provides sufficient per-GPU workload, so increasing
+SP yields near-linear latency reduction initially. However, as
+SP degree grows further, the communication fraction rises
+rapidly and per-GPU workload shrinks below efficient kernel
+granularity, causing the speedup to saturate. At low resolu-
+tions, this saturation occurs much earlier, making SP beyond
+a small degree ineffective. For V AE, the computation is in-
+herently too small to benefit from SP regardless of resolution:
+even under parallel execution [36], GPUs operate over the
+same tensor, leading to low utilization and negligible speedup.
+Opportunity 2 : We candynamically adapt resource allo-
+cationper task type at runtime: applying aggressive batching
+to T2I for higher utilization, tuning SP degrees for T2V based
+on resolution, and keeping V AE on a single GPU.
+Insight 3 : Static deployment and offline solvers cannot effi-
+ciently serve mixed diffusion workloads whose composition
+fluctuates at runtime, necessitating online scheduling that
+jointly considers all in-flight requests.
+Existing systems [12] fix the SP degree for each request at
+admission time and never adjust it during execution. While
+this simplifies deployment, it cannot react to the GPU avail-
+1 2 4 8
+Batch Size
+0
+10
+20Comm. (%)
+11
+6
+5
+5
+14
+19
+15
+8
+20
+19
+19
+13
+256p
+1 2 4 8
+Batch Size
+0
+10
+20
+9
+5
+6
+6
+13
+9
+8
+7
+19
+15
+11
+9
+480p
+1 2 4 8
+Batch Size
+0
+5
+10
+15
+5
+6
+5
+5
+8
+7
+6
+7
+11
+9
+9
+8
+720p
+SP=2 SP=4 SP=8
+Figure 6: Communication overhead (as % of per-step time)
+for T2V DiT across resolutions, batch sizes, and SP degrees.
+Higher SP degrees incur more communication; at low reso-
+lutions (256p) the ratio reaches 20%, explaining the poor SP
+scalability in Figure 5. Larger batch sizes and higher resolu-
+tions reduce the ratio by increasing per-GPU computation.
+ability changes caused by request arrivals, completions, and
+preemptions in a mixed-workload setting. An alternative is to
+formulate optimal resource allocation as a Mixed-Integer Lin-
+ear Program (MILP) [18], but MILP solvers are prohibitively
+slow for online use: even moderate problem sizes require sec-
+onds to minutes, far exceeding the millisecond-scale schedul-
+ing budget at step boundaries.
+Beyond solver latency, the fundamental challenge is that
+the workload mix changes continuously during real serving:
+the ratio of image to video requests, their resolutions, and
+their remaining deadlines. A static partitioning of GPUs be-
+tween T2I and T2V cannot track these dynamics, as over-
+provisioning one modality inevitably starves the other (as
+discussed in Figure 15). Meanwhile, preemption and adap-
+tive resource allocation are individually beneficial, but ap-
+plying them without joint coordination leads to suboptimal
+decisions: preemption releases GPUs that are allocated ineffi-
+ciently, while per-request parallelism tuning without global
+visibility may improve one request at the expense of overall
+SLO attainment.
+Opportunity 3 : We can combine per-step predictability
+with global request visibility toformulate a lightweight on-
+line SLO-aware schedulerthat jointly decides preemption,
+batching, and parallelism at each scheduling round, maxi-
+mizing SLO attainment across all concurrent requests under
+changing workload conditions.
+4 GENSERVE
+4.1 Overview
+Motivated by the observations in §3, we present GENSERVE,
+an efficient serving system for mixed diffusion workloads
+that continuously reallocates GPU capacity across heteroge-
+neous jobs while maintaining deadline visibility. GENSERVE
+addresses the challenges through three mechanisms:intelli-
+gent video preemption(§4.2) that pauses running videos to
+release resources for urgent images without violating video
+5
+Request
+Entry Admission
+Scheduler
+Cluster 
+States
+Queues
+Solver
+ Query
+Profiler
+Cost 
+Model
+Allocator
+GPU Pools 
+Topology
+Allocation
+Message
+Reconfiguration 
+Message
+Workers
+GPU States
+ Execution 
+Engine
+Controller
+Dispatch 
+TasksDispatcher
+Preemption 
+Signal
+Worker 
+Manager
+Result
+Queue
+Return Response
+Response
+Offline
+Figure 7: System overview of GENSERVE. Incoming requests
+are admitted by the Scheduler, which maintains cluster states
+and queries the Profiler for offline latency estimates to invoke
+the Solver for joint optimization. The resulting decisions are
+passed to the Allocator and the Controller, which dispatches
+tasks and preemption signals to Workers. Workers execute
+inference on assigned GPUs and report step-level progress
+back through the Result Queue.
+deadlines;elastic resource reallocation(§4.3) that adapts se-
+quence parallelism degrees and batching images at runtime
+to increase the serving efficiency; and astepwise SLO-aware
+scheduler(§4.4) that optimizes resource allocation across
+hybrid requests.
+Figure 7 illustrates the architecture of GENSERVE, consist-
+ing of five components that form a closed serving loop. When
+a request arrives, the Scheduler ( 1 ) records its task type,
+resolution, and deadline, and maintains per-GPU state by pro-
+cessing worker events. For images under low contention, the
+Scheduler consults the Profiler ( 2 ), which stores offline la-
+tency estimates across resolutions, batch sizes, and parallelism
+degrees, to coalesce same-resolution requests into a deadline-
+feasible batch and dispatches it to a Worker ( 3 ). For videos,
+the Scheduler enqueues the request and triggers a scheduling
+round: the solver constructs a global snapshot, queries the
+Profiler for cost estimates, and solves a joint optimization
+over all in-flight videos and queued images. If preemption or
+SP reconfiguration is needed, theAllocator ( 4 ) translates the
+scheduling decisions into GPU assignments and adjusts the
+parallelism topology. The Controller ( 5 ) then delivers task
+and control messages to Workers, which execute denoising
+and report progress back to the Scheduler for next rounds.
+4.2 Intelligent Video Preemption
+In mixed serving, long-running video tasks can monopolize
+GPUs and block image requests (as discussed in §3). In this
+section, GENSERVEintroduces the intelligent video preemp-
+tion mechanism that pauses running video tasks at denois-
+ing step boundaries to free GPUs for urgent image requests.
+The mechanism addresses two key questions:whichvideo
+to preempt, andwhento resume it, while ensuring that the
+preempted video can still meet its own deadline. Figure 8
+illustrates the overall workflow.
+Potential Candidate Selection.When a latency-sensitive
+image request arrives and no GPU is available, the scheduler
+must select a running video to preempt. A naive strategy like
+preempting the most recently started video risks violating the
+candidate’s deadline, while always preempting the longest-
+running video may unnecessarily interrupt a task close to
+completion, degrading the overall SLO attainment. Instead,
+GENSERVEleverages the predictability of per-step execution
+to compute thedeadline slackof every running videov:
+slackv =D v−t now−S rem
+v ·Tstep(v),(3)
+where Dv is the video’s deadline,Srem
+v is the number of remain-
+ing denoising steps, andTstep(v) is the offline profiled per-step
+latency obtained from Profiler under the current configuration.
+Since Tstep(v) is near-constant across runs (as discussed in
+§3), the remaining runtime Srem
+v ·T step(v) can be estimated
+with high accuracy.
+A positive slack means the video can tolerate a pause and
+still finish on time; a non-positive slack means any inter-
+ruption would likely cause a deadline miss. The scheduler
+ranks all running videos by descending slack and selects the
+highest-slack videos as preemption victims, since they have
+the most room to absorb the pause duration. Videos with
+non-positive slack are excluded from consideration to avoid
+causing deadline violations. The scheduler continues select-
+ing victims until enough GPUs are freed to serve the pending
+image requests.
+Beyond full preemption, the system can also release GPUs
+by downgrading the SP degree of running videos (e.g., reduc-
+ing SP degree from 4 to 2 frees 2 GPUs) rather than pausing
+them entirely. This provides a softer alternative that trades
+video latency for image capacity without fully interrupting the
+video’s progress. The optimal combination of preemption and
+SP reconfiguration is determined jointly by the SLO-aware
+scheduler (§4.4).
+Deadline-aware Resume Policy.Once the video is pre-
+empted, its latent state is retained in device memory, enabling
+near-instantaneous resumption without recomputation. For
+this case, the key question is to decide when to resume the
+paused video. Resuming too early wastes the preemption
+opportunity, while resuming too late will miss the deadline.
+To overcome this issue, GENSERVEtriggers video resump-
+tion under two conditions: The first is budget-tight: when
+the remaining time until the video’s deadline falls below the
+estimated completion time, any further delay would cause a
+deadline miss, so the video must resume immediately. The
+second is idle: when no new image requests have arrived for
+a sustained period, the system resumes the paused video to
+maximize the utilization of the cluster. Together, these two
+conditions ensure that the video is paused for the maximum
+possible duration to serve image requests, while never risking
+its own SLO. When the video resumes and additional GPUs
+6
+Pending Requests
+…
+GPU Cluster
+Video paused at 
+step boundary
+Slack 
+Estimation
+SLO-aware Scheduler
+SLO 
+Calculation
+Selectsafestvictim
+NoMore
+Image
+Budget
+Tight
+ResumeCondition
+ImageFinish
+ResumeVideo
+Figure 8: Illustration of intelligent video preemption. The
+scheduler computes the slack of running video jobs, pauses
+the safest one at a step boundary to serve an urgent image
+request, and resumes it when its deadline budget becomes
+tight, or no more image requests arrive.
+I1
+ V1
+I2
+ I3
+ Time
+I4
+SLO-aware Online SchedulerGPU 
+Allocation
+GPU 0
+Batch V-Diffuse
+I5
+GPU 1
+GPU 2
+I1I2
+V-Diffuse
+I3
+I4
+V-Diffuse
+V-Encode
+V-EncodeSP Switch
+V-Decode
+V-Diffuse
+V-Diffuse
+ V-Decode
+Request 
+Queue
+Figure 9: Adaptive resource allocation on the cluster serv-
+ing mixed image and video requests. The SLO-aware online
+scheduler dynamically batches same-resolution images, ad-
+justs the video SP degree at boundaries, and decouples stages
+on separate GPUs to maximize utilization.
+are idle, the system can further upgrade its SP degree to ac-
+celerate the remaining steps, a decision coordinated by the
+SLO-aware scheduler (§4.4).
+4.3 Adaptive Resource Allocation
+Text-to-image and text-to-video workloads exhibit fundamen-
+tally different computational profiles, a static resource config-
+uration cannot efficiently serve if the workload mix changes
+over time. In this section, GENSERVEaddresses it through
+elastic resource allocation that operates along two comple-
+mentary dimensions: elastic sequence parallelism for video
+tasks and SLO-aware dynamic batching for image tasks, con-
+tinuously redistributing GPU capacity between modalities
+based on runtime demand (Figure 9).
+Elastic Sequence Parallelism.The typical video generation
+pipeline consists of two main stages: the DiT denoising stage
+and the V AE decoding stage. As discussed in §3, the DiT stage
+is compute-bound and occupies over 90% of the total runtime,
+while the V AE stage is memory-bound and too lightweight to
+benefit from parallelism. Thus, GENSERVEefficiently decou-
+ples the two stages, letting the V AE stage always execute on a
+single GPU, while the DiT stage is parallelized via Sequence
+Parallelism across multiple GPUs.
+Beyond efficient decoupling, GENSERVEsupports runtime
+SP degree switching to tune the cluster conditions. Since
+different video resolutions have different optimal SP degrees
+(§3), the system must be able to self-evolve as the workload
+mix changes. For example, when image requests arrive and
+GPUs are scarce, the system should downgrade a video’s
+SP degree to free GPUs for image serving. Conversely, when
+GPUs become idle, the system needs to upgrade the SP degree
+to accelerate video completion to meet the SLO.
+SLO-aware Dynamic Batching.Image requests that share
+the same resolution can be batched together to amortize GPU
+kernel launch overhead and improve throughput (as discussed
+in §3). However, naive batching can hurt SLO attainment:
+adding more requests to a batch increases the per-request
+latency, potentially causing earlier-arriving requests to miss
+their deadlines.
+In this part, GENSERVEimplements deadline-aware batch
+formation. When an image request is dispatched to a GPU, the
+system attempts to build a batch by collecting additional same-
+resolution requests from the queue. For each candidate, the
+system queries the Profiler to predict the end-to-end latency
+under the enlarged batch size and checks whether all requests
+in the batch can still meet their respective deadlines. If adding
+the candidate would cause any request to violate its SLO,
+the candidate is deferred and the batch is deprecated. To
+balance batching efficiency with latency, the system computes
+a dynamic wait budget based on the earliest deadline in the
+current batch: it waits for additional same-resolution requests
+to arrive only while the slack permits. This allows the system
+to form larger batches under light load and dispatch smaller
+batches promptly under heavy load, adapting batch size to the
+real-time SLO pressure.
+The two mechanisms are tightly coupled: GPUs freed by
+SP downgrade become available to serve batched image re-
+quests, and GPUs released after image batch completion can
+rejoin video SP groups. The joint optimization of SP degree
+selection and image batching budget is handled by the SLO-
+aware scheduler (§4.4).
+4.4 SLO-aware Online Scheduler
+The scheduler jointly decides how many GPUs to reserve for
+image batching, which videos to continue or preempt, and
+when SP reconfiguration is worthwhile. We formulate it as
+an allocation problem solved by a lightweight DP algorithm.
+Table 4 summarizes the key notation.
+Problem Formulation.The system serves image requests
+RI and video requests RV . Let zr∈{0,1} indicate whether
+request r meets its deadline. The objective is to maximize
+deadline satisfaction:
+max ∑
+r∈RI∪RV
+zr.(4)
+The scheduler is re-invoked at step boundaries and on
+scheduling events (e.g., new request arrivals), and Xr(t)⊆G
+7
+Table 4: Key notation in the §4.4.
+Symbol Description
+G,NGPU set{1, . . . ,N}and cluster size
+RI,RV Image and video request sets
+Dr,A r Deadline and arrival time of requestr
+Sremv (t)Remaining steps of videovat timet
+Xr(t)GPU alloc. of requestrat round boundaryt
+PSet of valid SP degrees
+∆round Scheduling round interval (in denoising steps)
+Timg(b,w,h)Profiled latency for image batch of sizeb
+Tstep(w,h,F,p)Profiled latency for one video denoising step
+Cv(t)Candidate set for videovat timet
+w(c),f(c)GPU cost and score of candidatec
+ℓv(c,t)Projected laxity of video candidatec
+denotes the allocation of request r at round boundary t. Im-
+ages use at most one GPU (|Xi(t)|∈{0,1} ), while videos use
+|Xv(t)|∈{0}∪P GPUs. The allocation transition Xr(t)→
+Xr(t+∆round) subsumes all scheduling actions, including start,
+resume, continue, preempt, and reconfigure in a single abstrac-
+tion. The next-round plan must satisfy the capacity constraint:
+∑
+r
+|Xr(t+∆ round)|≤N.(5)
+Candidate Construction and Scoring.Directly optimizing
+over all GPU subsets is intractable. Instead, the scheduler
+constructs a small set of candidates that encode topology and
+placement constraints, scores them, and selects among them
+via DP. Algorithm 1 outlines the three-stage procedure.
+Stage 1 (lines 2–5) builds scored candidates for each
+request group. For images, since requests are single-GPU
+and benefit primarily from batching, we collapse scheduling
+into budgeted options: for each GPU budget g∈{0, . . . ,N} ,
+earliest-deadline-first (EDF) batching produces the best feasi-
+ble plan B⋆(g,t) . The image score tracks two quantities: the
+number of deadline-satisfiable images|B⋆(g,t)| (therecover-
+able count), and a slack-based tiebreaker:
+f img
+g (t) = ∑
+i∈B⋆(g,t)
+1
+1+max(0,slack i(g,t)) ,(6)
+where slacki(g,t) is the residual time between the predicted
+completion and the deadline. For each video v, the sched-
+uler generates a small anchored candidate set Cv(t), e.g., hold
+(pause), continue at the current SP, scale up or down, or re-
+sume on an available pool. Each candidate c is scored by
+projected completion laxity ℓv(c,t) =D v−bFv(c,t) , where
+bFv(c,t) =t+S rem
+v (t)·T step(wv,h v,Fv,p v(c)):
+fv(c) = 1
+1+|ℓ v(c,t)| ,recoverable(c) =1[ℓ v(c,t)≥0].(7)
+Each candidate also carries a boolean recoverable flag. A hold
+candidate carries zero value, allowing the solver to defer a
+video when images or urgent videos should take precedence.
+Algorithm 1:SLO-aware DP Scheduler
+Input:round timet, GPU setG, image setI(t), video set
+V(t), current allocations{X r(t)}
+Output:Allocation planΠ ⋆
+1t +←t+∆ round;
+/* Stage 1: Build scored candidates */
+2forg=0toNdo
+3C img
+g (t)←EDFBATCH(I(t),g)// Eq.(6)
+4foreachv∈V(t)do
+5C v(t)←GENVIDEOCANDIDATES(v,t,X v(t),G)
+// Eq.(7)
+/* Stage 2: Knapsack DP over video groups */
+6Initialize dp[0][0]←(0,0);
+7forj=1to|V(t)|do
+8forb=0toNdo
+9dp[j][b]←(−∞,−∞);
+10foreachc∈C v j (t)do
+11ifw(c)≤band
+no GPU overlap with prev. selectionsthen
+12s←dp[j−1][b−w(c)] + 
+recoverable(c),f(c)
+
+;
+13 if s>dp[j][b] thenupdate dp[j][b] , record
+backpointer ;
+/* Stage 3: Select best plan with img. eval. */
+14foreachterminal state bdo
+15g free←N−b; combine video score withC img
+gfree (t);
+16(b ⋆,S ⋆)←BACKTRACKBESTSOLUTION(dp);
+17Π ⋆←MATERIALIZEALLOCATIONS(S ⋆,{Xr(t)},G);
+18returnΠ ⋆;
+Adaptive Online Selection.Stage 2 (lines 6–13) solves a
+knapsack-style DP over the video candidate groups. For each
+group j, the DP tries every candidate c∈C v j whose GPU set
+does not overlap with previously selected placements. Since
+each candidate is anchored to a concrete GPU set by the
+allocator, compatibility reduces to checking that no GPU is
+double-assigned. The DP tracks a lexicographic objective per
+state: the total recoverable count (number of candidates with
+ℓv≥0 ), then the cumulative utility score f(c) as a tiebreaker:
+dp[j][b] =max
+c∈Cv j ,w(c)≤b
+no GPU overlap
+
+dp[j−1][b−w(c)]+
+ 
+recoverable(c),f(c)
+
+.
+(8)
+After the video DP completes, the solver evaluates each ter-
+minal state: for the remaining free GPUs, it looks up the best
+image candidate f img
+g and selects the overall plan that maxi-
+mizes the combined recoverable count across modalities.
+Stage 3 (lines 14–17) backtracks to recover the optimal
+selection S ⋆ and calls MATERIALIZEALLOCATIONSto con-
+vert it into concrete GPU assignments and runtime actions:
+hold, resume, continue, or reconfigure. The entire DP runs
+in O(G·N· ¯K) time, where G=|V(t)| video groups and ¯K
+8
+average candidates per group.
+5 Implementation
+We implement GENSERVEin about 10K LOC, which is built
+on Python. For diffusion model support, we integrate Hugging
+Face Diffusers [36] for pipeline management, and extend the
+WanPipeline [37] with a preemptable wrapper that exposes
+step-level pause and resume through a persistentVideoState
+object (storing the intermediate latent tensor, prompt embed-
+dings, and step index in GPU memory). For image generation,
+we integrate StableDiffusion3 [10] with configurable resolu-
+tion and precision. Sequence parallelism is implemented on
+top of xFuser [12], which provides Unified Sequence Parallel
+(USP) attention.
+6 Evaluation
+This section presents our evaluation settings and findings. It
+is organized into three parts: (1) end-to-end serving perfor-
+mance, comparing GENSERVEagainst baselines across SLO
+strictness, workload composition, arrival rate, and per-request
+latency; (2) ablation study, isolating the contribution of each
+system component and validating the co-serving design; and
+(3) sensitivity analysis on resolution heterogeneity and pre-
+emption overhead.
+6.1 Experimental Setup
+Platform. All experiments run on a single server equipped
+with 8×NVIDIA RTX PRO 6000 Blackwell GPUs (96 GB
+GDDR7 each) connected via PCIe Gen5 ×16, running Ubuntu
+24.04.4 LTS with CUDA 12.9, PyTorch 2.8, and NCCL for
+inter-GPU communication.
+Models. We evaluate two representative DiT-based diffu-
+sion models. For text-to-image, we use Stable Diffusion 3.5
+Medium [10] (SD3.5 with 2.5B parameters), which supports
+resolutions from 256p to 1440p. For text-to-video, we use
+Wan2.2-T2V-5B [37] with 5B parameters, generating videos
+with 41 or 81 frames across resolutions from 256p to 720p.
+Metrics. Our primary metric is SLO attainment rate (SAR),
+defined as the fraction of requests completed before their
+deadlines, reported both overall and per request type. Each
+request’s deadline is set to σ×1.5× its offline end-to-end
+latency [22], where σ is an SLO scale factor that controls
+deadline tightness. We varyσ from 0.8 (tight) to 1.3 (relaxed),
+with σ=1.0 as the default. We also report per-request latency
+CDFs to characterize tail behavior.
+Datasets and Workload. We synthesize mixed image and
+video workloads using real-world prompts: DiffusionDB [38]
+for image tasks and VBench [16] for video tasks. We evalu-
+ate two arrival patterns: (1) Poisson, where requests arrive at
+a constant rate; and (2) Bursty, where requests concentrate
+0.8 0.9 1.0 1.1 1.2 1.3
+SLO Scale
+0
+25
+50
+75
+100# Req. Meeting SLO
+40
+53
+59
+60
+63
+65
+42
+55
+61
+65
+66
+77
+51
+63
+71
+77
+75
+83
+35
+45
+48
+52
+56
+58
+53
+74
+78
+87
+85
+90
+Image
+Video
+FCFS SJF SRTF RASP GenServe
+Figure 10: Number of requests meeting SLO versus SLO
+scale σ at the anchor configuration (balanced mix, 24 req/min).
+Bars are split into image (solid) and video (hatched) contri-
+butions. GENSERVEleads at every σ, especially reaching 90
+out of 100 atσ=1.3.
+in short intervals, creating load spikes that stress scheduling
+and resource allocation. We vary workloads along three di-
+mensions: (1) Task mix: the video-to-image ratio, including
+light (20:80), balanced (50:50), and heavy (80:20); (2) Re-
+quest size: small, medium, and large, corresponding to image
+resolutions of{720p,1024p,1440p} and video resolutions
+of{256p,480p,720p} ; and (3) Resolution distribution: uni-
+form or skewed (Dirichlet α=1.0). Each trace contains 100
+requests, and each video request generates 81 frames.
+Baselines. We compare GENSERVEagainst four baselines
+spanning common scheduling and allocation strategies:
+B1: FCFS. First-come-first-served scheduling, where re-
+quests are served in arrival order.
+B2: SJF. Shortest-job-first scheduling, where requests are
+ordered by estimated total runtime.
+B3: SRTF. Shortest-remaining-time-first scheduling with
+preemption, where requests with the shortest remaining time
+have the highest priority.
+B4: RASP. Resolution-aware sequence parallelism with static
+SP degree assignment, selecting SP degree{1,2,4} for video
+resolution{256p,480p,720p}based on Figure 5.
+6.2 End-to-end Performance
+We evaluate SLO attainment rate (SAR) across SLO strictness,
+workload composition, system load, and per-request latency
+distributions. Unless stated otherwise, the default configura-
+tion uses a balanced image-to-video mix (50:50), mean arrival
+rate of 24 req/min, SLO scale σ=1.0, and uniform resolution
+distribution on 8 GPUs.
+E1: SLO Scale.Figure 10 shows overall, image, and video
+SAR as the SLO scale factor σ varies from 0.8 to 1.3.
+GENSERVEachieves the highest overall SAR at every σ: 78%
+at σ=1.0, compared to 71% for SRTF and 59% for FCFS. The
+gap widens at σ=1.1, where GENSERVEreaches 87%—10 pp
+above SRTF—because the moderate SLO slack provides just
+enough room for the DP solver to exploit both preemption
+and dynamic SP allocation. At σ=1.3, GENSERVEachieves
+9
+Heavy Balanced Light
+0
+25
+50
+75
+100Overall SAR (%)
+24
+59
+97
+33
+62
+96
+26
+73
+98
+18
+45
+73
+41
+80
+98
+FCFS SJF SRTF RASP GenServe
+Figure 11: Overall SAR (%) across workload mixes.
+GENSERVE’s advantage grows as the video proportion in-
+creases.
+90% overall (100% image, 80% video), 7 pp above SRTF
+(83%). Both SRTF and GENSERVEreach 100% image SAR
+at σ≥1.0 by interrupting long-running videos, while FCFS
+and SJF never exceed 74%. The key differentiator is video
+SAR: at σ=1.0, SRTF’s aggressive preemption yields only
+44%, while GENSERVEachieves 56%, because the DP solver
+limits preemption to cases where the net SLO gain is positive,
+avoiding cascading re-preemptions. Under the tightest regime
+(σ=0.8), GENSERVEstill leads overall by deliberately trad-
+ing video SAR for image SAR—a decision the solver makes
+because image deadlines are the most constrained.
+E2: Workload Mix.Figure 11 shows SAR across three
+image-to-video ratios at σ=1.0. Under the image-dominated
+mix (Light), GPU contention is low: four of five meth-
+ods achieve 96–98% overall SAR, since the few video re-
+quests do not saturate the cluster. RASP is the exception
+at 73%, because its static SP allocation wastes parallelism
+on the few video requests. At the balanced mix (Balanced),
+GENSERVEreaches 80% overall, 7 pp above SRTF (73%).
+The improvement stems from coordinating deadline-aware
+image batching with selective video preemption via the DP
+solver, which reduces average image wait from 3.6 s (FCFS)
+to 0.1 s. Under the video-dominated mix (Heavy), all meth-
+ods degrade sharply as 80 video requests compete for GPU
+time. GENSERVEachieves 41% overall, 8 pp above SJF (33%)
+and 15 pp above SRTF (26%). GENSERVE’s video SAR of
+31% is 2.3× that of SRTF (14%): the DP solver avoids over-
+preemption by recognizing that, under heavy video load, re-
+peatedly pausing videos harms more deadlines than it saves.
+E3: Arrival Rate.Figure 12 shows SAR as the arrival rate
+increases from 12 to 36 req/min. At low load (12 req/min),
+contention is minimal and preemption-based methods perform
+comparably (85–86%); the DP solver provides little additional
+benefit when resources are abundant. GENSERVE’s advantage
+emerges under moderate load: at 18 req/min, it achieves 87%,
+13 pp above SRTF (74%). At the highest load (36 req/min),
+GENSERVEretains its lead at 64% versus 56% for SRTF,
+though the gap narrows as fundamental capacity limits dom-
+inate. RASP degrades fastest because its fixed SP degrees
+cannot reallocate parallelism to absorb transient bursts. SJF
+12 15 18 21 24 27 30 33 36
+Arrival Rate (req/min)
+40
+60
+80Overall SAR (%)
+FCFS SJF SRTF RASP GenServe
+Figure 12: Overall SAR (%) versus arrival rate (12–
+36 req/min) at σ=1.0 and balanced mix. GENSERVEmain-
+tains the highest SAR across all load levels.
+2 4 6
+Normalized Latency (s)
+0.0
+0.5
+1.0CDF
+SLO (a) Image
+0 5 10
+Normalized Latency (s)
+SLO (b) Video
+0 5 10
+Normalized Latency (s)
+SLO (c) Overall
+FCFS
+SJF
+SRTF
+RASP
+GenServe
+Figure 13: CDF of per-request turnaround latency at the de-
+fault configuration (σ=1.0, balanced mix, 24 req/min).
+drops below FCFS at 36 req/min (39% vs. 48%): under heavy
+load, the shortest-first policy starves long-running video re-
+quests whose deadlines expire while waiting.
+E4: End-to-end Latency.Figure 13 shows per-request
+turnaround latency CDFs at the default configuration. For
+images, GENSERVEproduces a steep CDF with p90 of 5.8 s,
+a 3.1× reduction over FCFS (18.0 s). Preemption eliminates
+the head-of-line blocking that causes FCFS and SJF images to
+queue behind long-running videos for up to 18 s. For videos,
+GENSERVEreduces median turnaround by 41% (52 s vs. 89 s
+for FCFS) through dynamic SP, which accelerates per-step
+computation for high-resolution clips. The video tail is wider
+(GENSERVEp99: 229 s vs. FCFS: 166 s): the longest-running
+videos accumulate multiple preemption cycles, each incurring
+state-save and context-switch overhead. This is a deliberate
+trade-off: the DP solver prioritizes meeting SLOs for the ma-
+jority of requests at the cost of extending the few that have
+already exceeded their deadline.
+6.3 Ablation Study
+To isolate the contribution of individual system components,
+we incrementally enable each mechanism and measure the
+marginal SAR gain. We use the skewed resolution setting
+(σ=1.0, balanced mix, Dirichlet α=1.0), where high runtime
+variance amplifies the impact of scheduling decisions.
+Baseline (FCFS):Without preemption or dynamic resource
+management, FCFS achieves only 20% overall SAR (20%
+image, 20% video). Long-running high-resolution videos mo-
+nopolize GPUs, causing images to wait an average of 15.9 s,
+far exceeding their 2–8 s deadlines.
++ Preemption:Enabling video preemption lifts overall SAR
+10
+0 10 20 30 40 50 60 70 80
+Overall SAR (%)
+Baseline (FCFS)
++ Preemption
++ DP Scheduler
++ SP Switching 
+ (GenServe)
+20%
+39%
+58%
+63%
++43.0%
+Figure 14: Ablation study under the skewed resolution setting
+(σ=1.0, balanced mix, 24 req/min). Each bar group adds one
+component cumulatively.
+Table 5: SAR (%) under uniform vs. skewed resolution distri-
+butions (σ=1.0, balanced mix, 24 req/min). Best inbold .
+Method Uniform Skewed
+Image Video Overall Image Video Overall
+FCFS 58 60 59 20 20 20
+SJF 60 62 61 18 30 24
+SRTF 96 46 71 76 10 43
+RASP 64 48 56 32 20 26
+GENSERVE 100 58 79 96 28 62
+to 39%, with image SAR jumping to 68%. However, video
+SAR drops to 10%: without a cost model, the scheduler pre-
+empts videos indiscriminately, and the resulting pause-resume
+overhead causes even more videos to miss their deadlines. Pre-
+emption is necessary for image responsiveness but creates a
+zero-sum tradeoff when applied without coordination.
++ DP Solver:Adding the DP solver on top of preemption
+yields another 19 pp gain, reaching 58% overall (94% image,
+22% video). The solver evaluates the net SLO impact before
+each preemption, reducing total preemptions and cutting av-
+erage image wait from 4.6 s to 0.2 s. Crucially, video SAR
+recovers from 10% to 22%: the solver avoids preempting
+videos that are close to completion, concentrating interrup-
+tions where the gain is largest.
++ SP Switching (GENSERVE):Dynamic SP switching adds
+a final 5 pp, bringing GENSERVEto 63% overall (94% image,
+32% video). SP switching reduces average per-step video
+latency from 1154 ms to 1121 ms and provides the DP solver
+with an additional degree of freedom: instead of preempting
+a lagging video, the solver can accelerate it by upgrading its
+SP degree. This further reduces preemptions while improving
+video SAR by 10 pp.
+These results yield three insights: (1) preemption alone is
+the single most important mechanism for image SLO, but
+uncontrolled preemption damages video performance; (2) the
+DP solver is the critical coordinator, contributing an equal
++19 pp as preemption itself while lifting both image and video
+SAR; (3) SP switching expands the solver’s action space be-
+yond preempt-or-hold, enabling it to accelerate videos rather
+than interrupt them.
+Model Deployment.Figure 15 compares static GPU parti-
+Light Balanced Heavy
+0
+50
+100Overall SAR (%)
+96
+72
+40
+52
+62
+36
+92
+64
+34
+92
+62
+30
+Replicated
+Ded. 2:6
+Ded. 3:5
+Ded. 4:4
+Figure 15: Dedicated GPU partitioning (X:Ymeans X im-
+age GPUs, Y video GPUs) vs. replicated co-serving across
+workload mixes. The replicated design leads in all mixes by
+avoiding resource fragmentation.
+Table 6: DP solver wall-clock decision time versus number of
+concurrent request groups G (N=8 GPUs, ¯K≤4 candidates
+per group). Overhead is relative to a 720p base step (781 ms).
+Statistics are aggregated across all E1 runs in §6.2.
+.
+Concurrent Groups (G) Mean (ms) Max (ms) Overhead/Step (%)
+1–2 0.30 0.7 0.09
+3–4 0.24 1.0 0.13
+5–6 0.25 1.5 0.19
+7–8 0.31 1.8 0.23
+9–12 0.41 1.9 0.24
+tioning (A: 2:6, B: 3:5, C: 4:4) against replicated co-serving
+across three workload mixes. The replicated design leads in
+every mix: 40% vs. 36% (best dedicated) under heavy, 72%
+vs. 64% at balanced, and 96% vs. 92% under light load. The
+core issue with dedicated partitioning is fragmentation: the
+optimal split depends on the workload mix, which shifts over
+time. For example, Dedicated (A: 2:6) under image-heavy
+load achieves only 52% because two GPUs cannot drain 40
+image requests before their deadlines, while six video GPUs
+sit underutilized. The replicated design avoids this by dynam-
+ically multiplexing all GPUs across both modalities.
+6.4 Sensitivity Analysis
+In this section, we evaluate how GENSERVEresponds to
+key system parameters that impact scheduling efficiency and
+runtime overhead.
+Resolution Distribution.Table 5 compares uniform and
+Dirichlet-skewed (α=1.0) resolution distributions. Skewed
+distributions concentrate requests at high resolutions, increas-
+ing average video runtime from 43 s to 64 s and amplifying
+SLO violations across all methods: FCFS drops from 59% to
+20%, and SJF from 61% to 24%. GENSERVEdegrades from
+79% to 62% (17 pp drop), but widens its lead over the next-
+best method (SRTF, 43%) from 8 pp under uniform resolution
+to 19 pp under skewed. The widening gap arises because
+GENSERVE’s dynamic SP allocation adapts to the higher run-
+time variance: the DP solver assigns larger SP degrees to
+high-resolution videos, reducing their per-step latency, while
+11
+static approaches cannot redistribute parallelism in response
+to the skewed request mix.
+DP Scheduler Overhead.Table 6 reports the DP solver’s
+wall-clock decision time as a function of the number of con-
+current request groups G (active videos plus one image group)
+on 8 GPUs. The mean solve time grows from 0.30 ms at
+G=1–2 to 0.46 ms atG=9–12, consistent with theO(G·N· ¯K)
+complexity derived in §4.4. Even in the worst observed case
+(G=9–12, max 1.9 ms), the solver overhead is less than 0.25%
+of a single 720p video step (781 ms), confirming that the DP
+can be invoked at every scheduling round without becoming
+a bottleneck.
+Preemption Overhead.To support fine-grained scheduling,
+our preemption mechanism must incur a minimal performance
+penalty. Table 7 evaluates this overhead across varying se-
+quence parallelism (SP) degrees. The results indicate that
+pause latency is uniformly negligible (≤4.2µ s) across all
+configurations. While the resume overhead increases with the
+SP degree due to the coordination required across multiple
+GPUs—scaling from 0.036 ms at SP=1 to 0.868 ms at SP=8
+for 720p. Preemption overhead remains a tiny fraction of the
+baseline step time (<0.2% ). This confirms that GENSERVE
+can afford aggressive preemption to optimize system-wide
+utility without degrading individual task throughput.
+Paused Video Memory Overhead.Table 8 profiles the GPU
+memory footprint of each paused VideoState, which retains
+the latent tensor, denoising mask, and prompt embeddings on
+device. The largest state (720p, 81 frames) consumes only
+27.2 MB. At runtime, each GPU hosts at most one paused
+video at any time, because the scheduler resumes a paused
+video before pausing another on the same device. Co-loading
+both pipelines occupies approximately 39 GB per GPU, and
+peak memory during 720p inference reaches approximately
+69 GB, leaving over 26 GB of headroom out of 96 GB. The
+paused state overhead (<0.03% of VRAM) is negligible and
+OOM is not a practical concern.
+SP Reconfiguration Overhead.All NCCL process groups
+for valid SP configurations are pre-created at startup, so
+switching SP degree is a pointer swap requiring no communi-
+cator re-initialization. The paused video state resides entirely
+on the leader GPU without sharding, so no cross-GPU mem-
+ory transfer occurs. In practice, SP changes account for less
+than 0.4% of total denoising steps across all experiments: the
+DP solver only triggers reconfiguration when the projected
+SLO benefit outweighs the transition cost.
+7 Related Work
+7.1 Diffusion Model Serving Systems
+Parallelism and Scheduling.The quadratic attention com-
+plexity of DiTs has made sequence parallelism (SP) indis-
+pensable for distributed inference. StreamFusion [41] and
+Table 7: Preemption overhead summarized by 720p video
+with different sequence parallelism (SP) degrees. Results are
+averaged across 5 independent runs.
+Res. SP Base Step (ms) Pause (µs) Resume (ms) Resume/Step (%)
+720p
+1 781.57 3.40 0.036 0.005
+2 780.16 3.05 0.464 0.060
+4 780.66 3.00 0.592 0.076
+8 781.15 3.05 0.868 0.112
+Table 8: GPU memory footprint of a single paused
+VideoState (81 frames, SP=1). Latent and mask tensors are
+float32; prompt embeddings are bfloat16.
+Resolution Latent (MB) Mask (MB) Embeds (MB) Total (MB)
+256p 1.3 1.3 3.5 6.2
+480p 4.6 4.6 3.5 12.8
+720p 11.8 11.8 3.5 27.2
+xDiT [12] introduce topology-aware and hybrid SP strate-
+gies to reduce communication overhead. On the schedul-
+ing side, TridentServe [39] decomposes diffusion pipelines
+into coarse-grained stages for flexible GPU allocation, while
+TetriServe [24] models serving as a step-level problem with
+dynamic SP adjustment. These systems target homogeneous
+workloads; GENSERVEextends step-level scheduling to het-
+erogeneous T2I/T2V co-serving with joint preemption, batch-
+ing, and SP optimization.
+Caching.To accelerate iterative denoising, MixFusion [35],
+NIV ARA [1], and FlexCache [34] cache and reuse intermedi-
+ate feature maps across denoising steps to skip redundant com-
+putation. These techniques are orthogonal to GENSERVE’s
+scheduling optimizations and can be integrated to further
+reduce per-step cost.
+Multi-Model Routing.DiffServe [34] constructs model cas-
+cades that route queries to lightweight or heavyweight models
+based on difficulty, while MoDM [40] directs requests across
+experts to balance cost and quality. These are complementary
+to our intra-model resource management.
+7.2 Hybrid Serving Systems
+Disaggregation and Stage-Aware Scaling.vLLM-
+Omni [43] introduces full Encoder-Prefill-Decode disag-
+gregation for any-to-any models, while EPD-Serve [4]
+enables independent stage scaling to optimize cross-modal
+throughput. These systems target multimodal LLM pipelines
+where the bottleneck shifts across stages. GENSERVE
+differs by targeting pure diffusion workloads, exploiting
+predictable per-step cost and step-boundary preemptibility
+for SLO-driven resource adaptation.
+Scheduling and Resource Allocation.ModServe [28] em-
+ploys modality-aware resource pools, while Cornserve [7]
+introduces a cell-based runtime for dynamic routing by modal-
+12
+ity. Unlike these partitioned designs, GENSERVEadopts repli-
+cated co-serving where all GPUs dynamically serve both T2I
+and T2V , avoiding fragmentation (§6).
+8 Conclusion
+In this work, we presented GENSERVE, a heterogeneity-aware
+co-serving system that leverages the inherent predictability
+and step-level preemptibility of diffusion models to max-
+imize SLO attainment for mixed image and video work-
+loads. GENSERVEcombines intelligent preemption, elastic se-
+quence parallelism, and dynamic batching with an SLO-aware
+DP-based scheduler that jointly coordinates resource alloca-
+tion across all concurrent requests. Our evaluation demon-
+strates that these design choices yield substantial gains in
+SLO attainment across diverse workload configurations. More
+broadly, this work highlights how exposing and exploiting
+structural properties of diffusion workloads can unlock new
+opportunities for efficient large-scale model serving.
+References
+[1] Shubham Agarwal, Subrata Mitra, Sarthak Chakraborty,
+Srikrishna Karanam, Koyel Mukherjee, and Shiv Saini.
+Approximate caching for efficiently serving diffusion
+models.arXiv preprint arXiv:2312.04429, 2023.
+[2] Shubham Agarwal, Subrata Mitra, Sarthak Chakraborty,
+Srikrishna Karanam, Koyel Mukherjee, and Shiv Ku-
+mar Saini. Approximate caching for efficiently serving
+{Text-to-Image} diffusion models. In21st USENIX
+Symposium on Networked Systems Design and Imple-
+mentation (NSDI 24), pages 1173–1189, 2024.
+[3] Sohaib Ahmad, Qizheng Yang, Haoliang Wang,
+Ramesh K Sitaraman, and Hui Guan. Diffserve:
+Efficiently serving text-to-image diffusion models with
+query-aware model scaling.Proceedings of Machine
+Learning and Systems, 7, 2025.
+[4] Fan Bai, Pai Peng, Zhengzhi Tang, Zhe Wang, Gong
+Chen, Xiang Lu, Yinuo Li, Huan Lin, Weizhe Lin,
+Yaoyuan Wang, et al. Epd-serve: A flexible multimodal
+epd disaggregation inference serving system on ascend.
+arXiv preprint arXiv:2601.11590, 2026.
+[5] Fan Bao, Shen Nie, Kaiwen Xue, Yue Cao, Chongxuan
+Li, Hang Su, and Jun Zhu. All are worth words: A vit
+backbone for diffusion models. InProceedings of the
+IEEE/CVF conference on computer vision and pattern
+recognition, pages 22669–22679, 2023.
+[6] Andreas Blattmann, Tim Dockhorn, Sumith Kulal,
+Daniel Mendelevitch, Maciej Kilian, Dominik Lorenz,
+Yam Levi, Zion English, Vikram V oleti, Adam Letts,
+et al. Stable video diffusion: Scaling latent video
+diffusion models to large datasets.arXiv preprint
+arXiv:2311.15127, 2023.
+[7] Jae-Won Chung, Jeff J Ma, Jisang Ahn, Yizhuo Liang,
+Akshay Jajoo, Myungjin Lee, and Mosharaf Chowdhury.
+Cornserve: A distributed serving system for any-to-any
+multimodal models.arXiv preprint arXiv:2603.12118,
+2026.
+[8] Daniel Crankshaw, Xin Wang, Guilio Zhou, Michael J
+Franklin, Joseph E Gonzalez, and Ion Stoica. Clipper:
+A{Low-Latency} online prediction serving system. In
+14th USENIX Symposium on Networked Systems Design
+and Implementation (NSDI 17), pages 613–627, 2017.
+[9] Prafulla Dhariwal and Alexander Nichol. Diffusion
+models beat gans on image synthesis.Advances in
+neural information processing systems, 34:8780–8794,
+2021.
+[10] Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim
+Entezari, Jonas Müller, Harry Saini, Yam Levi, Dominik
+Lorenz, Axel Sauer, Frederic Boesel, et al. Scaling recti-
+fied flow transformers for high-resolution image synthe-
+sis. InForty-first international conference on machine
+learning, 2024.
+[11] Jiarui Fang, Jinzhe Pan, Aoyu Li, Xibo Sun, and Jian-
+nan Wang. Pipefusion: Patch-level pipeline parallelism
+for diffusion transformers inference.arXiv preprint
+arXiv:2405.14430, 2024.
+[12] Jiarui Fang, Jinzhe Pan, Xibo Sun, Aoyu Li, and Jiannan
+Wang. xdit: an inference engine for diffusion trans-
+formers (dits) with massive parallelism.arXiv preprint
+arXiv:2411.01738, 2024.
+[13] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denois-
+ing diffusion probabilistic models.Advances in neural
+information processing systems, 33:6840–6851, 2020.
+[14] Wenyi Hong, Ming Ding, Wendi Zheng, Xinghan Liu,
+and Jie Tang. Cogvideo: Large-scale pretraining for text-
+to-video generation via transformers.arXiv preprint
+arXiv:2205.15868, 2022.
+[15] Heyang Huang, Cunchen Hu, Jiaqi Zhu, Ziyuan Gao,
+Liangliang Xu, Yizhou Shan, Yungang Bao, Sun
+Ninghui, Tianwei Zhang, and Sa Wang. Ddit: Dynamic
+resource allocation for diffusion transformer model serv-
+ing.arXiv preprint arXiv:2506.13497, 2025.
+[16] Ziqi Huang, Yinan He, Jiashuo Yu, Fan Zhang,
+Chenyang Si, Yuming Jiang, Yuanhan Zhang, Tianxing
+Wu, Qingyang Jin, Nattapol Chanpaisit, et al. Vbench:
+Comprehensive benchmark suite for video generative
+models. InProceedings of the IEEE/CVF Conference on
+13
+Computer Vision and Pattern Recognition, pages 21807–
+21818, 2024.
+[17] Sam Ade Jacobs, Masahiro Tanaka, Chengming Zhang,
+Minjia Zhang, Shuaiwen Leon Song, Samyam Rajb-
+handari, and Yuxiong He. Deepspeed ulysses: Sys-
+tem optimizations for enabling training of extreme
+long sequence transformer models.arXiv preprint
+arXiv:2309.14509, 2023.
+[18] Vipul Jain and Ignacio E Grossmann. Algorithms for
+hybrid milp/cp models for a class of optimization prob-
+lems.INFORMS Journal on computing, 13(4):258–276,
+2001.
+[19] Weijie Kong, Qi Tian, Zijian Zhang, Rox Min, Zuozhuo
+Dai, Jin Zhou, Jiangfeng Xiong, Xin Li, Bo Wu, Jian-
+wei Zhang, et al. Hunyuanvideo: A systematic frame-
+work for large video generative models.arXiv preprint
+arXiv:2412.03603, 2024.
+[20] Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying
+Sheng, Lianmin Zheng, Cody Hao Yu, Joseph Gonzalez,
+Hao Zhang, and Ion Stoica. Efficient memory manage-
+ment for large language model serving with pagedatten-
+tion. InProceedings of the 29th symposium on operating
+systems principles, pages 611–626, 2023.
+[21] Muyang Li, Tianle Cai, Jiaxin Cao, Qinsheng Zhang,
+Han Cai, Junjie Bai, Yangqing Jia, Kai Li, and Song
+Han. Distrifusion: Distributed parallel inference for
+high-resolution diffusion models. InProceedings of the
+IEEE/CVF Conference on Computer Vision and Pattern
+Recognition, pages 7183–7193, 2024.
+[22] Zhuohan Li, Lianmin Zheng, Yinmin Zhong, Vincent
+Liu, Ying Sheng, Xin Jin, Yanping Huang, Zhifeng Chen,
+Hao Zhang, Joseph E Gonzalez, et al.{AlpaServe}: Sta-
+tistical multiplexing with model parallelism for deep
+learning serving. In17th USENIX Symposium on Oper-
+ating Systems Design and Implementation (OSDI 23),
+pages 663–679, 2023.
+[23] Hao Liu, Matei Zaharia, and Pieter Abbeel. Ring at-
+tention with blockwise transformers for near-infinite
+context.arXiv preprint arXiv:2310.01889, 2023.
+[24] Runyu Lu, Shiqi He, Wenxuan Tan, Shenggui Li, Ruo-
+fan Wu, Jeff J Ma, Ang Chen, and Mosharaf Chowd-
+hury. Tetriserve: Efficiently serving mixed dit work-
+loads. 2026.
+[25] Jeff J Ma, Jae-Won Chung, Jisang Ahn, Yizhuo Liang,
+Akshay Jajoo, Myungjin Lee, and Mosharaf Chowdhury.
+Cornserve: Efficiently serving any-to-any multimodal
+models.arXiv preprint arXiv:2512.14098, 2025.
+[26] William Peebles and Saining Xie. Scalable diffu-
+sion models with transformers. InProceedings of the
+IEEE/CVF international conference on computer vision,
+pages 4195–4205, 2023.
+[27] Dustin Podell, Zion English, Kyle Lacey, Andreas
+Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and
+Robin Rombach. Sdxl: Improving latent diffusion mod-
+els for high-resolution image synthesis.arXiv preprint
+arXiv:2307.01952, 2023.
+[28] Haoran Qiu, Anish Biswas, Zihan Zhao, Jayashree Mo-
+han, Alind Khare, Esha Choukse, Íñigo Goiri, Zeyu
+Zhang, Haiying Shen, Chetan Bansal, et al. Modserve:
+Modality-and stage-aware resource disaggregation for
+scalable multimodal model serving. InProceedings of
+the 2025 ACM Symposium on Cloud Computing, pages
+817–830, 2025.
+[29] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey
+Chu, and Mark Chen. Hierarchical text-conditional
+image generation with clip latents.arXiv preprint
+arXiv:2204.06125, 1(2):3, 2022.
+[30] Robin Rombach, Andreas Blattmann, Dominik Lorenz,
+Patrick Esser, and Björn Ommer. High-resolution image
+synthesis with latent diffusion models. InProceedings
+of the IEEE/CVF conference on computer vision and
+pattern recognition, pages 10684–10695, 2022.
+[31] Chitwan Saharia, William Chan, Saurabh Saxena, Lala
+Li, Jay Whang, Emily L Denton, Kamyar Ghasemipour,
+Raphael Gontijo Lopes, Burcu Karagol Ayan, Tim Sali-
+mans, et al. Photorealistic text-to-image diffusion mod-
+els with deep language understanding.Advances in neu-
+ral information processing systems, 35:36479–36494,
+2022.
+[32] Uriel Singer, Adam Polyak, Thomas Hayes, Xi Yin, Jie
+An, Songyang Zhang, Qiyuan Hu, Harry Yang, Oron
+Ashual, Oran Gafni, et al. Make-a-video: Text-to-video
+generation without text-video data.arXiv preprint
+arXiv:2209.14792, 2022.
+[33] Jiaming Song, Chenlin Meng, and Stefano Ermon. De-
+noising diffusion implicit models.arXiv preprint
+arXiv:2010.02502, 2020.
+[34] Desen Sun, Henry Tian, Tim Lu, and Sihang Liu. Flex-
+cache: Flexible approximate cache system for video
+diffusion.arXiv preprint arXiv:2501.04012, 2024.
+[35] Desen Sun, Zepeng Zhao, and Yuke Wang. Mixfusion: A
+patch-level parallel serving system for mixed-resolution
+diffusion models. InProceedings of the 31st ACM SIG-
+PLAN Annual Symposium on Principles and Practice of
+Parallel Programming, pages 522–536, 2026.
+14
+[36] Patrick von Platen, Suraj Patil, Anton Lozhkov, Pe-
+dro Cuenca, Nathan Lambert, Kashif Rasul, Mishig
+Davaadorj, Dhruv Nair, Sayak Paul, William Berman,
+Yiyi Xu, Steven Liu, and Thomas Wolf. Diffusers: State-
+of-the-art diffusion models. https://github.com/
+huggingface/diffusers, 2022.
+[37] Team Wan, Ang Wang, Baole Ai, Bin Wen, Chaojie
+Mao, Chen-Wei Xie, Di Chen, Feiwu Yu, Haiming
+Zhao, Jianxiao Yang, et al. Wan: Open and advanced
+large-scale video generative models.arXiv preprint
+arXiv:2503.20314, 2025.
+[38] Zijie J Wang, Evan Montoya, David Munechika,
+Haoyang Yang, Benjamin Hoover, and Duen Horng
+Chau. Diffusiondb: A large-scale prompt gallery dataset
+for text-to-image generative models. InProceedings
+of the 61st annual meeting of the association for com-
+putational linguistics (volume 1: Long papers), pages
+893–911, 2023.
+[39] Yifei Xia, Fangcheng Fu, Hao Yuan, Hanke Zhang, Xu-
+peng Miao, Yijun Liu, Suhan Ling, Jie Jiang, and Bin
+Cui. Tridentserve: A stage-level serving system for
+diffusion pipelines.arXiv preprint arXiv:2510.02838,
+2025.
+[40] Yuchen Xia, Divyam Sharma, Yichao Yuan, Souvik
+Kundu, and Nishil Talati. Modm: Efficient serving for
+image generation via m ixture-o f-d iffusion m odels. In
+Proceedings of the 31st ACM International Conference
+on Architectural Support for Programming Languages
+and Operating Systems, Volume 1, pages 163–182, 2026.
+[41] Jiacheng Yang, Jun Wu, Yaoyao Ding, Zhiying Xu,
+Yida Wang, and Gennady Pekhimenko. Streamfusion:
+Scalable sequence parallelism for distributed inference
+of diffusion transformers on gpus.arXiv preprint
+arXiv:2601.20273, 2026.
+[42] Fanjiang Ye, Zepeng Zhao, Yi Mu, Jucheng Shen, Ren-
+jie Li, Kaijian Wang, Saurabh Agarwal, Myungjin Lee,
+Triston Cao, Aditya Akella, et al. Supergen: An effi-
+cient ultra-high-resolution video generation system with
+sketching and tiling.arXiv preprint arXiv:2508.17756,
+2025.
+[43] Peiqi Yin, Jiangyun Zhu, Han Gao, Chenguang Zheng,
+Yongxiang Huang, Taichang Zhou, Ruirui Yang, Weizhi
+Liu, Weiqing Chen, Canlin Guo, et al. vllm-omni: Fully
+disaggregated serving for any-to-any multimodal mod-
+els.arXiv preprint arXiv:2602.02204, 2026.
+[44] Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim, Soo-
+jeong Kim, and Byung-Gon Chun. Orca: A distributed
+serving system for {Transformer-Based} generative
+models. In16th USENIX symposium on operating sys-
+tems design and implementation (OSDI 22), pages 521–
+538, 2022.
+[45] Zangwei Zheng, Xiangyu Peng, Yuxuan Lou, Chenhui
+Shen, Tom Young, Xinying Guo, Binluo Wang, Hang
+Xu, Hongxin Liu, Mingyan Jiang, et al. Open-sora 2.0:
+Training a commercial-level video generation model in
+$200 k.arXiv preprint arXiv:2503.09642, 2025.
+[46] Zangwei Zheng, Xiangyu Peng, Tianji Yang, Chen-
+hui Shen, Shenggui Li, Hongxin Liu, Yukun Zhou,
+Tianyi Li, and Yang You. Open-sora: Democratiz-
+ing efficient video production for all.arXiv preprint
+arXiv:2412.20404, 2024.
+15

@@ -1,0 +1,1845 @@
+Queue Management for SLO-Oriented Large
+Language Model Serving
+Archit Patke
+University of Illinois at
+Urbana-Champaign
+Urbana, Illinois, USA
+apatke@illinois.edu
+Dhemath Reddy
+University of Illinois at
+Urbana-Champaign
+Urbana, Illinois, USA
+dhemath2@illinois.edu
+Saurabh Jha
+IBM Research
+Yorktown Heights, New York, USA
+Saurabh.Jha@ibm.com
+Haoran Qiu
+University of Illinois at
+Urbana-Champaign
+Urbana, Illinois, USA
+haoranq4@illinois.edu
+Christian Pinto
+IBM Research
+Dublin, Ireland
+Christian.Pinto@ibm.com
+Chandra Narayanaswami
+IBM Research
+Yorktown Heights, New York, USA
+chandras@us.ibm.com
+Zbigniew Kalbarczyk
+University of Illinois at
+Urbana-Champaign
+Urbana, Illinois, USA
+kalbarcz@illinois.edu
+Ravishankar Iyer
+University of Illinois at
+Urbana-Champaign
+Urbana, Illinois, USA
+rkiyer@illinois.edu
+ABSTRACT
+Large language model (LLM) serving is becoming an increas-
+ingly critical workload for cloud providers. Existing LLM
+serving systems focus on interactive requests, such as chat-
+bots and coding assistants, with tight latency SLO require-
+ments. However, when such systems execute batch requests
+that have relaxed SLOs along with interactive requests, it
+leads to poor multiplexing and inefficient resource utiliza-
+tion. To address these challenges, we propose QLM, a queue
+management system for LLM serving. QLM maintains batch
+and interactive requests across different models and SLOs
+in a request queue. Optimal ordering of the request queue
+is critical to maintain SLOs while ensuring high resource
+utilization. To generate this optimal ordering, QLM uses a
+Request Waiting Time (RWT) Estimator that estimates the
+waiting times for requests in the request queue. These es-
+timates are used by a global scheduler to orchestrate LLM
+Serving Operations (LSOs) such as request pulling, request
+eviction, load balancing, and model swapping. Evaluation on
+Permission to make digital or hard copies of part or all of this work for
+personal or classroom use is granted without fee provided that copies are
+not made or distributed for profit or commercial advantage and that copies
+bear this notice and the full citation on the first page. Copyrights for third-
+party components of this work must be honored. For all other uses, contact
+the owner/author(s).
+SoCC ’24, November 20–22,2024, Redmond, W A, USA
+© 2024 Copyright held by the owner/author(s).
+ACM ISBN 979-8-4007-1286-9/24/11.
+https://doi.org/10.1145/3698038.3698523
+heterogeneous GPU devices and models with real-world LLM
+serving dataset shows that QLM improves SLO attainment
+by 40–90% and throughput by 20–400% while maintaining or
+improving device utilization compared to other state-of-the-
+art LLM serving systems. QLM’s evaluation is based on the
+production requirements of a cloud provider. QLM is publicly
+available at https://www.github.com/QLM-project/QLM.
+CCS CONCEPTS
+• Computing methodologies→ Machine learning; Dis-
+tributed algorithms; • Computer systems organization
+→ Dependable and fault-tolerant systems and networks.
+KEYWORDS
+large language models, machine learning inference, queuing
+ACM Reference Format:
+Archit Patke, Dhemath Reddy, Saurabh Jha, Haoran Qiu, Christian
+Pinto, Chandra Narayanaswami, Zbigniew Kalbarczyk, and Rav-
+ishankar Iyer. 2024. Queue Management for SLO-Oriented Large
+Language Model Serving. In ACM Symposium on Cloud Computing
+(SoCC ’24), November 20–22, 2024, Redmond, W A, USA. ACM, New
+York, NY, USA, 18 pages. https://doi.org/10.1145/3698038.3698523
+1 INTRODUCTION
+Motivation. Large language models (LLMs) such as OpenAI
+GPT-4 and Google Gemini have enabled novel capabilities in
+a wide range of AI applications [3, 50, 52] such as chatbots
+and coding assistants. These base models such as GPT4 are
+arXiv:2407.00047v2  [cs.DC]  25 Feb 2025
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+further fine-tuned to support specialized tasks such as copy-
+writing, financial planning, etc. [33]. Consequently, serving
+multiple models for enterprise and consumer applications
+with latency-oriented service-level objectives (SLOs) has be-
+come increasingly critical [19, 35, 48].
+Previous work in this area [ 16, 20, 23, 31, 36, 43, 49, 51]
+largely focused on serving interactive requests, such as chat-
+bots, with tight latency SLO requirements. However, the
+recent explosive growth of LLM applications, has generated
+a need to support batch LLM queries with SLO values ranging
+from minutes to hours for tasks such as data wrangling [29],
+document processing [18], and model fine-tuning [44].
+Given the broader range of SLO requirements and the use
+of multiple models, maintaining request queues is beneficial.
+Conceptually, when resources are limited, requests with re-
+laxed SLOs can be kept at the back of the request queue and
+do not need to be executed immediately, while requests with
+tight SLOs can be kept ahead in the queue to ensure immedi-
+ate execution and preventhead-of-line (HOL) blocking. Hence,
+queue ordering becomes an important decision-making prob-
+lem for SLO-oriented LLM serving.
+Previous work in SLO-oriented serving has largely fo-
+cused on traditional DNN serving workloads such as CNNs
+and RNNs [15, 41], where the queue ordering decisions are
+made by systems such as Clockwork [13], INFaaS [39], and
+SHEPHERD [54]. Such systems leverage the deterministic ex-
+ecution times of DNN workloads to estimate queuing times
+and enable optimal ordering decisions that would maintain
+request SLOs. However, such systems cannot be easily ap-
+plied to LLM serving workloads because the execution time
+per request is non-deterministic as the number of output
+tokens are unknown apriori. Using these system’s assump-
+tion of fixed size batches with deterministic execution times
+for scheduling decisions leads to sub-optimal scenarios, de-
+scribed below.
+First, previously proposed serving systems are unable to
+effectively multiplex interactive and batch requests on the
+same serving instance. We find that the queue waiting time
+in LLM serving is lower than estimate used by the scheduler
+in such systems as shown in Figure 1 (left). As these systems
+generate a higher than actual estimate of the total queuing
+time, they allocate batch and interactive requests on separate
+serving instances, even in scenarios where allocation on the
+same instance would suffice to meet SLOs.
+Second, previously proposed systems are unable to ef-
+fectively multiplex different models on the same serving
+instance. Similar to the first scenario, systems such as Clock-
+work [13] overestimate the time required to serve a single
+model and prefer to allocate independent instances for each
+model to preserve SLOs. Others such as SHEPHERD [54], al-
+together forgo serving multiple models on the same instance
+0 500 1000 1500
+Request Queue Size
+0
+500
+1000
+1500Waiting Time (s)
+Previous System Estimate
+Actual Waiting Time
+Single Multi
+Scenario
+0
+2
+4xGPUS Required
+Previous Systems
+QLM
+Figure 1: Previously proposed SLO-oriented serving
+systems overestimate queue waiting time leading to
+suboptimal resource usage. (Left) Estimated waiting
+time when requests are run with Llama-70B on A100
+GPUs with vLLM. (Right) Number of GPUs required
+to maintain 20s time-to-first-token (TTFT) SLO with
+previous systems vs QLM in single and multi-model
+scenarios.
+vLLM
+Scenario 1: Batch and 
+Interactive Requests
+Scenario 2: Multi-model 
+Batch Requests
+vLLMRequest
+Eviction
+Running 
+Requests
+ Swap
+Batch Interactive
+Request Groups 
+Model 
+Registry
+Model 1 Model 2
+Figure 2: QLM uses request groups and LLM Serving
+Operations (LSOs) such as request eviction to minimize
+resource requirement. Previously proposed systems
+would use four vLLM instances (compared to two for
+QLM) due to limitations described in Figure 1.
+due to the high cost of model swapping relative to inference
+times.
+Our Work. To address these limitations, we propose QLM,
+a queue management system for LLM serving that maxi-
+mizes SLO attainment while maintaining high throughput.
+At the core of QLM is the Request Waiting Time (RWT) Es-
+timator (described in Section 6) that estimates the waiting
+times for requests in the request queue. We observe that as
+the queue size grows larger, statistical effects of continuous
+batching [51] in LLM serving allows us to create a tighter
+bound on waiting time. Additionally, we empirically validate
+and provide a proof for applicability of the RWT estimator.
+QLM leverages this improved estimation to allow for better
+utilization and decrease resource cost by making closer to
+optimal request queue reordering decisions.
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+To order requests in the queue, QLM, similar to SHEP-
+HERD, uses the abstraction of request groups (described in
+Section 4). Each request group is a collection of requests that
+have relatively homogeneous performance requirements (e.g.
+similar SLOs and model). QLM places these request groups
+in virtual queues that determine the order in which requests
+are consumed by the LLM serving instances. In the LLM
+serving context, in addition to the benefits of scalability and
+predictability found in DNN serving, request groups are a
+useful abstraction for model swapping. As decision mak-
+ing is made at the per-request group level, the total amount
+of swapping is minimized and throughput is improved as
+depicted in Figure 2 (Scenario 2).
+Finally, QLM uses a Global Scheduler (described in Sec-
+tion 7) that utilizes the waiting time estimates of request
+groups to create an optimal ordering and assignment of re-
+quest groups onto the virtual queues to maximize SLO at-
+tainment. The virtual queue ordering is used by four basic
+LLM Serving Operations (LSOs) to manage the request queue
+(see Section 5 for details): (1) Request Pulling from the global
+waiting queue into the running batch in the GPU, (2)Request
+Eviction from the running batch back into the waiting queue,
+(3) Model Swapping from CPU to GPU memory, and (4) Load
+Balancing across multiple LLM model instances. For exam-
+ple, request eviction allows serving batch and interactive
+requests on the same LLM serving instance and prevents
+HOL blocking for interactive requests as shown in Figure 2
+(Scenario 1).
+Results. We demonstrate QLM on vLLM [20] as the backend
+LLM-serving system. We evaluate QLM on three popular
+LLMs of varying sizes (i.e., Mistral-7B [17], Vicuna-13B [5],
+and Llama-70B [47]) on GPU clusters with NVIDIA A10 and
+A100 GPUs. We adopt workloads from a real-world LLM
+dataset: ShareGPT [46] using setups derived from our pro-
+duction requirements. Our experiments demonstrate the fol-
+lowing major improvements with QLM:
+(1) SLO Attainment: Depending on the arrival rate, QLM
+achieves 40–90% higher SLO attainment compared to the
+vanilla vLLM serving system and 50–90% higher SLO at-
+tainment compared to traditional ML serving systems like
+SHEPHERD.
+(2) Request Throughput: QLM improves the request through-
+put in a multi-model serving system by 400% on average
+and in a single-model serving system by 20% on average
+compared to other LLM serving systems.
+(3) LSO Ablation Study: QLM demonstrates that all LSOs
+contribute to SLO attainment and throughput improvement.
+Notably, we find that model swapping improves through-
+put by 300% in multi-model serving, and request eviction
+improves SLO attainment by 80% in single-model serving.
+QLM has been merged into an internal production LLM
+routing service.
+2 BACKGROUND
+2.1 LLM Inference
+Inference Primer. An inference process starts from a re-
+quest (prompt) with a list of input tokens(𝑥1,...,𝑥 𝑛). The
+LLM generates a list of output tokens(𝑥𝑛+1,...,𝑥 𝑛+𝑇). Due
+to the autoregressive pattern, the LLM can only generate new
+tokens one by one, and the generation process of each new
+token depends on all the previous tokens in that sequence,
+specifically their key and value vectors. In this sequential
+generation process, the key and value vectors of existing
+tokens are cached for generating future tokens, known as
+KV cache.
+Therefore, given a LLM request prompt, the generation
+computation can be decomposed into two phases: (1) A pre-
+fill stage takes the whole user prompt (𝑥1,...,𝑥 𝑛) as in-
+put and computes the probability of the first output token
+𝑃(𝑥𝑛+1|𝑥1,...,𝑥 𝑛). (2) A decoding stage (autoregressive gen-
+eration) generates the remaining output tokens sequentially.
+At iteration𝑡, the model takes one token𝑥𝑛+𝑡 as input and
+computes the probability𝑃(𝑥𝑛+𝑡+1|𝑥1,...,𝑥 𝑛+𝑡) with the key
+vectors𝑘1,...,𝑘 𝑛+𝑡 and value vectors𝑣1,...,𝑣 𝑛+𝑡. This phase
+completes when an end-of-sequence (<eos>) token is emit-
+ted.
+Continuous Batching. During LLM inference, the decod-
+ing stage is memory-bound, as loading model weights from
+memory takes longer than computation. Therefore, state-
+of-the-art LLM serving systems like vLLM [20], Orca [51],
+Tensor-RT [31] and TGI [16] employ continuous batching
+with iterative scheduling to enable dynamic addition of re-
+quests to a batch as soon as others have finished generation.
+PagedAttention. Static allocation of the KV cache can re-
+sult in significant memory waste as the KV cache grows
+dynamically during the decoding stage. PagedAttention [20]
+introduces the idea of managing the KV cache, like OS mem-
+ory, via pages and enabling dynamic allocation. Such dy-
+namic allocation prevents fragmentation and enables nearly
+100% utilization of GPU memory and furthers throughput im-
+provement when combined with continuous batching [20].
+2.2 LLM Serving Systems
+User-facing applications such as chatbots, log processing, and
+recommenders have specific latency SLO requirements [4,
+19, 35, 37]. When interacting with LLMs, each application
+generates requests that consist of theinput prompts and asso-
+ciated metadata (e.g., model type and SLO value) to the LLM
+serving system. For example, chatbots require requests to
+complete by a deadline (e.g., p99 time to first token (TTFT)
+< 20s [12]), and batch jobs like document processing have a
+more relaxed SLO in the order of minutes to hours. Requests
+may also need to be served by multiple fine-tuned models
+specialized for various tasks. For example, Code Llama [40]
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+0 2000
+Position in Queue
+0
+200
+400
+Waiting Time
+(Norm.)
+Vicuna-13B
+Mistral-7B
+Llama-70B
+Figure 3: Requests have pre-
+dictable waiting times in a con-
+tinuous batching system.
+Figure 4: Forced request eviction leads to re-
+duction in head-of-line (HOL) blocking time.
+Figure 5: Model swapping and
+request pulling can jointly de-
+crease queue drain time.
+is fine-tuned for coding assistance, and Llama-chat [ 47] is
+fine-tuned for chatbots. Maintaining a standalone LLM serv-
+ing system for each of these models or SLO types can be
+expensive, and they often have to be multiplexed together
+to share the same serving system [6, 21, 23, 42]. Multiplex-
+ing batch and interactive requests across various models
+with limited resources leads to formation of request queues,
+and managing these queues is critical to comply with SLO
+requirements.
+2.3 QLM Definitions
+Before we present the motivation and characterization study,
+below are definitions of the terms that we use.
+Definition 2.1. Request: Each request consists of the prompt
+(i.e., input tokens) and its associated metadata (e.g., model
+type). Requests arrive at varying rates and burstiness, leading
+to request queues with dynamically changing sizes.
+Definition 2.2. SLO: Each request arrives with a service-
+level objective (SLO) value that enforces the time to first
+token (TTFT) for the request. While QLM primarily focuses
+on TTFT, it can be paired with another system such as An-
+des [25] to also maintain inter-token latency (ITL).
+Definition 2.3. LLM Serving Instance: An LLM serving sys-
+tem1 is capable of hosting LLM models by providing the
+necessary infrastructure and resources to load the models
+into memory and respond to requests. QLM is compatible
+with existing LLM serving systems such as vLLM [20] and
+TGI [16]. An LLM serving instance is composed of the LLM
+serving system and an LLM model that is being served.
+1The difference between an LLM serving system and an LLM serving in-
+stance is similar to JAVA classes and objects. For example, vLLM is an
+LLM serving system while vLLM with a loaded model like Llama 70B is an
+instance of the LLM serving system.
+2.4 Motivation and Characterization
+To enable SLO-oriented LLM serving, it is critical to under-
+stand (1) the impact of LLM autoregressive patterns on the
+request waiting time, (2) the performance implications of
+queuing batch and interactive requests, and (3) the perfor-
+mance implications of queuing multi-model batch requests.
+We characterize these scenarios with a state-of-the-art
+LLM serving system, vLLM [20], to motivate the design of
+QLM. We use ShareGPT [46] traces to evaluate the system.
+We present three key insights below.
+Insight #1: Waiting times in long request queues can be
+accurately estimated analytically. Recall from Figure 1
+that incorrectly estimating waiting times can lead to resource
+waste. Therefore, we attempt to build an accurate queue
+waiting time estimator.
+While the completion time for individual requests in LLM
+inference can vary widely, the average waiting time for a
+request in a long queue is predictable. Due to the statistical
+averaging effects resulting from a large number of requests
+(as detailed in Appendix A.1), the waiting time can be esti-
+mated by dividing the total number of output tokens for the
+pending requests by the token generation throughput. The
+total number of output tokens adheres to a Normal distribu-
+tion, in accordance with the Central Limit Theorem, since
+individual requests are independent of each other
+Figure 3 illustrates this linear relationship between waiting
+time and queue position when serving requests for three
+varying-sized LLMs on NVIDIA A100 GPUs. Additionally,
+we find that the estimator is highly accurate with a coefficient
+of determination (𝑅2) of 0.99 (out of 1.0).
+Insight #2: HOL blocking times due to continuous batch-
+ing can be in the order of tens of seconds. The straight-
+forward way to prioritize interactive requests over batch
+requests on the same LLM serving instance is by placing
+them at the front of the waiting queue. However, request
+placement in the waiting queue may not be sufficient for
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+immediate execution due to the lack of available GPU mem-
+ory, causing head-of-line (HOL) blocking. Therefore, in such
+scenarios, evicting batch requests from the GPU is required.
+To minimize the cost of eviction, we can preserve the KV
+cache of batch requests, allowing execution to resume from
+the last decoding iteration.
+Figure 4 illustrates the HOL blocking time when run with
+a mixed workload comprising interactive and batch requests.
+In the absence of request eviction, the HOL blocking time
+can be in the order of several seconds, which can lead to
+violation of latency SLOs for interactive requests. However,
+request eviction significantly reduces the waiting time be-
+cause interactive requests only need to wait for a single
+decoding iteration before they can be scheduled, resulting
+in a 100–1000× reduction in waiting time.
+Insight #3: Policies such as Earliest Deadline First (EDF)
+are insufficient to eliminate HOL blocking from model
+swapping. The optimal request pulling strategy to maximize
+the number of requests that satisfy SLOs is Earliest Deadline
+First (EDF) scheduling. However, this assumes that the model
+swapping cost is negligible. Frequent model swaps can happen
+(similar to thrashing) if multiple models are served to time
+share the same GPU devices, leading to SLO violations due
+to longer completion times to drain the queue and a drop
+in throughput. For example, consider the case illustrated in
+Figure 5. Requests with varying SLOs arrive in the queue,
+and they are placed by an EDF policy, causing multiple model
+swaps and substantially higher time to drain the entire re-
+quest queue. Specifically, we find that across models and
+GPUs, the time required to serve all requests in the queue
+(i.e., the queue drain time) is substantially higher for the EDF
+policy compared to an Oracle policy that groups requests
+from the same model together to prevent the overhead of
+repetitive model swaps.
+3 QLM DESIGN OVERVIEW
+QLM aims to maximize latency SLO satisfaction in LLM
+serving workloads. To do so, QLM manages a global request
+queue and orchestrates multiple LLM Serving Operations
+(LSOs) to reorder and drain the global queue.
+3.1 Lifecycle of a Request in QLM
+To explain the design of QLM (as shown in Figure 6), we
+first walk through the lifecycle of a request generated from
+applications to completion. LLM-augmented applications
+generate requests that are received at the QLM API gateway.
+These requests are added to a global queue where they wait
+until being served. To prevent the global queue from being a
+single point of failure, it is implemented with a distributed
+message broker such as RabbitMQ [ 38] that provides the
+requisite fault tolerance and consistency properties.
+Applications
+ Global Queue
+RabbitMQ
+RWT 
+Estimator
+Analytical
+Model
+Linear  
+Program
+Global 
+Scheduler
+LLM Serving     
+Operations
+QLM Control Plane
+LLM Serving Instances
+Virtual Queues
+Request Groups
+State Read
+Detect SLO Violation 
+Reordering
+Instance 1
+QLM 
+Agents
+Instance 2
+Instance 3
+Control Path Data Path 
+Request Group 
+Creation
+LSO Actions
+Figure 6: Overview of QLM.
+Formation of Request Groups. Every incoming request
+is grouped with other requests that share common perfor-
+mance characteristics (such as model type, SLO value, and
+token distribution) to form Request Groups. This converts the
+complexity of the optimization problem from per-request
+level to per-request-group level. By doing so, it alleviates
+the scalability challenges and lowers optimization overheads.
+Additionally, request groups are a useful abstraction in the
+multi-model serving case as described in Section 2.4. Request
+grouping criteria and details are described in Section 4.
+Assigning Request Groups to Virtual Queues. Requests
+in a request group are then assigned to a Virtual Queue, rep-
+resenting a waiting queue for an LLM serving instance in the
+cluster. The introduction of virtual queues creates a common
+abstraction for setting the actions of backend LLM Serving
+Operations (LSOs) such as request pulling, request eviction,
+load balancing, and model swapping. The ordering of the
+request groups in a virtual queue determines the execution
+ordering of the requests on the corresponding LLM serving
+instance. We refer readers to Section 4 for virtual queue for-
+mation and Section 5 for the translation from virtual queue
+ordering to LSO actions.
+Virtual Queue Reordering for SLO Attainment Maxi-
+mization. While requests are assigned to request groups in
+a first-come-first-serve manner, request groups in a virtual
+queue are reordered to maximize the SLO attainment for all
+requests being served. At the core of SLO attainment max-
+imization are QLM’s request waiting time (RWT) estimator
+(see Section 6) and global scheduler (see Section 7).
+Request Execution. Each request, when being moved to
+the head of the virtual queue, will be executed on the LLM
+serving instance, and the output will be returned to the ap-
+plication. This completes the lifecycle of a request.
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+We illustrate the rationale of QLM’s design choices and
+workflow in the next section (Section 3.2).
+3.2 QLM Design Principles
+We highlight the major design principles underpinning QLM,
+derived from large-scale production LLM serving workload
+requirements at a major cloud provider.
+Design Principle #1: Scaling to a high request arrival
+rate and burstiness. QLM must be able to handle a high
+volume of requests for SLO attainment without the overhead
+that compromises the serving throughput. Existing model-
+serving frameworks that leverage optimization techniques
+such as linear programming have exponential or cubical
+complexity, which limits the scalability to larger workloads
+and longer queues. QLM instead introduces request groups
+to reduce the input space of the optimization solvers, thus
+lowering the computational overhead and enabling scalabil-
+ity.
+Design Principle #2: Handling multiple LSOs with in-
+ter dependencies. To attain model-serving latency SLOs,
+it is critical to translate the latency SLO to the appropri-
+ate backend LSO actions. QLM models these complex inter-
+relationships with a two-step approach. First, virtual queues
+enable the necessary abstraction to enable actions for multi-
+ple backend LSOs. Second, the global scheduler models the
+impact of ordering on multiple LSOs with a linear program-
+ming solver. We specifically prefer a linear programming
+solver over other optimization methods because it systemat-
+ically considers various constraints introduced by multiple
+LSOs, SLO constraints, and waiting time estimates from the
+RWT estimator.
+Design Principle #3: Handling heterogeneous models
+and hardware device configurations. LLM serving work-
+loads consist of diverse model types with vastly different
+computational requirements, SLOs, and token length dis-
+tributions. Hardware device configurations are also hetero-
+geneous in terms of computing power, GPU memory ca-
+pacity, and GPU-CPU memory bandwidth. To efficiently
+map LLM requests to the appropriate hardware resources,
+QLM’s global scheduler has to consider each device’s comput-
+ing power, memory capacity, and memory bandwidth. The
+RWT estimator estimates this impact of heterogeneity for the
+global scheduler. The profiling costs for the RWT estimator
+are minimal, only a single batch run for a given combination
+of request group and GPU device is needed. Hence, QLM
+does not require significant training when adding new LLM
+models or GPU devices into the serving cluster.
+Algorithm 1 Request Group Creation
+1: 𝑔𝑟𝑜𝑢𝑝𝑠←𝑘𝑀𝑒𝑎𝑛𝑠𝐶𝑙𝑢𝑠𝑡𝑒𝑟𝑖𝑛𝑔(𝑟𝑒𝑞𝑢𝑒𝑠𝑡𝑠)
+2: for𝑖← 1 to𝑙𝑒𝑛𝑔𝑡ℎ(𝑔𝑟𝑜𝑢𝑝𝑠) do
+3: if𝑔𝑟𝑜𝑢𝑝𝑠[𝑖].𝑠𝑖𝑧𝑒() >𝑎𝑣𝑔_𝑏𝑎𝑡𝑐ℎ _𝑠𝑖𝑧𝑒×𝛿 then
+4: 𝑛𝑒𝑤𝐺𝑟𝑜𝑢𝑝𝑠 ←𝑔𝑟𝑜𝑢𝑝𝑠[𝑖].𝑠𝑝𝑙𝑖𝑡𝐻𝑎𝑙𝑓 ()
+5: 𝑔𝑟𝑜𝑢𝑝𝑠.𝑎𝑝𝑝𝑒𝑛𝑑(𝑛𝑒𝑤𝐺𝑟𝑜𝑢𝑝𝑠)
+6: end if
+7: end for
+4 REQUEST GROUPS AND VIRTUAL
+QUEUES
+In this section, we describe the concept of virtual queues and
+the process of classifying LLM requests into request groups
+and assigning request groups to virtual queues.
+Definition 4.1. Request Group: Each request group is a col-
+lection of multiple requests that are relatively homogeneous,
+i.e., sharing similar performance demand or requirement
+characteristics. We identify that input/output token distribu-
+tions, model type, and SLO values are sufficient for the RWT
+estimator (as explained in Section 6).
+Definition 4.2. Virtual Queues: Each virtual queue is a se-
+quence of request groups that denotes the relative order in
+which requests will be served. There is a one-to-one mapping
+between an LLM serving instance and a virtual queue.
+By creating the abstraction of request groups and virtual
+queues, the ordering of request groups in a virtual queue
+allows QLM to configure actions for multiple downstream
+LSOs to attain latency SLOs for the LLM-serving requests in
+a scalable manner (described in Section 5).
+Request Group Creation. Request groups are created in
+two steps: (i) clustering similar requests based on Def. 4.1,
+and (ii) splitting large request groups. Algorithm 1 describes
+the request group creation process. The parameters identified
+for the request grouping include model types, input/output
+token distribution, and SLO values. Grouped requests based
+on such parameters exhibit predictable request completion
+time distribution (compared to that of each individual re-
+quest) as explained in Section 6. Additionally, we also limit
+the size of each request group to a small multiple (𝛿) of batch
+size. We refer the reader to Section 8.3 for the trade-off anal-
+ysis between overhead and decision-making granularity: (1)
+Larger request groups would decrease the number of request
+groups and thus the overhead of the global scheduler; (2)
+However, restricting the size of request groups is beneficial
+as it allows for more fine-grained decisions. Since requests
+within a request group are relatively homogeneous, QLM
+treats the ordering of the requests within a group using a
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+first-come-first-serve (FCFS) policy. Request groups are de-
+queued from the virtual queue when all requests complete
+execution.
+Handling New Incoming Requests. As new requests join
+the global queue, they are classified into the existing request
+groups, and the RWT estimator calculation is triggered to
+find out whether any SLOs are being violated. Upon any SLO
+violation, the global scheduler is called to reorder the request
+groups in the virtual queues to maximize SLO attainment
+given the current states (estimations).
+Fault Tolerance in Queue Management. QLM only stores
+a single replica of the requests and their metadata in the
+global queue, which avoids the need to maintain consis-
+tency between multiple queues. The global queue is imple-
+mented using a distributed message queue broker such as
+RabbitMQ [38] that provides the necessary replication, fault
+tolerance, and persistence mechanisms. The data structure
+that implements virtual queues records orderings of subsets
+of requests in the global queue. These virtual queues are
+implemented as lightweight data structures that maintain
+pointers or references to the actual requests stored in the
+global queue. By using virtual queues, QLM can achieve the
+following: (1) Fault Isolation: If an LLM serving instance fails,
+only the corresponding virtual queue is affected, and the
+remaining virtual queues can continue processing requests
+without interruption. Request groups from the lost virtual
+queue are assigned to other virtual queues using the global
+scheduler. (2)Consistency: Since the actual requests are stored
+in the global queue, virtual queues can be reconstructed or
+reassigned without compromising the consistency of the
+request data.
+5 LLM SERVING OPERATIONS
+The LLM serving instances serve requests from the corre-
+sponding virtual queue and execute backend LSO actions
+when necessary. The LSOs by themselves are merely action
+actuators, and the intelligence required to configure when
+and which action to set comes from the virtual queue or-
+dering set by the global scheduler (as described in Section
+7).
+Fig. 7 shows the four basic LSOs that QLM currently
+supports. A QLM agent resident on each LLM serving in-
+stance monitors the virtual queue ordering and converts it
+into LSO actions. When the virtual queue state changes or
+new requests are added, QLM agents initiate request pulling
+and load balancing. Similarly, when the head request group
+changes, the QLM agent initiates request eviction. Model
+swapping is initiated by the QLM agent for models at the
+head of the virtual queue. Each of these LSOs modifies the
+internal state of the LLM serving instance, which includes
+the running batch of requests, KV cache store, and model
+Request
+Pulling
+GPU Device &
+Memory
+CPU Memory &
+Disk Storage
+Model Model 
+Swapping
+Request
+Eviction
+KV Cache
+Running
+Batch
+QLM Agent 1
+KV Cache
+Store
+LLM Model 
+Registry
+…
+QLM Agent 2
+Model
+Agent 2
+Virtual Queue
+Agent 1
+Virtual Queue
+Load 
+Balancing
+Figure 7: Basic LLM serving operations (LSOs) for an
+LLM-serving instance that a QLM agent manages.
+weights. Below, we describe each of these LSOs in detail and
+their action setup based on the virtual queue ordering.
+Request Pulling ( 1 in Fig. 7). Request pulling refers to the
+operation that dequeues the requests in the virtual queue
+using a pull-based model and adds it to the running batch, i.e.,
+whenever the total tokens of the running batch are below the
+GPU capacity, a pull signal is issued to retrieve a request from
+the global queue. The exact pulled request is determined by
+the request group at the head of the virtual queue. Within the
+head request group, requests are ordered in an FCFS manner,
+therefore the first request to join the head request group
+would be the first to be dequeued from the virtual queue
+and added to the GPU’s running batch. Note that request
+pulling is insufficient to immediately serve a request with
+a low SLO value (i.e., stricter SLO) because a pull operation
+to the virtual queue can only happen if spare token capacity
+exists on the GPU device (i.e., without head-of-line blocking).
+Request Eviction ( 2 in Fig. 7). As request pulling by itself
+may not be sufficient to enable the immediate serving of
+requests with low SLO values due to head-of-the-line block-
+ing, QLM also supports request eviction. Request eviction is
+invoked when the RWT estimator detects an SLO violation,
+and the global scheduler replaces an existing request group
+by placing a request group at the head of the virtual queue.
+In request eviction, requests of the head request group are
+pulled into the running batch based on available capacity,
+and previously running requests are evicted (back) into the
+global queue. To prevent re-computation of KV cache of the
+lost request upon eviction, we migrate it to CPU memory
+instead. However, the GPU-to-CPU memory bandwidth is
+typically at least 10× less than the GPU memory bandwidth,
+and if the evicted request has a large KV cache, it leads to
+significant transfer overhead and consequent performance
+degradation. QLM hides this performance degradation using
+the asynchronous GPU memory copy available in most GPU
+programming libraries.
+Load Balancing ( 3 in Fig. 7). As each LLM serving in-
+stance is associated with a separate virtual queue, the global
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+scheduler’s assignment of request groups to a virtual queue
+inherently performs load balancing. Each instance would
+only pull from its associated virtual queue, thus ensuring the
+distribution of requests across all the serving instances. Note
+that QLM does not implement preemptive load balancing,
+i.e., once request groups start executing on an LLM serving
+instance, they cannot be migrated to another instance.
+Model Swapping ( 4 in Fig. 7). Each LLM serving instance
+can serve multiple models by switching the underlying model
+weights and flushing out the KV cache. QLM assumes a two-
+tier hierarchy of memory and disk storage. Therefore, any
+model that needs to be served from the LLM model registry
+(located in the storage) has to undergo two distinct swaps:
+(1) Storage-CPU swapping: The model is first swapped from
+the LLM model registry to CPU memory, and (2) CPU-GPU
+swapping: The model located in the CPU memory is swapped
+into GPU memory for inferencing. QLM is able to decide the
+location (i.e. GPU mem, CPU mem or storage) of each model
+by checking the virtual queue order. The model for the head
+request of the virtual queue is currently active and should
+be placed in the GPU memory. Models present later in the
+virtual queue are warm and placed in the CPU memory until
+all the CPU memory is exhausted. The remaining models
+(cold models) are not swapped out from the LLM model
+registry (located in the storage).
+LSO Implementation. We implement the abovementioned
+LSOs on top of vLLM, a state-of-the-art LLM serving sys-
+tem. QLM agents are responsible for triggering each LSO
+action. Request pulling and load balancing are implemented
+by async pull calls to the virtual queues when there is spare
+token capacity on the LLM serving instance. Request evic-
+tion and GPU-CPU state swapping require instrumentation
+to the vLLM scheduler. In each iteration, the vLLM sched-
+uler attempts to generate a new token for all the running
+requests and preempts any request that exceeds the total
+GPU capacity. At the end of an iteration, QLM agent checks
+if either request eviction or state swapping is required and
+performs the operation. For both operations, current requests
+are removed from the running batch to make space for the
+incoming requests at the head of the virtual queue. For re-
+quest eviction, the scheduler uses an asynchronous GPU
+transfer of the KV cache. Model swapping into the GPU is
+implemented by changing the underlying model of the vLLM
+instance and flushing out the KV cache.
+6 REQUEST W AITING TIME (RWT)
+ESTIMATOR
+QLM leverages waiting time estimates from the RWT esti-
+mator for better utilization and decrease resource costs by
+making closer to optimal request queue reordering decisions.
+The RWT estimator uses a statistical approach to generate
+Table 1: Glossary of symbols used in the RWT estima-
+tor.
+Symbol Description
+𝐶𝑞 Completion time for a request𝑞
+𝑊𝑞 Request waiting time for a request𝑞
+𝑃 Prefill time for a request
+𝐷𝑞 Total decode time for a request𝑞
+𝑂𝑞 Number of output tokens for a request𝑞
+Θ Token generation throughput
+𝜖 Inefficiency factor due to continuous batching
+𝑑 Decode time per output token
+estimates of waiting and completion times for requests. To
+do so, the estimator first generates an upper bound on re-
+quest completion time i.e. the actual request completion time
+would be lesser than the estimate. These completion times
+are then aggregated to generate completion time of the entire
+request group. Overall, the estimator is conservative when
+queue size is small (i.e. the estimate is higher than the actual
+waiting times) and the accuracy increases with increase in
+queue size.
+The estimation process is explained in further detail below
+with variable definitions listed in Table 1.
+As shown in Equation 1, the total request completion time
+equals the sum of the waiting time ( 𝑊𝑞), prefill time (𝑃),
+and total decode time across all the output tokens (𝐷𝑞) for a
+request𝑞.
+𝐶𝑞 =𝑊𝑞+𝑃+𝐷𝑞 (1)
+Estimating Prefill Time. The prefill time 𝑃 is typically
+constant per model type when the input tokens are small
+as it is a highly parallel GPU-accelerated operation whose
+time increases minimally as the number of input tokens
+increases 2. Experiments show that the latency increase from
+additional input tokens is 100× less compared to the latency
+increase from each additional output token [2]. Therefore,
+the major distribution terms that still remain to be estimated
+are the waiting time (𝑊𝑞) and decode time (𝐷𝑞).
+Estimating Waiting Time. We consider the token gener-
+ation throughput (Θ) to be constant throughout the token
+generation process due to statistical averaging effects de-
+scribed in Appendix A.1. Therefore, the total waiting time
+for a single request can be represented by Equation 2 by di-
+viding the number of tokens ahead (˝𝑞−1
+𝑖=1 𝑂𝑖) in the queue by
+the token generation throughput (Θ) where𝑖 denotes each
+of the𝑞− 1 requests in the queue ahead of the request we
+model.
+2Abnormally long context prompts beyond 10 standard deviations of pro-
+duction prompt distribution are not in the scope of QLM and we leave it for
+future research work.
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+𝑊𝑞 =
+𝑞−1∑︁
+𝑖=1
+𝑂𝑖
+Θ (2)
+Note that we do not know the number of output tokens
+ahead of time (that requires the knowledge of the output
+sequence for all requests in the waiting queue), so we model
+them as a distribution with the mean𝜇𝑜 and standard devia-
+tion𝜎𝑜 fitted from the request input-output history dataset
+for the request group that the request 𝑞 belongs to. As 𝑞
+becomes larger, the Central Limit Theorem (CLT) applies
+and the assumption of Normal distribution is accurate for
+any underlying request output token distribution. We further
+explain this in Appendix A.1.
+𝑞−1∑︁
+𝑖=1
+𝑂𝑖∼𝑁((𝑞− 1)𝜇𝑜,(𝑞− 1)𝜎 2
+𝑜) (3)
+Estimating Decode Time. We compute the total decode
+time using Equation 4.
+𝐷𝑞 =𝑂𝑞×𝜖×𝑑 (4)
+As we do not know the exact number of output tokens (𝑂𝑞)
+in Equation 4 and the Normal distribution assumption from
+CLT does not apply for a single request, we approximate it
+using the maximum possible number of output tokens for
+the model. As the request queue grows, the waiting time
+𝑊𝑞 dominates the completion time𝐶𝑞 and the error intro-
+duced by the above heuristic reduces as shown in Figure 18.
+However, for short queues, we maintain the conservative
+estimate of decode time as it dominates the completion time.
+If GPU memory was not a constraint, the decode steps
+would not be interrupted, and the total decode time would
+simply be the product of the number of output tokens (𝑂𝑞)
+and decode time per output token (𝑑). However, LLM serving
+systems cannot ensure this ideal behavior due to continuous
+batching. As requests are added continuously to the GPU’s
+running batch, some requests inevitably exceed the total
+GPU memory capacity limit and have to be temporarily pre-
+empted. This leads to inefficiency in the generation process
+that we capture with the inefficiency factor𝜖, i.e., a constant
+multiplied by the decode time per token that captures the
+inefficiency associated with the generation process.
+Finally, to estimate the completion time of the entire re-
+quest group (Equation 5), we need to take the max of all the
+completion times of individual requests.
+𝐶 = max
+𝑞
+𝐶𝑞 (5)
+Table 2: Glossary of symbols used in the linear pro-
+gramming solver.
+Symbol Description
+𝑔∈ G The𝑔-th virtual queue (VQ) in all virtual queues G
+𝑖∈ I The𝑖-th request group (RG) in all request groups I
+𝑗 Virtual queue position in[0,𝐿− 1] with queue length𝐿
+𝑥𝑔,𝑖,𝑗 Binary decision variable for assignment of RG𝑖 to VQ𝑔
+𝑤𝑡𝑔,𝑗 Request group waiting time
+𝑚𝑔,𝑗 The model assignment on the 𝑗-th position of VQ𝑔
+𝑡𝑔,𝑗 Binary variable for switching the model to serve on VQ𝑔
+𝑆 Swap time associated with loading a new model into GPU memory
+𝑠𝑙𝑜𝑔,𝑗 SLO preservation rate serving the 𝑗-th model on VQ𝑔
+𝑝𝑔,𝑗 Penalty for SLO violation serving the 𝑗-th model on VQ𝑔
+Offline Profiling. There are two independent profiling steps
+required for the RWT estimator: (a) Workload Profiling: sam-
+ples multiple requests from the workload to generate a dis-
+tribution for input and output tokens, and (b) Hardware Pro-
+filing: requires running the model with a single batch of
+requests on the specific GPU. Fixed variables associated with
+the model and hardware setup, such as the prefill time (𝑃),
+inefficiency factor (𝜖) and decode time per iteration (𝑑) are
+obtained by directly logging these metrics from the LLM serv-
+ing instance. In our implementation, we add these logging
+metrics directly into vLLM code.
+7 GLOBAL SCHEDULER
+The global scheduler is invoked by the RWT estimator when
+an SLO violation is likely to occur. Upon invocation, the
+global scheduler runs a linear programming model to re-
+order the virtual queues that decide underlying LSO actions
+to maximize SLO attainment. The global scheduler uses a
+linear program solver because it: (a) allows handling non-de-
+terminism by representing request group completion times
+as distributions, and (b) offers a systematic way to model vari-
+ous constraints associated with SLOs, model swapping times,
+and hardware heterogeneity. In this section, we present the
+linear programming model with its defined variables listed
+in Table 2.
+Overall Modeling Approach. The goal of the linear pro-
+gramming solver is to find an assignment of request groups
+to the virtual queues so that all SLOs are met. To model SLO
+attainment, we define a penalty term for each request group,
+which is the difference between waiting time and SLO value.
+If SLOs are met, all penalty terms would be smaller than
+0. Given the SLOs as the inputs to the linear programming
+model, we obtain the request group waiting time estimation
+from the RWT estimator to estimate the defined penalty
+terms. The worst-case waiting time for a request group is
+the sum of the waiting time for request groups ahead in the
+virtual queue from the same model (from Equation 2), the
+completion time for the request group for different models
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+(from Equation 5), and swap times associated with transfer-
+ring model weights into GPU memory 3. Note that effects
+associated with hardware and model heterogeneity (such as
+token throughput and eviction vs. swap) that impact request
+group completion time are captured by the RWT estimator
+profiling.
+Definitions of Constraints. Now, we describe each of the
+constraints in further detail. We assume that each virtual
+queue can have a maximum length, and every request group
+is assigned to one of the positions in the virtual queue. Equa-
+tion 6 models request group assignment to a position in the
+virtual queue.∑︁
+𝑔
+∑︁
+𝑗
+𝑥𝑔,𝑖,𝑗 = 1∀𝑖
+∑︁
+𝑖
+𝑥𝑔,𝑖,𝑗 = 1∀𝑔,𝑗 (6)
+Each request group has a one-to-one mapping with a position
+in a virtual queue. If there are empty positions, we assign
+them “empty” request groups to match request groups and
+virtual queue capacity.
+Each position in the virtual queue would have a corre-
+sponding model and SLO based on Equation 6. This assign-
+ment is captured with Equation 7 and Equation 8.
+𝑚𝑔,𝑗 =
+∑︁
+𝑖
+models𝑖×𝑥𝑔,𝑖,𝑗∀𝑔,𝑗 (7)
+𝑠𝑙𝑜𝑔,𝑗 =
+∑︁
+𝑖
+slos𝑖×𝑥𝑔,𝑖,𝑗∀𝑔,𝑗 (8)
+The transition between two different models is captured in
+Equation 9. While inequalities cannot be directly modeled as
+constraints, we apply the standard big-M method to reduce
+the inequality into linear constraints [7].
+𝑡𝑔,𝑗 =(𝑚𝑔,𝑗−1 ≠𝑚𝑔,𝑗)∀𝑔,𝑗 (9)
+The cumulative waiting times of all positions in the vir-
+tual queue would be the sum of waiting time, completion
+times, and swap times as represented in Equation 10. 𝐶 is
+the completion time of a request group from Equation 5.
+wt𝑔,𝑗 =
+∑︁
+𝑖
+𝑗−1∑︁
+𝑘
+𝑊𝑔,𝑖×𝑥𝑔,𝑖,𝑘+
+𝑗−1∑︁
+𝑘
+𝑡𝑔,𝑘×𝑆+
+∑︁
+𝑖
+𝑗−1∑︁
+𝑘
+𝐶𝑔,𝑖×𝑡𝑔,𝑘×𝑥𝑔,𝑖,𝑗∀𝑔,𝑗
+(10)
+The penalty would simply be the difference between the
+waiting time and the SLO value, as shown in Equation 11.
+𝑝𝑔,𝑗 =𝑤𝑡𝑔,𝑗−𝑠𝑙𝑜𝑔,𝑗∀𝑔,𝑗 (11)
+The final constraint is that all penalty values should be
+less than 0 i.e., all SLOs are satisfied.
+𝑝𝑔,𝑗≤ 0∀𝑔,𝑗 (12)
+Optimization Goal. The linear programming model aims
+to minimize the total penalty for SLO violations.
+3We measure swap times from model load time profiling.
+min(
+∑︁
+𝑔
+∑︁
+𝑗
+𝑝𝑔,𝑗) (13)
+8 EV ALUATION
+Our experiments address the following research questions:
+(a) QLM performance with respect to SLO attainment and
+request throughput in single-model serving (Section
+8.1),
+(b) QLM performance with respect to SLO attainment and
+request throughput in multi-model serving (Section 8.2),
+(c) Contribution of each LSO to QLM performance,
+(d) Accuracy of the RWT estimator in request waiting time
+estimation,
+(e) Robustness analysis of QLM to hardware heterogeneity,
+token distributions, burstiness, and request group size
+regarding LLM-serving performance (Section 8.3), and
+(f) Overhead of using QLM with increasing queue sizes.
+Experiment Setup. We evaluate QLM on multiple varying-
+sized open-source LLMs: Mistral-7B [ 17], Vicuna-13B [ 5],
+and Llama-70B [47]. We evaluate on a test bed consisting of
+GPUs of two types: 30 NVIDIA A10 (24 GB memory) and 50
+NVIDIA A100 (80 GB memory). The setup represents both
+model and device heterogeneity. To evaluate the benefit of
+QLM, we consider the following three baseline mechanisms:
+(1) EDF (Earliest Deadline First): Requests are sorted by their
+SLO values such that requests with the smallest SLO values
+are at the front of the virtual queue, (2) vLLM [20]: Requests
+use the default first-come-first-serve (FCFS) scheduler in
+vLLM, and (3) SHEPHERD [54]: Requests are served with
+dynamic batching and an ILP formulation for ordering and
+placement. Note that SHEPHERD cannot be easily extended
+to work with continuous batching as the LP formulation
+assumes fixed batches with deterministic execution times.
+0 500 1000 1500 2000
+# Tokens
+0.00
+0.25
+0.50
+0.75
+1.00
+CDF
+Input Tokens
+Output Tokens
+Figure 8: Distribution of input and output tokens in
+the shareGPT dataset.
+Workloads. We create our experimental workloads from
+the requirements of a production cloud service provider ex-
+cept for request arrival rates due to confidentiality reasons.
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+Llama-70BMistral-7BVicuna-13B
+1
+2
+Request Throughput
+(Norm.)
+SHEPHERD
+vLLM
+EDF
+QLM
+Figure 9: Single model request serv-
+ing throughput at 0.5K requests/s
+interactive arrival rate. Increased
+throughput corresponds to 1.1-2.3 ×
+GPU requirement reduction.
+0.5 1.0 2.0 8.0 9.0 10.0
+Interactive Request
+Arrival Rate (x 1K requests/sec)
+0
+25
+50
+75
+100SLOs Met (%)
+EDF
+SHEPHERD
+vLLM
+QLM
+QLM (with Scaling)
+Figure 10: Single model SLO satisfac-
+tion for varying interactive request
+arrival rates for Vicuna 13B.
+Throughput SLO
+0
+50
+100Relative Performance
+GPU-CPU Swapping
+Pulling-Eviction
+Load Balancing
+Model Warm Start
+QLM
+Figure 11: Single model LSO ablation
+study at 0.5K requests/s interactive
+arrival rate for Vicuna 13B.
+Request arrivals are modeled with a Poisson distribution
+and queues are created by varying the arrival rates. Each
+workload trace uses 3,500 requests from the ShareGPT [46]
+dataset with input/output token distribution as shown in Fig-
+ure 8. We classify all requests into three categories and define
+their SLO values accordingly: (1) Interactive: 20s, (2) Batch-1:
+1 min, and (3) Batch-2: 1 hour. Note that these SLOs are de-
+fined with respect to the 99th percentile value of the time to
+first token (TTFT). We test the experimental workload in the
+following three scenarios: [WA] Single-Model Interactive
+and Batch Workload which consists of Batch-1, Batch-2,
+and Interactive requests for a single model, and no model
+swapping is required. [WB] Multi-Model Batch Workload
+which consists of Batch-1 and Batch-2 requests. Batch-1 re-
+quests use two models: fine-tuned versions of Mistral 7B and
+Llama 70B. Batch-2 requests use three models: fine tuned
+versions of Vicuna 13B and Llama 70B. [WC] Single-Model
+MegaPrompt Workload This request workload consists of
+several “mega prompts” in addition to the workload from
+𝑊𝐵. To generate the mega prompt workload, we randomly
+select requests with total input and output tokens in the 3K –
+4K range. These mega prompts have a large number of input
+and output tokens that occupy a large percentage of GPU
+memory and cause further HOL blocking.
+We do not present results for the multi-model interactive
+workload because QLM assigns a separate GPU for each
+model, effectively reducing the workload to a single model
+workload (𝑊𝐴). QLM’ global scheduler decides not to swap
+the models as the model swapping time exceeds the interac-
+tive request SLO (20s).
+8.1 Single-Model Evaluation
+We run workload 𝑊𝐴 on 50 A100 GPUs to evaluate the
+single-model LLM serving performance regarding the request
+throughput, SLO attainment, and LSO contribution ablation
+study (similar to the multi-model evaluation in Section 8.2).
+Request Throughput and SLO Attainment. Figure 10
+shows the percentage of SLOs that are satisfied by QLM
+and the baseline systems. We find that when the request
+arrival rate significantly exceeds the serving capacity, none
+of the systems can satisfy the SLOs. This is because the
+minimum serving time is much longer than the specified
+SLO. As the arrival rate of interactive requests decreases,
+QLM performs the best in satisfying the maximum number
+of SLOs. Specifically, it performs better than the baseline
+mechanisms because: (a) Compared to vLLM, QLM is able
+to move interactive service requests ahead in the queue,
+(b) Compared to EDF, QLM enables appropriate eviction of
+batch requests from the running queue, and (c) Compared to
+SHEPHERD, QLM uses continuous batching as opposed to
+static batch size and models the auto-regressive LLM nature
+with the RWT estimator to increase request throughput.
+We find that the advantages of QLM with respect to smart
+selection among various LSOs, continuous batching, and ap-
+propriate request prioritization help with improving request
+throughput. Figure 9 shows the request throughput for QLM
+and the individual baseline mechanisms at arrival rate of
+0.5K requests/s where QLM is able to achieve the maximum
+SLO satisfaction. QLM achieves higher throughput, i.e., 20%
+higher compared to vLLM and EDF, and 50% higher than
+SHEPHERD.
+Contribution of Each LSO. Figure 11 shows the impact of
+removing each LSO considered by the backend LLM serving
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+0.2 0.5 1
+Batch-1 Request
+Arrival Rate (x 1K requests/s)
+1
+2
+3
+4
+5
+Request Throughput
+(Norm.)
+SHEPHERD
+vLLM
+EDF
+QLM
+Figure 12: Multi-model request serv-
+ing throughput for varying Batch-
+1 request arrival rates. Increased
+throughput corresponds to 2-5× GPU
+requirement reduction.
+0.25 0.5 1.0 4.0 4.5 5.0
+Batch-1 Request
+Arrival Rate (x 1K request/s)
+0
+25
+50
+75
+100SLOs Met (%)
+EDF
+SHEPHERD
+vLLM
+QLM
+QLM (with Scaling)
+Figure 13: Multi-model SLO satisfac-
+tion for varying Batch-1 request ar-
+rival rates.
+Throughput SLO
+0
+50
+100Relative Performance
+GPU-CPU Swapping
+Pulling-Eviction
+Load Balancing
+Model Warm Start
+QLM
+Figure 14: Multi-model LSO ablation
+study for 0.25K requests/sec Batch-1
+arrival rate.
+instance in QLM. Request pulling contribute significantly to
+latency reduction for interactive services and consequently
+increase the number of SLOs met. Request eviction increases
+request throughput by swapping the KV cache into CPU
+memory. Finally, model swapping has no impact on this
+workload as a single model is being served.
+8.2 Multi-Model Evaluation
+We run workload 𝑊𝐵 to evaluate the multi-model perfor-
+mance on 50 A100 GPUs with respect to request throughput
+and SLO satisfaction. Additionally, we also provide an abla-
+tion study to understand the contribution of each LSO to the
+overall QLM performance.
+Request Throughput and SLO Attainment. Figure 12
+shows the request throughput (i.e., requests served per sec-
+ond) for𝑊𝐵 comparing QLM with the baseline mechanisms
+for varying Batch-1 arrival rates. QLM provides up to 3–4×
+higher throughput due to the following factors: (1) The use of
+request groups minimizes repeated swapping required as the
+model would only be swapped in once per request group in-
+stead of per individual request, and (2) The global scheduler
+couples every Batch-1 model with another Batch-2 model to
+minimize swaps while maintaining an equal distribution of
+queue sizes.
+The improvement in request throughput directly maxi-
+mizes the percentage of SLO satisfied for all requests. Fig-
+ure 13 shows the percentage of SLO satisfied for the inter-
+active services against against their arrival rate. When the
+Batch-1 requests arrive at less than 0.5K requests/s, QLM
+satisfies more than 90% of all SLO values. As the arrival
+rate of Batch-1 service requests increases, no combination
+of requests would be able to meet all SLOs, and the global
+scheduler would fail to return a solution. In such a scenario,
+a scale-up action is required to add more GPU devices. We
+perform this scale-up action to enable 100% SLO attainment
+if the current GPU capacity is insufficient. The baselines
+perform worse compared to QLM because none of them con-
+sider the impact of model swapping. Other limitations of the
+baselines are discussed in Section 8.1.
+Contribution of Each LSO. Each of the four LSOs used
+by QLM, including request pulling, request eviction, model
+swapping, and load balancing, contributes to either the la-
+tency and/or the throughput of the serving system. Figure 14
+shows the impact of removing each LSO on QLM perfor-
+mance for𝑊𝐵. The model warm start LSO contributes the
+most to QLM performance for both SLOs and throughput,
+as multiple models need to be multiplexed on the same LLM
+serving instance. Additionally, the other LSOs contribute
+primarily to the latency SLO attainment.
+8.3 QLM Robustness Analysis
+Hardware Heterogeneity. We run𝑊𝐴 on a mix of A10 and
+A100 GPUs to evaluate the robustness of QLM performance
+in heterogeneous hardware setup. Figure 15 shows request
+throughput when the cluster has varying ratios of A10 to
+A100 GPUs. The A10 is a lower-end GPU with ∼3× lower
+GPU memory and thus is only capable of serving a much
+lower request throughput compared to the A100 GPU. QLM
+takes into account this difference between request through-
+put across GPUs via the RWT estimator with offline profiling,
+and the global scheduler proportionally assigns a lower num-
+ber of requests to the A10 GPU compared to the A100. On
+the other hand, if we use a round-robin policy for request
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+0 20 50 80 100
+A10 GPU (%)
+50
+100SLO Met (%)
+Round Robin QLM
+Figure 15: Impact of hardware het-
+erogeneity.
+2 4
+Mega Prompt
+Arrival Rate (requests/s)
+50
+75
+100SLO Met (%)
+Round Robin QLM
+Figure 16: Impact of mega prompt
+arrivals.
+0 4 8 12
+Queue Size (k)
+0
+25
+50
+75
+100SLOs Met (%)
+SHEPHERD vLLM EDF QLM
+Figure 17: Impact of increasing
+queue size on SLO satisfaction.
+assignment to the LLM serving instances (while using de-
+fault QLM policy per instance), the load would be distributed
+equally, leading to higher queue drain times for the A10 GPU.
+Additionally, we also observe that the benefit of QLM is more
+compared to a random policy when the heterogeneity of the
+cluster is higher. When the A10 GPUs constitute 20–50% of
+the cluster (more heterogeneous), the improvement of QLM
+over random policy is 2–5× higher compared to a 100% A10
+or 100% A100 composition (more homogeneous). Note that
+for experimental purposes, we increase the total number of
+A100s proportionately to demonstrate the impact of GPU
+imbalance.
+Mega Prompt Workload.The RWT estimator of QLM takes
+into account input and output token distribution when esti-
+mating the request waiting time. Consequently, when there
+are distinct token distributions, such as in workload setup
+𝑊𝐶, QLM is able to load balance them intelligently across
+LLM serving instances to minimize the queue drain time.
+For example, in workload 𝑊𝐶, the “mega prompts” use a
+large number of tokens, and their KV cache occupies the
+entire GPU memory, causing head-of-the-line blocking for
+the regular requests in the queue. The optimal policy, as
+identified by QLM, in such a scenario would be to allocate all
+the regular requests to another LLM serving instance. Note
+that request eviction is not an option if all SLOs are tight.
+Figure 16 shows the benefit of QLM for workload𝑊𝐶. The
+relative benefit of QLM is highest for a few mega prompts
+because the regular requests can be moved to another GPU.
+As the percentage of mega prompts increases, there is no
+option but to assign them to different LLM serving instances,
+causing inevitable HOL blocking, and the benefit of QLM
+reduces. In such a case, we would need to perform a scale-up
+action and add more GPU devices to the cluster to continue
+maintaining SLOs.
+Varying Queue Size and Burstiness. The benefit of QLM is
+largely present when the queue size is large, and intelligent
+decision-making is required for setting LSO actions. Thus, to
+show the benefit of QLM under varying queue sizes, we vary
+the arrival rates of requests in 𝑊𝐵 to create a large queue
+and compare it against the baseline systems as shown in
+Figure 17. When the queue size is 0, QLM offers no benefit in
+maintaining SLOs as compared to the baseline approaches
+because the system is underutilized and does not require any
+smart decision-making. However, as the queue size increases,
+the percentage of SLOs met by the baseline systems keeps
+dropping due to reasons described in Section 8.1, while QLM
+is able to maintain a high SLO satisfaction percentage.
+RWT Estimator Accuracy. The RWT estimator calculates
+the request waiting time based on initial profiling of the
+model and hardware setup. This initial profiling time is neg-
+ligible as only a single batch of requests needs to be run on
+the GPU.
+Figure 18 shows the coefficient of determination (𝑅2 val-
+ues) when estimating waiting times for increasing queue
+sizes across the different models. Overall, we confirm our
+observation that as the number of request groups in the
+queue increase the waiting time estimation becomes more
+accurate. Specifically, we find with four request groups the
+RWT estimator reaches an accuracy of 0.99.
+While the RWT estimator is highly accurate in estimat-
+ing request waiting time for longer request queues, it is not
+perfect. When request queues are small, statistical averaging
+effects of continuous batching do not hold and the wait-
+ing time estimation tends calculates more conservative (i.e.
+higher) estimates leading to lower estimation accuracy.
+Impact of Request Group Size.QLM sets the request group
+size as a multiple (𝛿) of the average batch size. The exact𝛿
+value depends on the acceptable trade-off between the over-
+head of running the global scheduler and the granularity of
+decision-making. As𝛿 becomes smaller, QLM achieves a finer
+granularity of decision-making, leading to improved perfor-
+mance. However, the overhead leads to delayed decision-
+making. Figure 19 demonstrates this tradeoff between per-
+formance degradation (caused by changing granularity in
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+0 2 4 6 8
+#Request Groups
+0.0
+0.5
+1.0
+R² Value
+Mistral 7B
+Vicuna 13B
+Llama 70B
+Figure 18: Accuracy of RWT estima-
+tor.
+1 2 4 8 16
+δ : Request Group Size/Batch Size
+1.0
+1.5
+Performance
+Degradation (Norm.)
+Performance Degradation Overhead
+5
+10
+15
+Overhead
+(Norm.)
+Figure 19: Impact of request group size
+on QLM performance.
+104 106
+Queue Size (Requests)
+10□2
+10□1
+100
+101
+Overhead (s)
+A10,7B
+A100,7B
+A100,13B
+4xA100,70B
+Figure 20: QLM Overhead.
+decision making) and overhead of the global scheduler when
+varying𝛿. At𝛿 = 16, the overhead is smallest, but decision-
+making granularity is coarse, leading to sub-optimal deci-
+sions (such as imbalance between virtual queue sizes of LLM
+serving instances). In contrast, at 𝛿 = 1, the performance
+degradation is minimal, but overhead is much higher. We
+choose𝛿 = 4, as it results in nearly zero performance degra-
+dation, compared to𝛿 = 1, while maintaining a low overhead.
+Scalability and Overhead. The global scheduler is invoked
+only when QLM detects an SLO violation using the RWT es-
+timator. While the global scheduler is performing the virtual
+queue reordering, QLM continues serving and requests with
+tight SLOs (low latency requirements) placed at the front
+of the virtual queues are not interrupted. This ensures the
+global scheduler is off the critical serving path (i.e. the over-
+heads can be hidden) and ensures SLO compliance. While
+the global scheduler is the primary overhead, other system
+overheads include the CPU memory required for the request
+eviction and model swapping LSOs. Specifically, we require
+an additional 80 GB CPU memory for Vicuna 13B and Mistral
+7B, and 320 GB CPU memory for Llama 70B.
+In Figure 20, we show the time required to solve for the
+linear program in the global scheduler with varying queue
+sizes in terms of the number of requests. As the basic unit
+of the solver is a single request group, the model and GPU
+configurations with a larger request group size would be able
+to handle a much larger queue size for the same overhead.
+Consequently, configurations with a large request group size,
+such as an A100 with a 7B model, can handle a maximum
+queue size of 400K requests at a 5s overhead per request
+group (i.e., 5 ms per request, a production requirement).
+9 DISCUSSION AND FUTURE WORK
+What are the failure scenarios for the RWT Estima-
+tor? The RWT Estimator has the following drawbacks: (a) If
+the number of request groups in the queue are small, QLM
+overestimates the request waiting time. Such a conservative
+estimate is important as it would still lead to SLO preser-
+vation by the global scheduler, albeit the system could be
+underutilized compared to optimal. (b) When the number of
+output tokens is out-of-distribution (for example, more than
+5-10 standard deviations above mean), the estimator would
+underestimate the request group completion time leading to
+potential SLO violations. However, in our experience with
+shareGPT and production traces such scenarios are rare.
+What happens if QLM is unable to meet SLOs? QLM’s
+global scheduler may not be able to find an optimal virtual
+queue ordering if the request demand is high and the number
+of LLM serving instances (i.e., underlying compute resources)
+is insufficient. In such cases, we have three choices: (a) scale
+up the number of LLM serving instances by adding GPU
+devices, as we demonstrate in Figure 13 and Figure 10, (b) fall
+back to a heuristic such as Earliest Deadline First (EDF) and
+continue serving requests, and (c) performance admission
+control or rate limiting by dropping incoming requests to
+limit queue size. Option (a) can only be used when there are
+available resources, whereas Option (b) and Option (c) would
+lead to SLO violations.
+Can new LSOs be added to QLM? QLM can be extended
+to support other LSOs that depend on the queue size and
+request ordering. For example, GPU partitioning techniques
+(such as NVIDIA MIG [ 30]) can be added as an LSO with
+additional constraints on memory in the linear programming
+solver described in Section 7. We leave the addition of extra
+LSOs to our future work.
+How can QLM handle request priorities? QLM can also
+be used when strict priorities are assigned to requests in-
+stead of SLO values. In the strict priority model, 𝑟𝑒𝑞𝑢𝑒𝑠𝑡 1
+would execute before𝑟𝑒𝑞𝑢𝑒𝑠𝑡 2, if𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑦(𝑟𝑒𝑞𝑢𝑒𝑠𝑡 1) is less
+than𝑝𝑟𝑖𝑜𝑟𝑖𝑡𝑦(𝑟𝑒𝑞𝑢𝑒𝑠𝑡 2). With strict priority, the relative or-
+dering of requests across priorities is pre-decided, however
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+Category Multi Instance SLO-aware Autoregressive
+Optimizations
+Hardware
+Heterogeneity
+LLM Scheduling Optimizations [16, 20,
+51] ✗ ✗ ✓ ✓
+LLM Serving Backend Optimizations
+[1, 10, 11, 22, 24, 26–28, 34, 42, 43, 55–
+57]
+✗ ✗ ✓ ✓
+General ML Model-Serving Systems
+[8, 9, 13, 53, 54] ✓ ✓ ✗ ✓
+LLM Orchestration Systems [45] ✓ ✗ ✓ ✗
+QLM ✓ ✓ ✓ ✓
+✓: Supported, ✗: Not Supported
+Table 3: Comparison of QLM with Related Work
+per-priority assignment still needs to be optimized to maxi-
+mize SLO satisfaction. Consequently, the concepts of virtual
+queues, request groups, and the RWT estimator continue to
+remain useful.
+Can SLOs be defined on end-to-end latency? QLM ad-
+dresses the problem of optimizing time to first token (TTFT)
+SLO attainment. However, it can also be made to work with
+the modified objective of end to end request completion time
+SLOs (i.e. including decoding iterations). In this case, the
+RWT estimator and global scheduler need to be modified
+to consider a distribution of number of output tokens per
+request (as the exact number are unknown aprioiri).
+Can SLOs be defined on inter-token latency? QLM pri-
+marily addresses the problem of TTFT and does not guaran-
+tee the inter-token latency (ITL). However, related work such
+as Andes [25] attempts to guarantee token generation speed
+(that can be converted into inter-token latency) by modifying
+the local vLLM scheduler. QLM can work together with such
+systems to ensure ITL SLOs along with TTFT SLOs.
+10 RELATED WORK
+LLM Scheduling and Orchestration. Existing state-of-
+the-art LLM serving systems [16, 20, 51] adopts continuous
+batching and a first-come-first-serve (FCFS) scheduling pol-
+icy that suffers from head-of-line (HOL) blocking, which
+we address in QLM. FastServe [ 49] proposes preemptive
+scheduling with a Multi-Level Feedback Queue. Andes [25]
+defines Quality-of-Experience (QoE) for LLM serving as to-
+ken delivery speed, and proposes a preemptive scheduler
+that maximizes QoE. Llumnix [45] is an orchestration sys-
+tem across multiple LLM serving instances. QLM is the first
+queue management framework that optimizes SLO attain-
+ment while improving LLM-serving throughput and device
+utilization by systematically orchestrating backend LSOs.
+LLM Serving Backend Optimization. Various LLM serv-
+ing backend optimization techniques have been proposed
+to improve token generation throughput and memory cost
+while adapting to fine-tuning paradigms such StreamingLLM,
+Speculative Decoding, ChunkedAttention, FlashAttention
+and more [1, 10, 11, 22, 24, 26–28, 34, 42, 43, 55–57]. These
+backend LLM-serving optimizations are complementary to
+QLM as the LLM serving instance (see Def. 2.3), and their
+impact on token generation throughput can be captured with
+profiling for the RCT Estimator (see Section 6).
+General ML Model-Serving Systems. Traditional model-
+serving systems provide functionalities such as scheduling,
+placement, batching, and autoscaling. Clipper [9], TensorFlow-
+Serving [32], MArk [53], InferLine [8], SHEPHERD [54], and
+Clockwork [13] are some earlier work on serving traditional
+ML models like ResNet that are relatively small. INFaaS [39]
+and Cocktail [14] propose a model-less serving framework to
+automate the model selection and autoscaling to meet SLOs.
+However, they fail to consider the autoregressive property of
+LLMs. On the other hand, advanced autoscaling techniques
+are complementary to QLM.
+11 CONCLUSION
+We presented QLM, a novel queue management framework
+that orchestrates backend LSOs for SLO-oriented LLM serv-
+ing. Evaluation using real-world LLM serving datasets on
+heterogeneous model types and GPU devices demonstrate
+that QLM improves end-to-end latency SLO attainment by
+40–90% while improving serving throughput and device uti-
+lization by 20-400%.
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+12 ACKNOWLEDGEMENTS
+We thank the anonymous reviewers for providing their valu-
+able feedback. We also thank Nick Hill, Lionel Villard, and
+Mudhakar Srivatsa for providing us with production require-
+ments and insight, and Rohan Arora for infrastructure sup-
+port. This work is supported by the National Science Foun-
+dation (NSF) under grant No. CCF 20-29049 and by the IBM-
+ILLINOIS Discovery Accelerator Institute (IIDAI). Any opin-
+ions, findings, conclusions, or recommendations expressed in
+this material are those of the authors and do not necessarily
+reflect the views of the NSF or IBM.
+REFERENCES
+[1] Reyna Abhyankar, Zijian He, Vikranth Srivatsa, Hao Zhang, and Yiying
+Zhang. 2024. APIServe: Efficient API Support for Large-Language
+Model Inferencing. arXiv:arXiv preprint arXiv:2402.01869
+[2] Anyscale. 2024. Reproducible Performance Metrics for LLM in-
+ference. https://www.anyscale.com/blog/reproducible-performance-
+metrics-for-llm-inference. Accessed: 2024/04/10.
+[3] Rishi Bommasani, Drew A Hudson, Ehsan Adeli, Russ Altman, Simran
+Arora, Sydney von Arx, Michael S Bernstein, Jeannette Bohg, Antoine
+Bosselut, Emma Brunskill, et al. 2021. On the Opportunities and Risks
+of Foundation Models. arXiv:arXiv preprint arXiv:2108.07258
+[4] Shuang Chen, Christina Delimitrou, and José F Martínez. 2019. Parties:
+QoS-aware resource partitioning for multiple interactive services. In
+Proceedings of the 24th International Conference on Architectural Support
+for Programming Languages and Operating Systems (ASPLOS 2019) .
+ACM, Providence, RI, 107–120.
+[5] Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao
+Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E.
+Gonzalez, Ion Stoica, and Eric P. Xing. 2023. Vicuna: An Open-Source
+Chatbot Impressing GPT-4 with 90% ChatGPT Quality. https://lmsys.
+org/blog/2023-03-30-vicuna/
+[6] Seungbeom Choi, Sunho Lee, Yeonjae Kim, Jongse Park, Youngjin
+Kwon, and Jaehyuk Huh. 2022. Serving heterogeneous machine learn-
+ing models on multi-GPU servers with Spatio-Temporal sharing. In
+2022 USENIX Annual Technical Conference (USENIX ATC 2022). USENIX,
+Carlsbad, CA, 199–216.
+[7] Marco Cococcioni and Lorenzo Fiaschi. 2021. The Big-M method with
+the numerical infinite M. Optimization Letters 15, 7 (2021), 2455–2468.
+[8] Daniel Crankshaw, Gur-Eyal Sela, Xiangxi Mo, Corey Zumar, Ion Sto-
+ica, Joseph Gonzalez, and Alexey Tumanov. 2020. InferLine: Latency-
+Aware Provisioning and Scaling for Prediction Serving Pipelines. In
+Proceedings of the 11th ACM Symposium on Cloud Computing . As-
+sociation for Computing Machinery, New York, NY, USA, 477–491.
+https://doi.org/10.1145/3419111.3421285
+[9] Daniel Crankshaw, Xin Wang, Guilio Zhou, Michael J Franklin,
+Joseph E Gonzalez, and Ion Stoica. 2017. Clipper: A Low-Latency
+Online Prediction Serving System. In Proceedings of the 14th USENIX
+Symposium on Networked Systems Design and Implementation (NSDI
+2017). USENIX, Boston,MA, 613–627.
+[10] Jiarui Fang, Yang Yu, Chengduo Zhao, and Jie Zhou. 2021. TurboTrans-
+formers: An Efficient GPU Serving System for Transformer Models.
+In Proceedings of the 26th ACM SIGPLAN Symposium on Principles
+and Practice of Parallel Programming (PPoPP 2021) . ACM, Austin, TX,
+389–402.
+[11] Suyu Ge, Yunan Zhang, Liyuan Liu, Minjia Zhang, Jiawei Han, and
+Jianfeng Gao. 2024. Model Tells You What to Discard: Adaptive KV
+Cache Compression for LLMs. arXiv:2310.01801 [cs.CL]
+[12] Ulrich Gnewuch, Stefan Morana, Marc TP Adam, and Alexander Maed-
+che. 2022. Opposing Effects of Response Time in Human–Chatbot
+Interaction: the moderating role of prior experience. Business & Infor-
+mation Systems Engineering 64, 6 (2022), 773–791.
+[13] Arpan Gujarati, Reza Karimi, Safya Alzayat, Wei Hao, Antoine Kauf-
+mann, Ymir Vigfusson, and Jonathan Mace. 2020. Serving DNNs like
+clockwork: Performance predictability from the bottom up. In Proceed-
+ings of the 14th USENIX Symposium on Operating Systems Design and
+Implementation (OSDI 2020). USENIX, Berkeley, CA, 443–462.
+[14] Jashwant Raj Gunasekaran, Cyan Subhra Mishra, Prashanth Thi-
+nakaran, Bikash Sharma, Mahmut Taylan Kandemir, and Chita R Das.
+2022. Cocktail: A Multidimensional Optimization for Model Serving
+in Cloud. In Proceedings of the 19th USENIX Symposium on Networked
+Systems Design and Implementation (NSDI 2022) . USENIX, Renton, WA,
+1041–1057.
+[15] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep
+Residual Learning for Image Recognition. In Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition (CVPR 2016) .
+IEEE, Las Vegas, NV, 770–778.
+[16] HuggingFace. 2024. Text Generation Inference. HuggingFace. Retrieved
+July 1, 2024 from https://github.com/huggingface/text-generation-
+inference
+[17] Albert Q Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford,
+Devendra Singh Chaplot, Diego de las Casas, Florian Bressand, Gianna
+Lengyel, Guillaume Lample, Lucile Saulnier, et al. 2023. Mistral 7B.
+[18] Hanlei Jin, Yang Zhang, Dan Meng, Jun Wang, and Jinghua Tan. 2024.
+A comprehensive survey on process-oriented automatic text summa-
+rization with exploration of llm-based methods.
+[19] Sangeetha Abdu Jyothi, Carlo Curino, Ishai Menache, Shravan Matthur
+Narayanamurthy, Alexey Tumanov, Jonathan Yaniv, Ruslan Mavlyutov,
+Inigo Goiri, Subru Krishnan, Janardhan Kulkarni, et al . 2016. Mor-
+pheus: Towards automated SLO for enterprise clusters. In Proceedings
+of the 12th USENIX Symposium on Operating Systems Design and Im-
+plementation (OSDI 2016). USENIX, Savannah, GA, 117–134.
+[20] Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin
+Zheng, Cody Hao Yu, Joseph Gonzalez, Hao Zhang, and Ion Stoica.
+2023. Efficient Memory Management for Large Language Model Serv-
+ing with PagedAttention. In Proceedings of the 29th Symposium on
+Operating Systems Principles (SOSP 2023) . ACM, Koblenz, Germany,
+611–626.
+[21] Matthew LeMay, Shijian Li, and Tian Guo. 2020. Perseus: Characteriz-
+ing performance and cost of multi-tenant serving for CNN models. In
+2020 IEEE International Conference on Cloud Engineering (IC2E 2020) .
+IEEE, IEEE, Boston, MA, 66–72.
+[22] Yaniv Leviathan, Matan Kalman, and Yossi Matias. 2023. Fast Inference
+from Transformers via Speculative Decoding. In Proceedings of the
+40th International Conference on Machine Learning (ICML 2023) . PMLR,
+PMLR, Honolulu, HI, 19274–19286.
+[23] Zhuohan Li, Lianmin Zheng, Yinmin Zhong, Vincent Liu, Ying Sheng,
+Xin Jin, Yanping Huang, Zhifeng Chen, Hao Zhang, Joseph E Gonzalez,
+et al. 2023. AlpaServe: Statistical Multiplexing with Model Parallelism
+for Deep Learning Serving. In Proceedings of the 17th USENIX Sym-
+posium on Operating Systems Design and Implementation (OSDI 2023) .
+USENIX, Boston, MA, 663–679.
+[24] Pierre Lienhart. 2024. LLM Inference Series: 4. KV caching, a deeper
+look. https://medium.com/@plienhar/llm-inference-series-4-kv-
+caching-a-deeper-look-4ba9a77746c8 (Accessed on 04/10/2024).
+[25] Jiachen Liu, Zhiyu Wu, Jae-Won Chung, Fan Lai, Myungjin Lee, and
+Mosharaf Chowdhury. 2024. Andes: Defining and Enhancing Quality-
+of-Experience in LLM-Based Text Streaming Services.
+Queue Management for SLO-Oriented Large Language Model Serving SoCC ’24, November 20–22,2024, Redmond, WA, USA
+[26] Zichang Liu, Aditya Desai, Fangshuo Liao, Weitao Wang, Victor Xie,
+Zhaozhuo Xu, Anastasios Kyrillidis, and Anshumali Shrivastava. 2023.
+Scissorhands: Exploiting the Persistence of Importance Hypothesis for
+LLM KV Cache Compression at Test Time. arXiv:2305.17118 [cs.LG]
+[27] Zichang Liu, Jue Wang, Tri Dao, Tianyi Zhou, Binhang Yuan, Zhao
+Song, Anshumali Shrivastava, Ce Zhang, Yuandong Tian, Christopher
+Re, et al . 2023. DejaVu: Contextual Sparsity for Efficient LLMs at
+Inference Time. In Proceedings of the 40th International Conference on
+Machine Learning (ICML 2023) . PMLR, PMLR, Honolulu, HI, 22137–
+22176.
+[28] Xupeng Miao, Chunan Shi, Jiangfei Duan, Xiaoli Xi, Dahua Lin, Bin
+Cui, and Zhihao Jia. 2023. SpotServe: Serving generative large language
+models on preemptible instances.
+[29] Avanika Narayan, Ines Chami, Laurel Orr, Simran Arora, and Christo-
+pher Ré. 2022. Can foundation models wrangle your data?
+[30] NVIDIA. 2024. Nvidia Multi-instance GPU. https://www.nvidia.com/
+en-us/technologies/multi-instance-gpu/. Accessed: 2024/04/10.
+[31] NVIDIA. 2024. TensorRT-LLM. NVIDIA. Retrieved July 1, 2024 from
+https://github.com/NVIDIA/TensorRT-LLM
+[32] Christopher Olston, Fangwei Li, Jeremiah Harmsen, Jordan Soyke, Kiril
+Gorovoy, Li Lao, Noah Fiedel, Sukriti Ramesh, and Vinu Rajashekhar.
+2017. TensorFlow-Serving: Flexible, High-Performance ML Serving.
+[33] OpenAI. 2024. OpenAI - Finetuning. OpenAI. Retrieved July 1, 2024
+from https://platform.openai.com/docs/guides/fine-tuning
+[34] Pratyush Patel, Esha Choukse, Chaojie Zhang, Íñigo Goiri,
+Aashaka Shah, Saeed Maleki, and Ricardo Bianchini. 2023. Split-
+wise: Efficient generative LLM inference using phase splitting.
+arXiv:2311.18677 [cs.AR]
+[35] Haoran Qiu, Subho S Banerjee, Saurabh Jha, Zbigniew T Kalbarczyk,
+and Ravishankar K Iyer. 2020. FIRM: An intelligent fine-grained re-
+source management framework for SLO-oriented microservices. In
+Proceedings of The 14th USENIX Symposium on Operating Systems De-
+sign and Implementation (OSDI 2020) . USENIX, Virtual, 805–825.
+[36] Haoran Qiu, Weichao Mao, Archit Patke, Shengkun Cui, Saurabh Jha,
+Chen Wang, Hubertus Franke, Zbigniew T. Kalbarczyk, Tamer Başar,
+and Ravishankar K. Iyer. 2024. Efficient Interactive LLM Serving with
+Proxy Model-based Sequence Length Prediction. In The 5th Interna-
+tional Workshop on Cloud Intelligence / AIOps at ASPLOS 2024 , Vol. 5.
+Association for Computing Machinery, San Diego, CA, USA, 1–7.
+[37] Haoran Qiu, Weichao Mao, Archit Patke, Shengkun Cui, Saurabh Jha,
+Chen Wang, Hubertus Franke, Zbigniew T Kalbarczyk, Tamer Başar,
+and Ravishankar K Iyer. 2024. Power-aware Deep Learning Model Serv-
+ing with𝜇-Serve. In Proceedings of the 2024 USENIX Annual Technical
+Conference (USENIX ATC 2024). USENIX, Santa Clara, CA, 75–93.
+[38] RabbitMQ. 2024. RabbitMQ. https://www.rabbitmq.com/.
+[39] Francisco Romero, Qian Li, Neeraja J Yadwadkar, and Christos
+Kozyrakis. 2021. INFaaS: Automated Model-less Inference Serving. In
+Proceedings of 2021 USENIX Annual Technical Conference (ATC 2021) .
+USENIX, Virtual, 397–411.
+[40] Baptiste Roziere, Jonas Gehring, Fabian Gloeckle, Sten Sootla, Itai Gat,
+Xiaoqing Ellen Tan, Yossi Adi, Jingyu Liu, Tal Remez, Jérémy Rapin,
+et al. 2023. Code llama: Open foundation models for code.
+[41] Hojjat Salehinejad, Sharan Sankar, Joseph Barfett, Errol Colak, and
+Shahrokh Valaee. 2017. Recent advances in recurrent neural networks.
+[42] Ying Sheng, Shiyi Cao, Dacheng Li, Coleman Hooper, Nicholas Lee,
+Shuo Yang, Christopher Chou, Banghua Zhu, Lianmin Zheng, Kurt
+Keutzer, Joseph E. Gonzalez, and Ion Stoica. 2023. S-LoRA: Serving
+Thousands of Concurrent LoRA Adapters. arXiv:2311.03285 [cs.LG]
+[43] Ying Sheng, Lianmin Zheng, Binhang Yuan, Zhuohan Li, Max Ryabinin,
+Beidi Chen, Percy Liang, Christopher Ré, Ion Stoica, and Ce Zhang.
+2023. FlexGen: High-Throughput Generative Inference of Large Lan-
+guage Models with a Single GPU. In Proceedings of the 40th Interna-
+tional Conference on Machine Learning (ICML 2023) . PMLR, PMLR,
+Honolulu, HI, 31094–31116.
+[44] Shivchander Sudalairaj, Abhishek Bhandwaldar, Aldo Pareja, Kai Xu,
+David D Cox, and Akash Srivastava. 2024. Lab: Large-scale alignment
+for chatbots.
+[45] Biao Sun, Ziming Huang, Hanyu Zhao, Wencong Xiao, Xinyi Zhang,
+Yong Li, and Wei Lin. 2024. Llumnix: Dynamic Scheduling for Large
+Language Model Serving.
+[46] Vicuna team. 2024. ShareGPT Dataset . Vicuna team. Retrieved
+July 1, 2024 from https://huggingface.co/datasets/anon8231489123/
+ShareGPT_Vicuna_unfiltered
+[47] Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-
+Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric
+Hambro, Faisal Azhar, et al. 2023. Llama: Open and efficient foundation
+language models.
+[48] Yuxin Wang, Yuhan Chen, Zeyu Li, Zhenheng Tang, Rui Guo, Xin
+Wang, Qiang Wang, Amelie Chi Zhou, and Xiaowen Chu. 2024. To-
+wards Efficient and Reliable LLM Serving: A Real-World Workload
+Study. arXiv:2401.17644 [cs.DC]
+[49] Bingyang Wu, Yinmin Zhong, Zili Zhang, Gang Huang, Xuanzhe
+Liu, and Xin Jin. 2023. Fast Distributed Inference Serving for Large
+Language Models.
+[50] Qingyun Wu, Gagan Bansal, Jieyu Zhang, Yiran Wu, Shaokun Zhang,
+Erkang Zhu, Beibin Li, Li Jiang, Xiaoyun Zhang, and Chi Wang. 2023.
+AutoGen: Enabling next-gen LLM applications via multi-agent con-
+versation framework.
+[51] Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim, Soojeong Kim, and
+Byung-Gon Chun. 2022. Orca: A Distributed Serving System for
+Transformer-Based Generative Models. In Proceedings of the 16th
+USENIX Symposium on Operating Systems Design and Implementation
+(OSDI 2022). USENIX, Carlsbad, CA, 521–538.
+[52] Matei Zaharia, Omar Khattab, Lingjiao Chen, Jared Quincy Davis,
+Heather Miller, Chris Potts, James Zou, Michael Carbin, Jonathan
+Frankle, Naveen Rao, and Ali Ghodsi. 2024. The Shift from Models
+to Compound AI Systems. https://bair.berkeley.edu/blog/2024/02/18/
+compound-ai-systems/.
+[53] Chengliang Zhang, Minchen Yu, Wei Wang, and Feng Yan. 2019. MArk:
+Exploiting Cloud Services for Cost-Effective, SLO-Aware Machine
+Learning Inference Serving. In Proceedings of 2019 USENIX Annual
+Technical Conference (ATC 2019). USENIX, Renton, WA, 1049–1062.
+[54] Hong Zhang, Yupeng Tang, Anurag Khandelwal, and Ion Stoica. 2023.
+Shepherd: Serving DNNs in the Wild. InProceedings of the 20th USENIX
+Symposium on Networked Systems Design and Implementation (NSDI
+2023). USENIX, Boston, MA, 787–808.
+[55] Zhenyu Zhang, Ying Sheng, Tianyi Zhou, Tianlong Chen, Lianmin
+Zheng, Ruisi Cai, Zhao Song, Yuandong Tian, Christopher Ré, Clark
+Barrett, Zhangyang Wang, and Beidi Chen. 2023. H2O: Heavy-Hitter
+Oracle for Efficient Generative Inference of Large Language Models.
+arXiv:2306.14048 [cs.LG]
+[56] Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xu-
+anzhe Liu, Xin Jin, and Hao Zhang. 2024. DistServe: Disaggregating
+Prefill and Decoding for Goodput-optimized Large Language Model
+Serving. arXiv:2401.09670 [cs.DC]
+[57] Lei Zhu, Xinjiang Wang, Wayne Zhang, and Rynson W. H. Lau. 2024.
+RelayAttention for Efficient Large Language Model Serving with Long
+System Prompts. arXiv:2402.14808 [cs.CL]
+SoCC ’24, November 20–22,2024, Redmond, WA, USA A. Patke et al.
+Symbol Description
+𝑊 Total waiting time for a request in the queue
+𝑂 Total number of output tokens in the queue
+Θ Output token generation throughput (tokens/s)
+𝐵 Batch size
+𝛿 Decoding time per token
+𝜖 Preemption factor
+GPU Total token memory capacity in GPU
+𝐼𝑖 Number of input tokens for the𝑖-th request
+𝑂𝑖 Number of output tokens for the𝑖-th request
+𝜇𝑂 Mean number of output tokens per request
+𝜎 2
+𝑂 Variance of output tokens per request
+𝜇𝐼 Mean number of input tokens per request
+𝜎 2
+𝐼 Variance of input tokens per request
+n Size of the waiting queue
+Table 4: Glossary of Symbols Used in the Statistical
+Derivation
+A APPENDIX
+A.1 Waiting Time Predictability
+Below, we present a statistical derivation for the underlying
+assumptions from the RWT estimator from Section 6.
+The total number of output tokens in the queue would be
+the sum of output tokens of individual requests. The total
+waiting time for a request joining such a queue would be
+the time to process output tokens for requests ahead in the
+queue, which would be the number of output tokens divided
+by the token generation throughput.
+𝑊 = 𝑂
+Θ (14)
+The average token generation throughput (i.e. the number
+of output tokens generated per second) is simply the average
+batch size divided by time to generate each token.
+Θ = 𝐵
+𝛿×𝜖 (15)
+Due to continuous batching, the batch size is simply the
+number of tokens that can be kept in GPU memory.
+𝐵≈ GPU
+𝐼𝑖+𝑂𝑖
+(16)
+Simplifying the above equations, we derive the waiting
+time to be:
+𝑊 = 𝑂×𝛿×𝜖×𝐸[𝐼𝑖+𝑂𝑖]
+𝐺𝑃𝑈 (17)
+Therefore the expected waiting time would be:
+𝐸[𝑊] = 𝐸[𝑂]× 𝛿×𝜖×𝐸[𝐼𝑖+𝑂𝑖]
+𝐺𝑃𝑈 (18)
+As each request is independent of others and all requests
+originate from the same model, we assume the number of
+tokens for requests in the batch and queue to be i.i.d. (inde-
+pendent and identically distributed) variables.
+Due to the i.i.d. condition, for a large queue, we can apply
+the Central Limit Theorem and approximate the total number
+of output tokens with a normal distribution.
+𝑂 =N(𝑛𝜇𝑂,𝑛𝜎 2
+𝑂) (19)
+𝐸[𝑂] =𝑛𝜇𝑂 (20)
+Similarly for a large batch, we can also apply the Central
+Limit Theorem to approximate the number tokens in a batch
+with a normal distribution.
+𝐼𝑖+𝑂𝑖 =N(𝜇𝐼+𝑂,𝜎 2
+𝐼+𝑂/𝐵) (21)
+𝐸[𝐼𝑖+𝑂𝑖] =𝜇𝐼+𝜇𝑂 (22)
+As remaining terms in the waiting time estimation are
+constant, we find that the expected waiting time in the queue
+can be estimated analytically.
