@@ -126,6 +126,7 @@ def encode_prompt_once(cache_path, device):
 
 # --------------------------------------------------------------------------
 def main():
+    global MODEL
     ap = argparse.ArgumentParser()
     ap.add_argument("--templates", nargs="*", default=None,
                     help="WxHxF, e.g. 832x480x81")
@@ -135,7 +136,14 @@ def main():
     ap.add_argument("--out", default="results/stages.csv")
     ap.add_argument("--skip-vae", action="store_true")
     ap.add_argument("--tag", default="full")
+    ap.add_argument("--model", default=MODEL,
+                    help="HF repo or local Diffusers dir (default Wan2.1-1.3B)")
+    ap.add_argument("--compile", action="store_true",
+                    help="torch.compile the transformer (separates launch overhead from b)")
     args = ap.parse_args()
+    MODEL = args.model
+    if args.compile:
+        args.warmup = max(args.warmup, 4)     # first calls compile
 
     if args.sweep or not args.templates:
         templates = SWEEP
@@ -156,6 +164,9 @@ def main():
     print("[dit] loading transformer ...")
     tr = WanTransformer3DModel.from_pretrained(MODEL, subfolder="transformer",
                                                dtype=DTYPE).to(dev).eval()
+    if args.compile:
+        print("[dit] torch.compile ...")
+        tr = torch.compile(tr)
     dit_w = sum(p.numel() * p.element_size() for p in tr.parameters())
     print(f"[dit] params {sum(p.numel() for p in tr.parameters())/1e9:.2f} B, "
           f"weights {gib(dit_w):.2f} GiB")
