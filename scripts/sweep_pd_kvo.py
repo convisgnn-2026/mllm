@@ -63,9 +63,9 @@ def run(name, cfg, rate):
     d.mkdir(exist_ok=True)
     cfg_path = d / "cluster.json"
     cfg_path.write_text(json.dumps(cfg, indent=1))
-    cmd = [str(PY), "-m", "serving", "--cluster-config", f"{REL}/sweep1/{d.name}/cluster.json",
+    cmd = [str(PY), "-m", "serving", "--cluster-config", f"{REL}/{OUT.name}/{d.name}/cluster.json",
            "--dataset", f"{REL}/workloads/sharegpt-8b-300-sps{rate}.jsonl",
-           "--output", f"{REL}/sweep1/{d.name}/sim.csv", "--num-reqs", "300",
+           "--output", f"{REL}/{OUT.name}/{d.name}/sim.csv", "--num-reqs", "300",
            "--dtype", "bfloat16", "--kv-cache-dtype", "auto", "--block-size", "16",
            "--max-num-seqs", "256", "--max-num-batched-tokens", "2048",
            "--log-level", "WARNING", "--network-backend", "analytical"]
