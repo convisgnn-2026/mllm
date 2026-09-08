@@ -30,6 +30,7 @@ CPU = {"mem_size": 128, "mem_bw": 50, "mem_latency": 0}
 HOST_KV = {"mem_size": 128, "mem_bw": 25, "mem_latency": 1000, "num_devices": 1}   # PCIe 4.0 x16
 MODEL = "meta-llama/Llama-3.1-8B"
 RATES = [2, 4, 6, 8, 10]
+WL_PREFIX = "sharegpt-8b-300"       # workload family; sweep_*_pool.py override this
 SLO = {"ttft_ms": 3000, "tpot_ms": 60}          # goodput definition; both must hold
 
 
@@ -64,7 +65,7 @@ def run(name, cfg, rate):
     cfg_path = d / "cluster.json"
     cfg_path.write_text(json.dumps(cfg, indent=1))
     cmd = [str(PY), "-m", "serving", "--cluster-config", f"{REL}/{OUT.name}/{d.name}/cluster.json",
-           "--dataset", f"{REL}/workloads/sharegpt-8b-300-sps{rate}.jsonl",
+           "--dataset", f"{REL}/workloads/{WL_PREFIX}-sps{rate}.jsonl",
            "--output", f"{REL}/{OUT.name}/{d.name}/sim.csv", "--num-reqs", "300",
            "--dtype", "bfloat16", "--kv-cache-dtype", "auto", "--block-size", "16",
            "--max-num-seqs", "256", "--max-num-batched-tokens", "2048",

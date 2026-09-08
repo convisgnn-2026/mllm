@@ -33,6 +33,7 @@ import model as M
 import sim as SIM
 from solver import MIXES
 
+IMG_TOKS = 576               # LLaVA-1.5 @336px, one image per request
 DIT_SLO_SLACK = 3.0          # deadline = slack x solo latency on the pool's hardware
 ALPHA = 0.90                 # per-tenant SLO attainment floor
 
@@ -63,6 +64,25 @@ def load_llm(path="results/servingsim/pool/summary.csv"):
     return tab
 
 
+def load_vlm(enc_ms, root="results/servingsim/pool_vlm", ttft_ms=3000, tpot_ms=60):
+    """VLM tenant = image-token-inflated LLM run + fixed vision-encoder latency per request.
+    The encoder runs on the same GPUs as the language model (ms-scale, never the bottleneck);
+    its latency is charged against the TTFT budget."""
+    tab = {}
+    if not _os.path.isdir(root):
+        return tab
+    for d in _os.listdir(root):
+        p = _os.path.join(root, d, "sim.csv")
+        if not d.startswith("vlm_colo") or not _os.path.exists(p):
+            continue
+        g = int(d.split("_")[1][4:]); rate = float(d.split("_sps")[1])
+        rows = list(csv.DictReader(open(p)))
+        ok = sum(1 for r in rows if float(r["TTFT"]) / 1e6 + enc_ms <= ttft_ms
+                 and float(r["TPOT"]) / 1e6 <= tpot_ms)
+        tab[(g, rate)] = ok / len(rows)
+    return tab
+
+
 def llm_sar(tab, g, rate):
     if g == 0:
         return 0.0 if rate > 0 else 1.0
@@ -79,17 +99,22 @@ def main():
     ap.add_argument("--dit-mix", default="short", choices=list(MIXES))
     ap.add_argument("--dit-rates", default="0,0.01,0.02,0.04,0.06")
     ap.add_argument("--llm-rates", default="0,1,2,3,4,6")
+    ap.add_argument("--vlm-rates", default="0", help="VLM tenant req/s list; each value gets its own table")
+    ap.add_argument("--enc-ms", type=float, default=25.0, help="vision encoder latency per image on the pool GPU (assumed)")
     ap.add_argument("-o", "--out", default="results/servingsim/pool/cosolve.md")
     a = ap.parse_args()
     G = a.gpus
     dr = [float(x) for x in a.dit_rates.split(",")]
     lr = [float(x) for x in a.llm_rates.split(",")]
+    vr = [float(x) for x in a.vlm_rates.split(",")]
     mix = MIXES[a.dit_mix]
     tab = load_llm()
+    vtab = load_vlm(a.enc_ms)
 
     # per-half tables
     D = {(g, r): dit_sar(g, r, mix, a.dit_scale) for g in range(G + 1) for r in dr}
     L = {(g, r): llm_sar(tab, g, r) for g in range(G + 1) for r in lr}
+    V = {(g, r): llm_sar(vtab, g, r) for g in range(G + 1) for r in vr}
 
     lines = [f"# Pool-split co-solver  ({G} x RTX 4090-class, DiT x{a.dit_scale:g} of B300, mix={a.dit_mix}, "
              f"SLO: DiT {DIT_SLO_SLACK}x solo, LLM TTFT<=3s & TPOT<=60ms, floor {ALPHA})", ""]
@@ -102,40 +127,53 @@ def main():
     for g in range(1, G + 1):
         lines.append(f"| {g} | " + " | ".join((f"{L[(g, r)]:.2f}" if L[(g, r)] == L[(g, r)] else "-") for r in lr) + " |")
 
-    lines += ["", f"## Co-solver: best split (DiT:LLM GPUs) per demand pair, floor {ALPHA}", "",
-              "| DiT req/s \\ LLM req/s | " + " | ".join(f"{r:g}" for r in lr) + " |", "|---|" + "---|" * len(lr)]
-    n_feas = n_tot = 0
-    for rd in dr:
-        cells = []
-        for rl in lr:
-            best = None
-            for gd in range(0, G + 1):
-                for gl in range(0, G - gd + 1):       # idle GPUs allowed: they are the saving
-                    sd, sl = D[(gd, rd)], L[(gl, rl)]
-                    if sl != sl:                       # nan: LLM table missing this rate
-                        continue
-                    ok = sd >= ALPHA and sl >= ALPHA
-                    used = (gd if rd > 0 else 0) + (gl if rl > 0 else 0)
-                    # feasible: fewest GPUs, then highest attainment; infeasible: least bad
-                    key = (0, used, -(sd + sl)) if ok else (1, -(sd + sl), used)
-                    if best is None or key < best[0]:
-                        best = (key, gd, gl, sd, sl, ok)
-            if best is None:
-                cells.append("-"); continue
-            _, gd, gl, sd, sl, ok = best
-            n_tot += 1; n_feas += ok
-            idle = G - gd - gl
-            cells.append((f"{gd}:{gl} ✓" + (f" +{idle} idle" if idle else "")) if ok else f"{gd}:{gl} ✗ ({sd:.2f}/{sl:.2f})")
-        lines.append(f"| {rd:g} | " + " | ".join(cells) + " |")
-    lines += ["", f"feasible pairs: {n_feas}/{n_tot}.  ✗ shows the least-bad split with (DiT SAR / LLM SAR).",
-              "", "Static baselines for comparison (same table, fixed split):", ""]
-    for gd in (1, 2):
-        gl = G - gd; f = 0
+    if any(r > 0 for r in vr):
+        lines += ["", f"## VLM tenant alone: SAR by (GPUs, req/s)  (+{IMG_TOKS} image tokens, encoder {a.enc_ms:g} ms)", "",
+                  "| GPUs | " + " | ".join(f"{r:g}" for r in vr) + " |", "|---|" + "---|" * len(vr)]
+        for g in range(1, G + 1):
+            lines.append(f"| {g} | " + " | ".join((f"{V[(g, r)]:.2f}" if V[(g, r)] == V[(g, r)] else "-") for r in vr) + " |")
+
+    lines += ["", f"## Co-solver: best split (DiT:LLM:VLM GPUs) per demand triple, floor {ALPHA}"]
+    grand = [0, 0]
+    for rv in vr:
+        lines += ["", f"### VLM = {rv:g} req/s", "",
+                  "| DiT req/s \\ LLM req/s | " + " | ".join(f"{r:g}" for r in lr) + " |", "|---|" + "---|" * len(lr)]
+        n_feas = n_tot = 0
+        fixed = {}
         for rd in dr:
+            cells = []
             for rl in lr:
-                if L[(gl, rl)] == L[(gl, rl)]:
-                    f += (D[(gd, rd)] >= ALPHA and L[(gl, rl)] >= ALPHA)
-        lines.append(f"- fixed {gd}:{gl} → feasible pairs {f}/{n_tot}")
+                best = None
+                for gd in range(0, G + 1):
+                    for gl in range(0, G - gd + 1):
+                        for gv in range(0, G - gd - gl + 1):     # idle GPUs allowed: they are the saving
+                            sd, sl, sv = D[(gd, rd)], L[(gl, rl)], V[(gv, rv)]
+                            if sl != sl or sv != sv:
+                                continue
+                            ok = sd >= ALPHA and sl >= ALPHA and sv >= ALPHA
+                            used = (gd if rd > 0 else 0) + (gl if rl > 0 else 0) + (gv if rv > 0 else 0)
+                            tot = sd + sl + sv
+                            key = (0, used, -tot) if ok else (1, -tot, used)
+                            if best is None or key < best[0]:
+                                best = (key, gd, gl, gv, sd, sl, sv, ok)
+                            for fx in ((1, 2, 1), (2, 1, 1), (1, 1, 2), (2, 2, 0), (1, 3, 0)):
+                                if (gd, gl, gv) == fx:
+                                    fixed[fx] = fixed.get(fx, 0) + ok
+                if best is None:
+                    cells.append("-"); continue
+                _, gd, gl, gv, sd, sl, sv, ok = best
+                n_tot += 1; n_feas += ok
+                idle = G - gd - gl - gv
+                tag = f"{gd}:{gl}:{gv}" if rv > 0 else f"{gd}:{gl}"
+                cells.append((f"{tag} ✓" + (f" +{idle} idle" if idle else "")) if ok
+                             else f"{tag} ✗ ({sd:.2f}/{sl:.2f}" + (f"/{sv:.2f})" if rv > 0 else ")"))
+            lines.append(f"| {rd:g} | " + " | ".join(cells) + " |")
+        grand[0] += n_feas; grand[1] += n_tot
+        lines += ["", f"feasible: {n_feas}/{n_tot}.  ✗ = least-bad split with (DiT/LLM" + ("/VLM" if rv > 0 else "") + " SAR).",
+                  "fixed splits: " + ", ".join(f"{a_}:{b_}:{c_} → {fixed.get((a_, b_, c_), 0)}/{n_tot}"
+                                             for (a_, b_, c_) in ((1, 2, 1), (2, 1, 1), (1, 1, 2), (2, 2, 0), (1, 3, 0))
+                                             if (rv > 0) == (c_ > 0))]
+    lines += ["", f"**all tables: {grand[0]}/{grand[1]} demand points feasible with the adaptive split.**"]
     txt = "\n".join(lines)
     _os.makedirs(_os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w").write(txt + "\n")

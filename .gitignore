@@ -22,3 +22,5 @@ results/servingsim/sweep1/*/sim.csv
 results/servingsim/sweep1/*/sim.log
 results/servingsim/pool/*/sim.csv
 results/servingsim/pool/*/sim.log
+results/servingsim/pool_vlm/*/sim.csv
+results/servingsim/pool_vlm/*/sim.log
