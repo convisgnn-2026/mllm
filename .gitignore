@@ -24,3 +24,5 @@ results/servingsim/pool/*/sim.csv
 results/servingsim/pool/*/sim.log
 results/servingsim/pool_vlm/*/sim.csv
 results/servingsim/pool_vlm/*/sim.log
+results/servingsim/swap/*/sim.csv
+results/servingsim/swap/*/sim.log
