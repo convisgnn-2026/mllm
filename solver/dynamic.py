@@ -157,6 +157,7 @@ def best_split(demand, T, W):
 
 def run_policy(policy, tr, T, W, horizon=3):
     cur = None
+    streak = [None, 0]
     tot_ok = tot_arr = 0.0
     win_ok = 0; worst = []; mean = []
     switches = 0
@@ -165,14 +166,24 @@ def run_policy(policy, tr, T, W, horizon=3):
             nxt = policy[1]
         elif policy[0] == "naive":
             nxt = best_split(dem, T, W)
-        elif policy[0] == "cost":
+        elif policy[0] == "hyst":
+            # no model: switch only after the optimum has been the same for k windows
+            cand = best_split(dem, T, W)
+            k = policy[1]
+            streak[1] = streak[1] + 1 if cand == streak[0] else 1
+            streak[0] = cand
+            nxt = cand if (cur is None or streak[1] >= k) else cur
+        elif policy[0] in ("cost", "cost-blind"):
             cand = best_split(dem, T, W)
             if cur is None or cand == cur:
                 nxt = cand
             else:
                 # gain over the next `horizon` windows if we switch now, minus the
                 # cold-start loss this window.  The solver only pays when it pays off.
-                fut = tr[i:i + horizon]
+                # "cost"       sees the real future (oracle forecast)
+                # "cost-blind" assumes the future looks like now (persistence) -- what a
+                #              router without a demand predictor would actually have
+                fut = tr[i:i + horizon] if policy[0] == "cost" else [dem] * horizon
                 g_new = sum(window_score(cand, d, T, W)[3] for d in fut)
                 g_old = sum(window_score(cur, d, T, W)[3] for d in fut)
                 inter = tuple(min(a, b) for a, b in zip(cur, cand))
@@ -236,8 +247,11 @@ def main():
         pol = {"equal 2:1:1": ("fixed", (2, 1, 1)),
                f"static-best(하한) {stat[0]}:{stat[1]}:{stat[2]}": ("fixed", stat),
                f"static-best(가중) {stat_a[0]}:{stat_a[1]}:{stat_a[2]}": ("fixed", stat_a),
+               "hysteresis k=2": ("hyst", 2),
+               "hysteresis k=3": ("hyst", 3),
                "adaptive-naive": ("naive", None),
-               "adaptive-cost": ("cost", None)}
+               "adaptive-cost(예측 완벽)": ("cost", None),
+               "adaptive-cost(지속 가정)": ("cost-blind", None)}
         lines += [f"## {shape}", "",
                   f"per-window optimum changes **{moves}/{len(tr)-1}** times, **{distinct}** distinct splits used", "",
                   "| policy | 최약 테넌트 SAR | 테넌트 평균 SAR | 하한 통과 창 | 요청가중 만족 | 전환 |",
@@ -252,8 +266,8 @@ def main():
 
     lines += ["## 한 줄", ""]
     for shape, moves, distinct, res in rows:
-        ad = res["adaptive-cost"]
-        st = max((v for k, v in res.items() if not k.startswith("adaptive")), key=lambda v: v["worst"])
+        ad = res["adaptive-cost(지속 가정)"]
+        st = max((v for k, v in res.items() if k.startswith(("equal", "static"))), key=lambda v: v["worst"])
         lines.append(f"- **{shape}**: 최적 {moves}회 이동 · 최약 테넌트 SAR "
                      f"{st['worst']:.3f} → {ad['worst']:.3f} ({(ad['worst']-st['worst'])*100:+.1f}%p), "
                      f"하한 통과 창 {st['floor_windows']:.2f} → {ad['floor_windows']:.2f}")
