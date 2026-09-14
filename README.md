@@ -4,7 +4,7 @@
 > 기존 서빙 기법을 레버로 삼아 상호작용을 모델링하고 solver가 구성을 고른다.
 > MIG·video DiT 결과는 헤드라인에서 내려왔고(§14 판정), 이제 이종 실험 도구로 쓴다.
 >
-> **새로 오는 사람은 [`docs/handoff.md`](docs/handoff.md) 부터.**
+> **논증과 설계는 [`docs/design.md`](docs/design.md), 재시작은 [`docs/handoff.md`](docs/handoff.md).**
 > 시뮬레이터 빌드·패치는 [`docs/llmservingsim-patches.md`](docs/llmservingsim-patches.md).
 
 
@@ -49,7 +49,8 @@ vidbench/
 │   ├── plot_threshold.py  SLO 임계점
 │   └── exploratory/       버려진 시도 (기록용)
 │
-│   └── cosolve.py         ★ DiT+LLM+VLM 풀 분할 co-solver (두 시뮬레이터를 한 solver 아래)
+│   ├── cosolve.py         ★ DiT+LLM+VLM 풀 분할 co-solver (두 시뮬레이터를 한 solver 아래)
+│   └── dynamic.py         ★ 시간축 — solver 가 필요한 이유 (GPU 불필요)
 │
 ├── scripts/       실험 실행 셸/파이썬 스크립트
 │   ├── setup_llmservingsim.sh  ★ docker 없이 LLMServingSim 2.0 빌드
@@ -60,7 +61,7 @@ vidbench/
 ├── slo_configs/   SLO 정의 — 템플릿별 절대 초, 0.75x ~ 6.0x 스윕
 ├── results/       모든 실측 데이터와 그림
 │   └── servingsim/            LLMServingSim 스윕 결과 + 우리 패치 diff
-├── docs/          handoff.md · research-flow.md · llmservingsim-patches.md · research-idea.md
+├── docs/          design.md · handoff.md · research-flow.md · llmservingsim-patches.md
 ├── papers/        참고 논문 26편 (PDF + 추출 텍스트) 와 TetriServe 코드 (MIT). 클러스터 옮길 때 같이 보려고
 └── logs/
 ```
