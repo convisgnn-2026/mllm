@@ -31,6 +31,7 @@ HOST_KV = {"mem_size": 128, "mem_bw": 25, "mem_latency": 1000, "num_devices": 1}
 MODEL = "meta-llama/Llama-3.1-8B"
 RATES = [2, 4, 6, 8, 10]
 WL_PREFIX = "sharegpt-8b-300"       # workload family; sweep_*_pool.py override this
+EXTRA_ARGS = []                     # extra serving CLI flags (e.g. parking: --enable-prefix-caching --prefix-storage CPU)
 SLO = {"ttft_ms": 3000, "tpot_ms": 60}          # goodput definition; both must hold
 
 
@@ -69,7 +70,7 @@ def run(name, cfg, rate):
            "--output", f"{REL}/{OUT.name}/{d.name}/sim.csv", "--num-reqs", "300",
            "--dtype", "bfloat16", "--kv-cache-dtype", "auto", "--block-size", "16",
            "--max-num-seqs", "256", "--max-num-batched-tokens", "2048",
-           "--log-level", "WARNING", "--network-backend", "analytical"]
+           "--log-level", "WARNING", "--network-backend", "analytical"] + list(EXTRA_ARGS)
     t0 = time.time()
     r = subprocess.run(cmd, cwd=REPO, capture_output=True, text=True)
     (d / "sim.log").write_text(r.stdout + "\n--- stderr ---\n" + r.stderr)

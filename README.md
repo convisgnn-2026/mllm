@@ -1,7 +1,18 @@
-# vidbench — MIG 분할 기반 video DiT 서빙 solver
+# vidbench — 이종 GPU 풀 서빙 solver (LLM · VLM · video DiT)
 
-**연구 질문:** 단일 노드에서 SLO를 만족시키면서 GPU 자원을 최소로 쓰려면,
-GPU를 몇 장 쓰고 각각을 어떻게 쪼개야 하는가.
+> **현재 틀 (2026-09): LLM-Pilot 확장.** 고정 온프레미스 이종 GPU 풀에서 LLM·VLM·DiT 테넌트를 섞어 받을 때,
+> 기존 서빙 기법을 레버로 삼아 상호작용을 모델링하고 solver가 구성을 고른다.
+> MIG·video DiT 결과는 헤드라인에서 내려왔고(§14 판정), 이제 이종 실험 도구로 쓴다.
+>
+> **새로 오는 사람은 [`docs/handoff.md`](docs/handoff.md) 부터.**
+> 시뮬레이터 빌드·패치는 [`docs/llmservingsim-patches.md`](docs/llmservingsim-patches.md).
+
+
+**연구 질문:** 고정된 온프레미스 이종 GPU 풀에서 테넌트별 SLO를 지키며 최대한 많이 받으려면,
+어떤 테넌트를 어느 카드에, 어떤 레버(PD 분리 · KV 파킹 · 단계 분리 · 동거)로 올려야 하는가.
+
+*(2026-09 이전 질문: "GPU를 몇 장 쓰고 각각을 어떻게 MIG로 쪼개야 하는가" — §14에서 효과가 좁다고
+판정되어 헤드라인에서 내려왔다. 측정과 모델은 그대로 살아 이종 실험 도구로 쓴다.)*
 
 ```
 min  N                                   [물리 GPU 수]
@@ -38,10 +49,19 @@ vidbench/
 │   ├── plot_threshold.py  SLO 임계점
 │   └── exploratory/       버려진 시도 (기록용)
 │
-├── scripts/       실험 실행 셸 스크립트
+│   └── cosolve.py         ★ DiT+LLM+VLM 풀 분할 co-solver (두 시뮬레이터를 한 solver 아래)
+│
+├── scripts/       실험 실행 셸/파이썬 스크립트
+│   ├── setup_llmservingsim.sh  ★ docker 없이 LLMServingSim 2.0 빌드
+│   ├── sweep_pd_kvo.py         P:D × 호스트 KV 비율 × 도착률
+│   ├── sweep_llm_pool.py       colo 1~4장 (co-solver 재료)
+│   ├── sweep_vlm_pool.py       VLM (이미지 토큰 +576)
+│   └── sweep_pool_parking.py   위 둘을 KV 파킹 on 으로
 ├── slo_configs/   SLO 정의 — 템플릿별 절대 초, 0.75x ~ 6.0x 스윕
 ├── results/       모든 실측 데이터와 그림
-├── papers/        참고 논문 19편 (PDF + 추출 텍스트) 와 TetriServe 코드 (MIT). 클러스터 옮길 때 같이 보려고
+│   └── servingsim/            LLMServingSim 스윕 결과 + 우리 패치 diff
+├── docs/          handoff.md · research-flow.md · llmservingsim-patches.md · research-idea.md
+├── papers/        참고 논문 26편 (PDF + 추출 텍스트) 와 TetriServe 코드 (MIT). 클러스터 옮길 때 같이 보려고
 └── logs/
 ```
 

@@ -55,7 +55,7 @@ def dit_sar(g, rate, mix, scale, n=200, seed=7):
         M.T_FULL = saved
 
 
-def load_llm(path="results/servingsim/pool/summary.csv"):
+def load_llm(path):
     tab = {}
     if not _os.path.exists(path):
         return tab
@@ -64,7 +64,7 @@ def load_llm(path="results/servingsim/pool/summary.csv"):
     return tab
 
 
-def load_vlm(enc_ms, root="results/servingsim/pool_vlm", ttft_ms=3000, tpot_ms=60):
+def load_vlm(enc_ms, root, ttft_ms=3000, tpot_ms=60):
     """VLM tenant = image-token-inflated LLM run + fixed vision-encoder latency per request.
     The encoder runs on the same GPUs as the language model (ms-scale, never the bottleneck);
     its latency is charged against the TTFT budget."""
@@ -93,6 +93,7 @@ def llm_sar(tab, g, rate):
 
 
 def main():
+    global ALPHA
     ap = argparse.ArgumentParser()
     ap.add_argument("--gpus", type=int, default=4)
     ap.add_argument("--dit-scale", type=float, default=10.0)
@@ -100,16 +101,20 @@ def main():
     ap.add_argument("--dit-rates", default="0,0.01,0.02,0.04,0.06")
     ap.add_argument("--llm-rates", default="0,1,2,3,4,6")
     ap.add_argument("--vlm-rates", default="0", help="VLM tenant req/s list; each value gets its own table")
+    ap.add_argument("--alpha", type=float, default=0.90, help="per-tenant SLO attainment floor")
     ap.add_argument("--enc-ms", type=float, default=25.0, help="vision encoder latency per image on the pool GPU (assumed)")
     ap.add_argument("-o", "--out", default="results/servingsim/pool/cosolve.md")
+    ap.add_argument("--llm-table", default="results/servingsim/pool/summary.csv")
+    ap.add_argument("--vlm-root", default="results/servingsim/pool_vlm")
     a = ap.parse_args()
+    ALPHA = a.alpha
     G = a.gpus
     dr = [float(x) for x in a.dit_rates.split(",")]
     lr = [float(x) for x in a.llm_rates.split(",")]
     vr = [float(x) for x in a.vlm_rates.split(",")]
     mix = MIXES[a.dit_mix]
-    tab = load_llm()
-    vtab = load_vlm(a.enc_ms)
+    tab = load_llm(a.llm_table)
+    vtab = load_vlm(a.enc_ms, a.vlm_root)
 
     # per-half tables
     D = {(g, r): dit_sar(g, r, mix, a.dit_scale) for g in range(G + 1) for r in dr}
