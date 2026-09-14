@@ -53,7 +53,8 @@ B300 노드   vanta-gpu-worker-study01      10.201.4.151   B300 ×8       IB 800
 PRO6000노드 vanta-dev-gpu-worker-infer01  10.201.4.101   PRO 6000 ×4   IB 없음
 ```
 
-- 양방향 ping 0.08~0.12 ms. 이더넷 링크 100 Gbps, 실측 하한 3.0 GB/s(4스트림, nc/CPU 한계).
+- 양방향 ping 0.08~0.12 ms. 링크는 100 Gbps인데 **실측 23.5 Gbps(2.94 GB/s)가 상한**.
+  iperf3 8스트림과 nc가 같은 값을 내고 재전송 0 → 도구 한계가 아니라 경로의 25 GbE 구간이나 셰이퍼.
 - **이종 노드 간 IB 계획 없음 (확인).** IB는 B300 쌍 안에서만.
 - 그래서: 노드 간 PD는 B300 쌍에서만, **DiT 단계 분리·VLM 인코더 분리·라우팅이 이종 노드를 건널 수 있는 유일한 레버**.
 
@@ -121,7 +122,7 @@ GPU 4장을 DiT:LLM:VLM으로 나누는 표. 수요 조합 84칸 중 실현 가�
 - **동거 몫 통제**: MPS `ACTIVE_THREAD_PERCENTAGE` 또는 MIG로 75/31을 원하는 비율로 바꿀 수 있는지.
 - **router 층 골격**: solver가 낸 구성 위에서 요청을 배정하는 최소 구현. 회사 2번 풀 배포 대상.
 - 격자 촘촘히(5·7·9 req/s)해서 파킹이 실제로 넘기는 셀 확인.
-- iperf3로 이종 노드 대역폭 재측정 (nc 한계 제거).
+- ~~iperf3 재측정~~ 완료. 23.5 Gbps 가 실제 상한.
 
 ### C. 이종 + IB가 동시에 필요한 실험 → MIG 캡
 
@@ -182,11 +183,9 @@ docs/
 ## 7. 새 세션 시작 문구 (그대로 붙여넣기)
 
 ```
-~/vidbench 에서 이어서 작업한다. docs/handoff.md 를 먼저 읽고,
-필요하면 docs/research-flow.md §12(사실 목록), §15(현재 틀)와
-docs/llmservingsim-patches.md 를 봐라.
-
 ~/vidbench 에서 이어서 작업한다. docs/design.md 로 논증을, docs/handoff.md 로 현황을 본다.
+측정 원본은 docs/research-flow.md (§12 사실 목록, §15 현재 틀),
+시뮬레이터는 docs/llmservingsim-patches.md.
 
 지금 상태: LLM-Pilot 확장. LLM/VLM은 LLMServingSim 2.0(패치 3개), DiT는 solver/sim.py.
 solver/cosolve.py 가 풀 분할 표를, solver/dynamic.py 가 시간축 논증을 낸다.
@@ -196,4 +195,4 @@ PD·KVO 파킹 확보, KVO 스트리밍 기각, 동거는 "보완 없음 + 패�
 오늘 할 일: <여기에 적기>
 ```
 
-할 일 후보는 §4 참조. 데스크탑이 아직 없으면 **B(동거 마이크로벤치 B300 선행)**, 있으면 **A-1,2,3**.
+할 일 후보는 §4 참조. 데스크탑이 아직 없으면 **B(동거 몫 통제 / router 골격)**, 있으면 **A-1,2,3**.
