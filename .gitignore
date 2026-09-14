@@ -30,3 +30,4 @@ results/servingsim/pool_park/*/sim.csv
 results/servingsim/pool_park/*/sim.log
 results/servingsim/pool_vlm_park/*/sim.csv
 results/servingsim/pool_vlm_park/*/sim.log
+results/servingsim/dynamic/*/sim.csv
