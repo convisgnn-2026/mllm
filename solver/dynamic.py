@@ -73,6 +73,27 @@ def vlm_curve(enc_ms, root, gpus=G):
     return tab
 
 
+N_REQ = 300              # requests per simulated run in the pool sweeps (sar denominators confirm it)
+
+
+def work_llm(path, gpus=G):
+    """GPU-seconds of service per request, read off the saturated point of the table.
+
+    At the highest offered rate the pool is the bottleneck, so makespan is the time it
+    took to drain N_REQ requests.  gpus * makespan / N_REQ is then the GPU-seconds one
+    request actually consumes -- the honest unit of "how much of the pool did you buy".
+    """
+    rows = list(csv.DictReader(open(path)))
+    top = max((r for r in rows if int(r["gpus"]) == gpus), key=lambda r: float(r["rate"]))
+    return gpus * float(top["makespan_s"]) / N_REQ
+
+
+def work_dit(scale, mix):
+    """Mean solo latency of the template mix on one worker of the scaled hardware."""
+    import model as MD
+    return scale * sum(w * MD.T_FULL[t] for t, w in mix.items())
+
+
 def sar(tab, g, rate):
     """Linear interpolation in rate; 0 GPUs serves nothing; beyond the grid, hold the last value."""
     if rate <= 0:
@@ -132,8 +153,13 @@ def splits():
     return [(a, b, c) for a in range(G + 1) for b in range(G + 1 - a) for c in range(G + 1 - a - b)]
 
 
-def window_score(cfg, demand, T, W):
-    """(weighted successes, arrivals, all-tenants-cleared-floor?)"""
+def window_score(cfg, demand, T, W, work=None):
+    """(request-weighted successes, arrivals, floor?, worst SAR, mean SAR, work-ok, work-arr)
+
+    Two aggregate weightings, because they disagree.  Counting requests makes the LLM
+    tenant 99.4% of the traffic (7.5 req/s vs 0.045), so a policy that protects DiT looks
+    terrible.  Counting GPU-seconds of demanded work -- what each tenant actually buys --
+    puts the ratio at about 1:7 instead of 1:167.  We report both."""
     (gd, gl, gv), (rd, rl, rv) = cfg, demand
     sd, sl, sv = sar(T["dit"], gd, rd), sar(T["llm"], gl, rl), sar(T["vlm"], gv, rv)
     arr = (rd + rl + rv) * W
@@ -141,40 +167,56 @@ def window_score(cfg, demand, T, W):
     act = [(sd, rd), (sl, rl), (sv, rv)]
     floor_ok = all(x >= FLOOR for x, r in act if r > 0) or arr == 0
     live = [x for x, r in act if r > 0]
-    return ok, arr, floor_ok, (min(live) if live else 1.0), (sum(live) / len(live) if live else 1.0)
+    wk = work or {"dit": 1.0, "llm": 1.0, "vlm": 1.0}
+    warr = sum(r * W * c for r, c in ((rd, wk["dit"]), (rl, wk["llm"]), (rv, wk["vlm"])))
+    wok = sum(r * W * c * s for r, c, s in
+              ((rd, wk["dit"], sd), (rl, wk["llm"], sl), (rv, wk["vlm"], sv)))
+    return ok, arr, floor_ok, (min(live) if live else 1.0), (sum(live) / len(live) if live else 1.0), wok, warr
 
 
-def best_split(demand, T, W):
+def value(cfg, demand, T, W, work, objective):
+    """The scalar the policy is trying to maximise in one window.
+
+    This is the knob that decides the whole experiment.  `floor` is a per-tenant SLA:
+    the weakest tenant's attainment.  `work` is an aggregate: the fraction of demanded
+    GPU-seconds that met their SLO.  They disagree -- the aggregate is maximised by
+    abandoning the expensive tenant -- so we run the comparison under both."""
+    ok, arr, fl, wv, mv, wok, warr = window_score(cfg, demand, T, W, work)
+    return wv if objective == "floor" else (wok / warr if warr else 1.0)
+
+
+def best_split(demand, T, W, work=None, objective="floor"):
     best = None
     for cfg in splits():
-        ok, arr, fl, _, _ = window_score(cfg, demand, T, W)
+        ok, arr, fl, _, _, wok, warr = window_score(cfg, demand, T, W, work)
         used = sum(cfg)
-        key = (0 if fl else 1, -ok, used)
+        key = ((0 if fl else 1, -ok, used) if objective == "floor"
+               else (-(wok / warr if warr else 1.0), used))
         if best is None or key < best[0]:
             best = (key, cfg)
     return best[1]
 
 
-def run_policy(policy, tr, T, W, horizon=3):
+def run_policy(policy, tr, T, W, horizon=3, work=None, objective="floor"):
     cur = None
     streak = [None, 0]
-    tot_ok = tot_arr = 0.0
+    tot_ok = tot_arr = tot_wok = tot_warr = 0.0
     win_ok = 0; worst = []; mean = []
     switches = 0
     for i, dem in enumerate(tr):
         if policy[0] == "fixed":
             nxt = policy[1]
         elif policy[0] == "naive":
-            nxt = best_split(dem, T, W)
+            nxt = best_split(dem, T, W, work, objective)
         elif policy[0] == "hyst":
             # no model: switch only after the optimum has been the same for k windows
-            cand = best_split(dem, T, W)
+            cand = best_split(dem, T, W, work, objective)
             k = policy[1]
             streak[1] = streak[1] + 1 if cand == streak[0] else 1
             streak[0] = cand
             nxt = cand if (cur is None or streak[1] >= k) else cur
         elif policy[0] in ("cost", "cost-blind"):
-            cand = best_split(dem, T, W)
+            cand = best_split(dem, T, W, work, objective)
             if cur is None or cand == cur:
                 nxt = cand
             else:
@@ -184,10 +226,11 @@ def run_policy(policy, tr, T, W, horizon=3):
                 # "cost-blind" assumes the future looks like now (persistence) -- what a
                 #              router without a demand predictor would actually have
                 fut = tr[i:i + horizon] if policy[0] == "cost" else [dem] * horizon
-                g_new = sum(window_score(cand, d, T, W)[3] for d in fut)
-                g_old = sum(window_score(cur, d, T, W)[3] for d in fut)
+                g_new = sum(value(cand, d, T, W, work, objective) for d in fut)
+                g_old = sum(value(cur, d, T, W, work, objective) for d in fut)
                 inter = tuple(min(a, b) for a, b in zip(cur, cand))
-                loss = (window_score(cand, dem, T, W)[3] - window_score(inter, dem, T, W)[3]) * (RECONF_S / W)
+                loss = (value(cand, dem, T, W, work, objective)
+                        - value(inter, dem, T, W, work, objective)) * (RECONF_S / W)
                 nxt = cand if (g_new - g_old) > loss else cur
         else:
             raise ValueError(policy)
@@ -196,16 +239,19 @@ def run_policy(policy, tr, T, W, horizon=3):
             switches += 1
             inter = tuple(min(a, b) for a, b in zip(cur, nxt))
             f = min(1.0, RECONF_S / W)
-            a1, n1, _, w1, m1 = window_score(inter, dem, T, W)
-            a2, n2, fl, w2, m2 = window_score(nxt, dem, T, W)
+            a1, n1, _, w1, m1, k1, q1 = window_score(inter, dem, T, W, work)
+            a2, n2, fl, w2, m2, k2, q2 = window_score(nxt, dem, T, W, work)
             ok, arr = a1 * f + a2 * (1 - f), n2
+            wok, warr = k1 * f + k2 * (1 - f), q2
             wv, mv = w1 * f + w2 * (1 - f), m1 * f + m2 * (1 - f)
             floor_ok = fl and f < 0.5
         else:
-            ok, arr, floor_ok, wv, mv = window_score(nxt, dem, T, W)
+            ok, arr, floor_ok, wv, mv, wok, warr = window_score(nxt, dem, T, W, work)
         cur = nxt
         tot_ok += ok; tot_arr += arr; win_ok += floor_ok; worst.append(wv); mean.append(mv)
+        tot_wok += wok; tot_warr += warr
     return dict(attain=tot_ok / tot_arr if tot_arr else 1.0,
+                work_attain=tot_wok / tot_warr if tot_warr else 1.0,
                 worst=sum(worst) / len(worst), mean=sum(mean) / len(mean),
                 floor_windows=win_ok / len(tr), switches=switches)
 
@@ -217,6 +263,8 @@ def main():
     ap.add_argument("--dit-scale", type=float, default=10.0)
     ap.add_argument("--horizon", type=int, default=3)
     ap.add_argument("--shapes", default="staggered,correlated,random,burst")
+    ap.add_argument("--objective", default="floor", choices=["floor", "work"],
+                    help="what every policy maximises: per-tenant SLA floor, or aggregate work-weighted attainment")
     ap.add_argument("-o", "--out", default="results/servingsim/dynamic/summary.md")
     a = ap.parse_args()
     W = a.window_s
@@ -226,13 +274,26 @@ def main():
          "llm": load_curve("results/servingsim/pool_park/summary.csv"),
          "vlm": vlm_curve(25.0, "results/servingsim/pool_vlm_park")}
 
+    # GPU-seconds of service per request, per tenant.  Counting requests is the wrong
+    # unit here: one DiT request is worth ~24 LLM requests of pool time.
+    work = {"dit": work_dit(a.dit_scale, CS.MIXES["short"]),
+            "llm": work_llm("results/servingsim/pool_park/summary.csv"),
+            "vlm": work_llm("results/servingsim/pool_vlm_park/summary.csv")}
+
     lines = [f"# Time-axis: does the optimum move?  ({G} GPUs, window {W:.0f}s x {a.windows}, "
-             f"reconfiguration {RECONF_S:.0f}s, floor {FLOOR})", ""]
+             f"reconfiguration {RECONF_S:.0f}s, floor {FLOOR}, objective={a.objective})", "",
+             f"per-request work (GPU-s): DiT {work['dit']:.2f} · LLM {work['llm']:.2f} · "
+             f"VLM {work['vlm']:.2f}  (ratio {work['dit']/work['llm']:.0f} : 1 : "
+             f"{work['vlm']/work['llm']:.1f})", "",
+             "objective=floor: every policy maximises the weakest tenant's SAR (per-tenant SLA). "
+             "objective=work: every policy maximises work-weighted attainment (aggregate). "
+             "The point of running both is that the winner is not supposed to depend on it -- "
+             "cost-awareness should help under whichever objective you declare.", ""]
     rows = []
     for shape in a.shapes.split(","):
         tr = trace(shape, a.windows)
         # how often does the per-window optimum change at all?
-        opts = [best_split(d, T, W) for d in tr]
+        opts = [best_split(d, T, W, work, a.objective) for d in tr]
         moves = sum(1 for x, y in zip(opts, opts[1:]) if x != y)
         distinct = len(set(opts))
 
@@ -240,13 +301,17 @@ def main():
         # chosen with the same lexicographic objective the adaptive policy uses,
         # and with full knowledge of the whole trace -- an oracle static baseline
         def _stat_key(c):
-            sc = [window_score(c, d, T, W) for d in tr]
+            sc = [window_score(c, d, T, W, work) for d in tr]
+            if a.objective == "work":
+                return (-sum(x[5] for x in sc), sum(c))
             return (-sum(x[2] for x in sc), -sum(x[3] for x in sc), sum(c))
         stat = min(splits(), key=_stat_key)
-        stat_a = min(splits(), key=lambda c: -sum(window_score(c, d, T, W)[0] for d in tr))
+        stat_a = min(splits(), key=lambda c: -sum(window_score(c, d, T, W, work)[0] for d in tr))
+        stat_w = min(splits(), key=lambda c: -sum(window_score(c, d, T, W, work)[5] for d in tr))
         pol = {"equal 2:1:1": ("fixed", (2, 1, 1)),
                f"static-best(하한) {stat[0]}:{stat[1]}:{stat[2]}": ("fixed", stat),
-               f"static-best(가중) {stat_a[0]}:{stat_a[1]}:{stat_a[2]}": ("fixed", stat_a),
+               f"static-best(요청가중) {stat_a[0]}:{stat_a[1]}:{stat_a[2]}": ("fixed", stat_a),
+               f"static-best(작업가중) {stat_w[0]}:{stat_w[1]}:{stat_w[2]}": ("fixed", stat_w),
                "hysteresis k=2": ("hyst", 2),
                "hysteresis k=3": ("hyst", 3),
                "adaptive-naive": ("naive", None),
@@ -254,13 +319,14 @@ def main():
                "adaptive-cost(지속 가정)": ("cost-blind", None)}
         lines += [f"## {shape}", "",
                   f"per-window optimum changes **{moves}/{len(tr)-1}** times, **{distinct}** distinct splits used", "",
-                  "| policy | 최약 테넌트 SAR | 테넌트 평균 SAR | 하한 통과 창 | 요청가중 만족 | 전환 |",
-                  "|---|---|---|---|---|---|"]
+                  "| policy | 최약 테넌트 SAR | 테넌트 평균 SAR | 하한 통과 창 | 요청가중 만족 | 작업가중 만족 | 전환 |",
+                  "|---|---|---|---|---|---|---|"]
         res = {}
         for name, p in pol.items():
-            r = run_policy(p, tr, T, W, a.horizon)
+            r = run_policy(p, tr, T, W, a.horizon, work, a.objective)
             res[name] = r
-            lines.append(f"| {name} | {r['worst']:.3f} | {r['mean']:.3f} | {r['floor_windows']:.2f} | {r['attain']:.3f} | {r['switches']} |")
+            lines.append(f"| {name} | {r['worst']:.3f} | {r['mean']:.3f} | {r['floor_windows']:.2f} | "
+                         f"{r['attain']:.3f} | {r['work_attain']:.3f} | {r['switches']} |")
         lines.append("")
         rows.append((shape, moves, distinct, res))
 
@@ -270,7 +336,8 @@ def main():
         st = max((v for k, v in res.items() if k.startswith(("equal", "static"))), key=lambda v: v["worst"])
         lines.append(f"- **{shape}**: 최적 {moves}회 이동 · 최약 테넌트 SAR "
                      f"{st['worst']:.3f} → {ad['worst']:.3f} ({(ad['worst']-st['worst'])*100:+.1f}%p), "
-                     f"하한 통과 창 {st['floor_windows']:.2f} → {ad['floor_windows']:.2f}")
+                     f"하한 통과 창 {st['floor_windows']:.2f} → {ad['floor_windows']:.2f} · "
+                     f"작업가중 {st['work_attain']:.3f} → {ad['work_attain']:.3f}")
     txt = "\n".join(lines)
     _os.makedirs(_os.path.dirname(a.out), exist_ok=True)
     open(a.out, "w").write(txt + "\n")
