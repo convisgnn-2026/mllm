@@ -1,0 +1,253 @@
+INFO 09-23 13:09:45 [patch.py:252] NVFP4 W4A4 weight_scale NaN-clamp: installed.
+INFO 09-23 13:09:46 [patch.py:503] inductor factorable-divisibility patch: installed.
+INFO 09-23 13:09:46 [patch.py:568] [cumem-cuda] CuMemAllocator._python_free_callback patched: asleep guard extended to all platforms.
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333] 
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333]        █     █     █▄   ▄█
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.28.0
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333]   █▄█▀ █     █     █     █  model   meta-llama/Llama-3.1-8B-Instruct
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:333] 
+(APIServer pid=309532) INFO 09-23 13:09:46 [api_utils.py:272] non-default args: {'model_tag': 'meta-llama/Llama-3.1-8B-Instruct', 'port': 8200, 'model': 'meta-llama/Llama-3.1-8B-Instruct', 'dtype': 'bfloat16', 'max_model_len': 8192, 'gpu_memory_utilization': 0.85, 'enable_prefix_caching': False, 'max_num_seqs': 64, 'kv_transfer_config': KVTransferConfig(kv_connector='NixlConnector', engine_id='738be10a-44e6-4dbe-9c12-5c15252a0b00', kv_buffer_device='cuda', kv_buffer_size=1000000000.0, kv_role='kv_consumer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=309532) INFO 09-23 13:09:47 [model.py:672] Resolved architecture: LlamaForCausalLM
+(APIServer pid=309532) INFO 09-23 13:09:47 [model.py:1965] Using max model len 8192
+(APIServer pid=309532) INFO 09-23 13:09:47 [kernel.py:308] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(APIServer pid=309532) INFO 09-23 13:09:47 [nixl_utils.py:32] Setting UCX_RCACHE_MAX_UNRELEASED to '1024' to avoid a rare memory leak in UCX when using NIXL.
+(APIServer pid=309532) INFO 09-23 13:09:47 [nixl_utils.py:72] NIXL is available
+(EngineCore pid=310242) INFO 09-23 13:09:56 [patch.py:252] NVFP4 W4A4 weight_scale NaN-clamp: installed.
+(EngineCore pid=310242) INFO 09-23 13:09:57 [patch.py:503] inductor factorable-divisibility patch: installed.
+(EngineCore pid=310242) INFO 09-23 13:09:57 [patch.py:568] [cumem-cuda] CuMemAllocator._python_free_callback patched: asleep guard extended to all platforms.
+(EngineCore pid=310242) INFO 09-23 13:09:57 [core.py:122] Initializing a V1 LLM engine (v0.28.0) with config: model='meta-llama/Llama-3.1-8B-Instruct', speculative_config=None, tokenizer='meta-llama/Llama-3.1-8B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=main, tokenizer_revision=main, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=meta-llama/Llama-3.1-8B-Instruct, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::qwen_gdn_attention_core', 'vllm::qwen_gdn_attention_core_fused_norm_packed', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [2048], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 128, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=310242) INFO 09-23 13:09:57 [parallel_state.py:1638] world_size=1 rank=0 local_rank=0 distributed_init_method=file:///tmp/vllm_dist_f1dc0babcb7c45678fac9ad058a02dfc backend=nccl
+[rank0]:[W923 13:09:57.211558722 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+(EngineCore pid=310242) INFO 09-23 13:09:57 [parallel_state.py:1982] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=310242) INFO 09-23 13:09:57 [gpu_worker.py:396] Using V2 Model Runner
+(EngineCore pid=310242) INFO 09-23 13:09:58 [model_runner.py:358] Loading model from scratch...
+(EngineCore pid=310242) INFO 09-23 13:09:58 [cuda.py:486] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=310242) INFO 09-23 13:09:58 [flash_attn.py:866] Using FlashAttention version 2
+(EngineCore pid=310242) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(EngineCore pid=310242) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(EngineCore pid=310242) INFO 09-23 13:09:59 [weight_utils.py:858] Filesystem type for checkpoints: XFS. Checkpoint size: 14.96 GiB. Available RAM: 113.28 GiB.
+(EngineCore pid=310242) INFO 09-23 13:09:59 [weight_utils.py:881] Auto-prefetch is disabled because the filesystem (XFS) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(EngineCore pid=310242) Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+(EngineCore pid=310242) Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:00<00:02,  1.16it/s]
+(EngineCore pid=310242) Loading safetensors checkpoint shards:  50% Completed | 2/4 [00:01<00:01,  1.07it/s]
+(EngineCore pid=310242) Loading safetensors checkpoint shards:  75% Completed | 3/4 [00:02<00:00,  1.05it/s]
+(EngineCore pid=310242) Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:03<00:00,  1.46it/s]
+(EngineCore pid=310242) Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:03<00:00,  1.29it/s]
+(EngineCore pid=310242) 
+(EngineCore pid=310242) INFO 09-23 13:10:03 [default_loader.py:430] Loading weights took 3.12 seconds
+(EngineCore pid=310242) INFO 09-23 13:10:03 [model_runner.py:380] Model loading took 15.0 GiB memory and 5.587969 seconds
+(EngineCore pid=310242) INFO 09-23 13:10:03 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0.
+(EngineCore pid=310242) INFO 09-23 13:10:03 [nixl_utils.py:72] NIXL is available
+(EngineCore pid=310242) INFO 09-23 13:10:03 [connector.py:158] NixlConnector setting KV cache layout to HND for better xfer performance.
+(EngineCore pid=310242) INFO 09-23 13:10:04 [caching.py:343] reconstructed serializable fn from standalone compile artifacts. num_artifacts=3 num_submods=33
+(EngineCore pid=310242) INFO 09-23 13:10:04 [decorators.py:311] Directly load AOT compilation from path /home/jinwoo.kim27/.cache/vllm/torch_compile_cache/torch_aot_compile/f21e0e090caf8fb64d689906720459010600779e69c85c6e841991babf59b1cf/rank_0_0/model
+(EngineCore pid=310242) INFO 09-23 13:10:04 [monitor.py:53] torch.compile took 0.42 s in total
+(EngineCore pid=310242) INFO 09-23 13:10:04 [monitor.py:81] Initial profiling/warmup run took 0.08 s
+(EngineCore pid=310242) INFO 09-23 13:10:05 [gpu_worker.py:578] Available KV cache memory: 4.68 GiB
+(EngineCore pid=310242) INFO 09-23 13:10:05 [kv_cache_utils.py:1869] GPU KV cache size: 38,320 tokens, Maximum concurrency for 8,192 tokens per request: 4.68x
+(EngineCore pid=310242) INFO 09-23 13:10:05 [factory.py:62] Creating v1 connector with name: NixlPullConnector and engine_id: 738be10a-44e6-4dbe-9c12-5c15252a0b00
+(EngineCore pid=310242) WARNING 09-23 13:10:05 [base.py:211] Initializing KVConnectorBase_V1. This API is experimental and subject to change in the future as we iterate the design.
+(EngineCore pid=310242) INFO 09-23 13:10:05 [base_worker.py:264] Initializing NIXL wrapper
+(EngineCore pid=310242) INFO 09-23 13:10:05 [base_worker.py:265] Initializing NIXL worker 738be10a-44e6-4dbe-9c12-5c15252a0b00
+[1790136606.748218] [vfx-stg-ai-worker03:310242:0]          select.c:721  UCX  ERROR   no active messages transport to <no debug data>: self/memory - no peer failure handler, sysv/memory - no peer failure handler, posix/memory - no peer failure handler, cuda_copy/cuda - no am bcopy
+W0923 13:10:06.748251  310242 ucx_enums.cpp:58] Unexpected UCX error: Destination is unreachable
+E0923 13:10:06.748430  310242 ucx_utils.cpp:543] UCX endpoint create failed: failed to create ep
+E0923 13:10:06.748440  310242 nixl_agent.cpp:433] createBackend: backend 'UCX' encountered error during intra-agent transfer setup with status NIXL_ERR_BACKEND
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346] EngineCore failed to start.
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346] Traceback (most recent call last):
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1315, in run_engine_core
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     return func(*args, **kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1073, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     super().__init__(
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 144, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     return func(*args, **kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 329, in _initialize_kv_caches
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.model_executor.initialize_from_config(kv_cache_configs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 122, in initialize_from_config
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.collective_rpc("initialize_from_config", args=(kv_cache_configs,))
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 103, in collective_rpc
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     result = run_method(self.driver_worker, method, args, kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     return func(*args, **kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/worker/worker_base.py", line 329, in initialize_from_config
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     return func(*args, **kwargs)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/worker/gpu_worker.py", line 677, in initialize_from_config
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 90, in ensure_kv_transfer_initialized
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 75, in create_connector
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     return connector_cls(config, role, kv_cache_config)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/connector.py", line 343, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.connector_worker = NixlPullConnectorWorker(
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                             ^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/pull_worker.py", line 40, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     super().__init__(vllm_config, engine_id, kv_cache_config)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/base_worker.py", line 359, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.nixl_wrapper = nixl_wrapper_cls(str(uuid.uuid4()), config)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/nixl_cu12/_api.py", line 269, in __init__
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.create_backend(bknd, init)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/nixl_cu12/_api.py", line 400, in create_backend
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]     self.backends[backend] = self.agent.createBackend(backend, initParams)
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346]                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) ERROR 09-23 13:10:06 [core.py:1346] nixl_cu12._bindings.nixlBackendError: NIXL_ERR_BACKEND
+(EngineCore pid=310242) Process EngineCore:
+(EngineCore pid=310242) Traceback (most recent call last):
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore pid=310242)     self.run()
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore pid=310242)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1350, in run_engine_core
+(EngineCore pid=310242)     raise e
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1315, in run_engine_core
+(EngineCore pid=310242)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=310242)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242)     return func(*args, **kwargs)
+(EngineCore pid=310242)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 1073, in __init__
+(EngineCore pid=310242)     super().__init__(
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 144, in __init__
+(EngineCore pid=310242)     kv_cache_config = self._initialize_kv_caches(vllm_config)
+(EngineCore pid=310242)                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242)     return func(*args, **kwargs)
+(EngineCore pid=310242)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core.py", line 329, in _initialize_kv_caches
+(EngineCore pid=310242)     self.model_executor.initialize_from_config(kv_cache_configs)
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/executor/abstract.py", line 122, in initialize_from_config
+(EngineCore pid=310242)     self.collective_rpc("initialize_from_config", args=(kv_cache_configs,))
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 103, in collective_rpc
+(EngineCore pid=310242)     result = run_method(self.driver_worker, method, args, kwargs)
+(EngineCore pid=310242)              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
+(EngineCore pid=310242)     return func(*args, **kwargs)
+(EngineCore pid=310242)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/worker/worker_base.py", line 329, in initialize_from_config
+(EngineCore pid=310242)     self.worker.initialize_from_config(kv_cache_config)  # type: ignore
+(EngineCore pid=310242)     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=310242)     return func(*args, **kwargs)
+(EngineCore pid=310242)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/worker/gpu_worker.py", line 677, in initialize_from_config
+(EngineCore pid=310242)     ensure_kv_transfer_initialized(self.vllm_config, kv_cache_config)
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_transfer_state.py", line 90, in ensure_kv_transfer_initialized
+(EngineCore pid=310242)     _KV_CONNECTOR_AGENT = KVConnectorFactory.create_connector(
+(EngineCore pid=310242)                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/factory.py", line 75, in create_connector
+(EngineCore pid=310242)     return connector_cls(config, role, kv_cache_config)
+(EngineCore pid=310242)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/connector.py", line 343, in __init__
+(EngineCore pid=310242)     self.connector_worker = NixlPullConnectorWorker(
+(EngineCore pid=310242)                             ^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/pull_worker.py", line 40, in __init__
+(EngineCore pid=310242)     super().__init__(vllm_config, engine_id, kv_cache_config)
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/v1/nixl/base_worker.py", line 359, in __init__
+(EngineCore pid=310242)     self.nixl_wrapper = nixl_wrapper_cls(str(uuid.uuid4()), config)
+(EngineCore pid=310242)                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/nixl_cu12/_api.py", line 269, in __init__
+(EngineCore pid=310242)     self.create_backend(bknd, init)
+(EngineCore pid=310242)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/nixl_cu12/_api.py", line 400, in create_backend
+(EngineCore pid=310242)     self.backends[backend] = self.agent.createBackend(backend, initParams)
+(EngineCore pid=310242)                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=310242) nixl_cu12._bindings.nixlBackendError: NIXL_ERR_BACKEND
+[rank0]:[W923 13:10:07.191174016 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+!!!!!!! Segfault encountered !!!!!!!
+  File "<unknown>", line 0, in rtnl_tc_unregister
+  File "<unknown>", line 0, in _sub_D_65535_1.1
+  File "/usr/src/debug/glibc-2.34-231.el9_7.2.x86_64/elf/dl-fini.c", line 148, in _dl_fini
+  File "<unknown>", line 0, in __run_exit_handlers
+  File "<unknown>", line 0, in exit
+  File "<unknown>", line 0, in Py_Exit
+  File "<unknown>", line 0, in handle_system_exit.cold
+  File "<unknown>", line 0, in _PyErr_PrintEx
+  File "<unknown>", line 0, in PyRun_SimpleStringFlags.cold
+  File "<unknown>", line 0, in Py_RunMain.warm
+  File "<unknown>", line 0, in pymain_main.llvm.6346866814124365623
+  File "<unknown>", line 0, in main
+  File "<unknown>", line 0, in _start
+  File "<unknown>", line 0, in 0xffffffffffffffff
+
+(APIServer pid=309532) INFO 09-23 13:10:11 [utils.py:615] [shutdown] Process manager: send sigterm to process EngineCore
+(APIServer pid=309532) Traceback (most recent call last):
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/bin/vllm", line 10, in <module>
+(APIServer pid=309532)     sys.exit(main())
+(APIServer pid=309532)              ^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+(APIServer pid=309532)     args.dispatch_function(args)
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 152, in cmd
+(APIServer pid=309532)     uvloop.run(run_server(args))
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=309532)     return __asyncio.run(
+(APIServer pid=309532)            ^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=309532)     return runner.run(main)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=309532)     return self._loop.run_until_complete(task)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=309532)     return await main
+(APIServer pid=309532)            ^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 739, in run_server
+(APIServer pid=309532)     await run_server_worker(listen_address, sock, args, **uvicorn_kwargs)
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 753, in run_server_worker
+(APIServer pid=309532)     async with build_async_engine_client(
+(APIServer pid=309532)                ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=309532)     return await anext(self.gen)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 127, in build_async_engine_client
+(APIServer pid=309532)     async with build_async_engine_client_from_engine_args(
+(APIServer pid=309532)                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 210, in __aenter__
+(APIServer pid=309532)     return await anext(self.gen)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 163, in build_async_engine_client_from_engine_args
+(APIServer pid=309532)     async_llm = AsyncLLM.from_vllm_config(
+(APIServer pid=309532)                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 220, in from_vllm_config
+(APIServer pid=309532)     return cls(
+(APIServer pid=309532)            ^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/async_llm.py", line 149, in __init__
+(APIServer pid=309532)     self.engine_core = EngineCoreClient.make_async_mp_client(
+(APIServer pid=309532)                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=309532)     return func(*args, **kwargs)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 139, in make_async_mp_client
+(APIServer pid=309532)     return AsyncMPClient(*client_args)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=309532)     return func(*args, **kwargs)
+(APIServer pid=309532)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 990, in __init__
+(APIServer pid=309532)     super().__init__(
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/core_client.py", line 609, in __init__
+(APIServer pid=309532)     with launch_core_engines(
+(APIServer pid=309532)          ^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=309532)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/contextlib.py", line 144, in __exit__
+(APIServer pid=309532)     next(self.gen)
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1206, in launch_core_engines
+(APIServer pid=309532)     wait_for_engine_startup(
+(APIServer pid=309532)   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/v1/engine/utils.py", line 1286, in wait_for_engine_startup
+(APIServer pid=309532)     raise RuntimeError(
+(APIServer pid=309532) RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}

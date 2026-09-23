@@ -1,0 +1,86 @@
+INFO 09-22 18:02:52 [patch.py:252] NVFP4 W4A4 weight_scale NaN-clamp: installed.
+INFO 09-22 18:02:52 [patch.py:503] inductor factorable-divisibility patch: installed.
+INFO 09-22 18:02:53 [patch.py:568] [cumem-cuda] CuMemAllocator._python_free_callback patched: asleep guard extended to all platforms.
+INFO 09-22 18:02:53 [api_utils.py:272] non-default args: {'dtype': 'bfloat16', 'max_model_len': 8192, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.9, 'max_num_seqs': 1, 'mm_device_do_normalize': None, 'enable_lora': None, 'reasoning_parser_plugin': '', 'enable_bf16x3_router_gemm': False, 'model': 'meta-llama/Llama-3.1-8B-Instruct'}
+INFO 09-22 18:02:54 [model.py:672] Resolved architecture: LlamaForCausalLM
+INFO 09-22 18:02:54 [model.py:1965] Using max model len 8192
+INFO 09-22 18:02:54 [scheduler.py:242] Chunked prefill is enabled with max_num_batched_tokens=8192.
+INFO 09-22 18:02:54 [kernel.py:308] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+(EngineCore pid=206799) INFO 09-22 18:03:02 [patch.py:252] NVFP4 W4A4 weight_scale NaN-clamp: installed.
+(EngineCore pid=206799) INFO 09-22 18:03:02 [patch.py:503] inductor factorable-divisibility patch: installed.
+(EngineCore pid=206799) INFO 09-22 18:03:02 [patch.py:568] [cumem-cuda] CuMemAllocator._python_free_callback patched: asleep guard extended to all platforms.
+(EngineCore pid=206799) INFO 09-22 18:03:03 [core.py:122] Initializing a V1 LLM engine (v0.28.0) with config: model='meta-llama/Llama-3.1-8B-Instruct', speculative_config=None, tokenizer='meta-llama/Llama-3.1-8B-Instruct', skip_tokenizer_init=False, tokenizer_mode=auto, revision=main, tokenizer_revision=main, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=8192, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=False, quantization=None, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=0, served_model_name=meta-llama/Llama-3.1-8B-Instruct, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::linear_attention', 'vllm::qwen_gdn_attention_core', 'vllm::qwen_gdn_attention_core_fused_norm_packed', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [8192], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 2, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto')
+(EngineCore pid=206799) INFO 09-22 18:03:03 [parallel_state.py:1638] world_size=1 rank=0 local_rank=0 distributed_init_method=file:///tmp/vllm_dist_ccbe6d15650e4014986c2c1f9b479c57 backend=nccl
+[rank0]:[W922 18:03:03.959670385 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+(EngineCore pid=206799) INFO 09-22 18:03:03 [parallel_state.py:1982] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=206799) INFO 09-22 18:03:03 [gpu_worker.py:396] Using V2 Model Runner
+(EngineCore pid=206799) INFO 09-22 18:03:04 [model_runner.py:358] Loading model from scratch...
+(EngineCore pid=206799) INFO 09-22 18:03:04 [cuda.py:486] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'FLASHINFER', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=206799) INFO 09-22 18:03:04 [flash_attn.py:866] Using FlashAttention version 2
+(EngineCore pid=206799) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+(EngineCore pid=206799) <frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+(EngineCore pid=206799) INFO 09-22 18:03:05 [weight_utils.py:858] Filesystem type for checkpoints: XFS. Checkpoint size: 14.96 GiB. Available RAM: 115.68 GiB.
+(EngineCore pid=206799) INFO 09-22 18:03:05 [weight_utils.py:881] Auto-prefetch is disabled because the filesystem (XFS) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(EngineCore pid=206799) Loading safetensors checkpoint shards:   0% Completed | 0/4 [00:00<?, ?it/s]
+(EngineCore pid=206799) Loading safetensors checkpoint shards:  25% Completed | 1/4 [00:00<00:01,  1.62it/s]
+(EngineCore pid=206799) Loading safetensors checkpoint shards:  50% Completed | 2/4 [00:01<00:01,  1.48it/s]
+(EngineCore pid=206799) Loading safetensors checkpoint shards:  75% Completed | 3/4 [00:02<00:00,  1.46it/s]
+(EngineCore pid=206799) Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:02<00:00,  1.93it/s]
+(EngineCore pid=206799) Loading safetensors checkpoint shards: 100% Completed | 4/4 [00:02<00:00,  1.74it/s]
+(EngineCore pid=206799) 
+(EngineCore pid=206799) INFO 09-22 18:03:07 [default_loader.py:430] Loading weights took 2.33 seconds
+(EngineCore pid=206799) INFO 09-22 18:03:08 [model_runner.py:380] Model loading took 15.0 GiB memory and 4.652459 seconds
+(EngineCore pid=206799) INFO 09-22 18:03:08 [topk_topp_sampler.py:46] FlashInfer top-p/top-k sampling disabled via VLLM_USE_FLASHINFER_SAMPLER=0.
+(EngineCore pid=206799) INFO 09-22 18:03:12 [backends.py:1094] Using cache directory: /home/jinwoo.kim27/.cache/vllm/torch_compile_cache/2ef49bf115/rank_0_0/backbone for vLLM's torch.compile
+(EngineCore pid=206799) INFO 09-22 18:03:12 [backends.py:1155] Dynamo bytecode transform time: 3.58 s
+(EngineCore pid=206799) INFO 09-22 18:03:17 [backends.py:393] Compiling a graph for compile range (1, 8192) takes 4.69 s
+(EngineCore pid=206799) INFO 09-22 18:03:20 [backends.py:920] collected artifacts: 33 entries, 3 artifacts, 4740542 bytes total
+(EngineCore pid=206799) INFO 09-22 18:03:20 [decorators.py:708] saved AOT compiled function to /home/jinwoo.kim27/.cache/vllm/torch_compile_cache/torch_aot_compile/449325f189a5f8019956c95ac94c391a1177499e68e37ddfb8a479ba23cd1e6a/rank_0_0/model
+(EngineCore pid=206799) INFO 09-22 18:03:20 [monitor.py:53] torch.compile took 10.95 s in total
+(EngineCore pid=206799) INFO 09-22 18:03:20 [monitor.py:81] Initial profiling/warmup run took 0.08 s
+(EngineCore pid=206799) INFO 09-22 18:03:22 [gpu_worker.py:578] Available KV cache memory: 4.05 GiB
+(EngineCore pid=206799) INFO 09-22 18:03:22 [kv_cache_utils.py:1869] GPU KV cache size: 33,136 tokens, Maximum concurrency for 8,192 tokens per request: 4.04x
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408] Module vllm.third_party.deep_gemm was found but failed to import
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408] Traceback (most recent call last):
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/utils/import_utils.py", line 406, in _has_module
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]     importlib.import_module(module_name)
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/importlib/__init__.py", line 90, in import_module
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]     return _bootstrap._gcd_import(name[level:], package, level)
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/third_party/deep_gemm/__init__.py", line 126, in <module>
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]     _find_cuda_home()                           # CUDA home
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]     ^^^^^^^^^^^^^^^^^
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]   File "/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/vllm/third_party/deep_gemm/__init__.py", line 120, in _find_cuda_home
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]     assert cuda_home is not None
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=206799) WARNING 09-22 18:03:22 [import_utils.py:408] AssertionError
+(EngineCore pid=206799) Capturing CUDA graphs (PIECEWISE):   0%|          | 0/2 [00:00<?, ?it/s]Capturing CUDA graphs (PIECEWISE): 100%|██████████| 2/2 [00:00<00:00, 21.87it/s]
+(EngineCore pid=206799) Capturing CUDA graphs (FULL):   0%|          | 0/1 [00:00<?, ?it/s]Capturing CUDA graphs (FULL): 100%|██████████| 1/1 [00:00<00:00, 31.77it/s]
+(EngineCore pid=206799) INFO 09-22 18:03:23 [model_runner.py:906] Graph capturing finished in 1 secs, took 0.06 GiB
+(EngineCore pid=206799) INFO 09-22 18:03:23 [gpu_worker.py:804] Free memory on device (23.29/23.56 GiB) on startup. Desired GPU memory utilization is (0.9, 21.2 GiB). Actual usage is 16.06 GiB for consumed memory (weights + non-torch), 1.1 GiB for peak activation, and 0.06 GiB for CUDAGraph memory. Replace gpu_memory_utilization config with `--kv-cache-memory=4122846413` (3.84 GiB) to fit into requested memory, or `--kv-cache-memory=6362126336` (5.93 GiB) to fully utilize gpu memory. Current kv cache memory in use is 4.05 GiB.
+(EngineCore pid=206799) INFO 09-22 18:03:25 [jit_monitor.py:85] Kernel JIT monitor activated; monitored JIT compilations during inference will use mode=warn.
+(EngineCore pid=206799) INFO 09-22 18:03:26 [torch_utils.py:262] Reducing Torch threads from 32 to 1 for serving. Set OMP_NUM_THREADS in the external environment to override.
+(EngineCore pid=206799) INFO 09-22 18:03:26 [core.py:347] init engine (profile, create kv cache, warmup model) took 17.75 s (compilation: 10.95 s)
+(EngineCore pid=206799) INFO 09-22 18:03:28 [kernel.py:308] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+INFO 09-22 18:03:30 [hf.py:551] Detected the chat template content format to be 'string'. You can set `--chat-template-content-format` to override this.
+Warming up...
+Warmup iterations:   0%|          | 0/3 [00:00<?, ?it/s]Warmup iterations: 100%|██████████| 3/3 [00:00<00:00, 23.57it/s]Warmup iterations: 100%|██████████| 3/3 [00:00<00:00, 23.53it/s]
+Bench iterations:   0%|          | 0/10 [00:00<?, ?it/s]Bench iterations:  30%|███       | 3/10 [00:00<00:00, 27.85it/s]Bench iterations:  60%|██████    | 6/10 [00:00<00:00, 28.39it/s]Bench iterations:  90%|█████████ | 9/10 [00:00<00:00, 28.74it/s]Bench iterations: 100%|██████████| 10/10 [00:00<00:00, 28.64it/s]
+Avg latency: 0.034872248400643 seconds
+10% percentile latency: 0.034017136803595346 seconds
+25% percentile latency: 0.03407201225491008 seconds
+50% percentile latency: 0.034449195496563334 seconds
+75% percentile latency: 0.03586333150087739 seconds
+90% percentile latency: 0.03590987739880802 seconds
+99% percentile latency: 0.035967512131173864 seconds
+INFO 09-22 18:03:30 [utils.py:615] [shutdown] Process manager: send sigterm to process EngineCore
+(EngineCore pid=206799) INFO 09-22 18:03:30 [core.py:1329] [shutdown] EngineCore: trigger received signal=SIGTERM
+(EngineCore pid=206799) INFO 09-22 18:03:30 [core.py:1465] [shutdown] EngineCore: start mode=abort timeout=0s
+(EngineCore pid=206799) INFO 09-22 18:03:30 [core.py:1496] [shutdown] EngineCore: request processing complete; starting resource teardown
+(EngineCore pid=206799) INFO 09-22 18:03:30 [core.py:1342] [shutdown] EngineCore: exiting busy loop

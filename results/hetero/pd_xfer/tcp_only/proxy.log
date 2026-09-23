@@ -1,0 +1,33 @@
+INFO:     Started server process [314894]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8192 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     127.0.0.1:32768 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32770 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32772 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32780 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32794 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32798 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32808 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32818 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42476 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42482 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42488 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42456 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42580 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42472 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42536 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42538 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42548 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42560 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42574 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42582 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42494 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42504 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42512 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42528 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [314894]

@@ -1,0 +1,1747 @@
+DisagFusion: Asynchronous Pipeline Parallelism and
+Elastic Scheduling for Disaggregated Diffusion Serving
+Hantian Zha1 , Teng Ma2 , Yang Yong3 , Haiwen Fu3 , Ruiyang Ma4 , Wei Gao5 , Ruihao Gong6 ,
+Xianglong Liu6 , Wei Wang5 , Yunpeng Chai1
+1 Renmin
+
+University of China 2 Independent Researcher 3 SenseTime 4 Peking University
+5 Hong Kong University of Science and Technology
+6 Beihang University
+
+arXiv:2605.25550v1 [cs.DC] 25 May 2026
+
+Abstract
+
+However, running such models on a single machine faces
+several practical problems: (1) Models with a large number
+of parameters often cannot fit entirely in GPUs with limited
+memory capacity. Most models have large parameter sizes
+and cannot be fully loaded on consumer-grade GPUs with
+24 GB VRAM, and some even exceed the memory capacity of
+professional GPUs with 80 GB VRAM. As a result, inference
+often has to dynamically load the required weights on demand, which can severely degrade system performance. (2)
+Distinct pipeline stages exhibit heterogeneous runtime characteristics. Encoder and decoder stages exhibit lower arithmetic
+intensity, making them suitable for consumer-grade GPUs,
+whereas DiT stages tend to be compute-bound and benefit from the higher throughput of professional GPUs [23].
+If all stages are executed on the same machine, the GPU’s
+compute resources cannot be fully utilized.
+To address the above issues, we adopt a decoupled (disaggregated) architecture that splits the encoder, DiT, and
+decoder into independent services and deploys them on different GPUs. This disaggregated deployment brings three
+key benefits:
+
+Diffusion-based generation is increasingly powering production content pipelines; however, deploying these models
+at scale remains a significant challenge. Model weights frequently exceed the memory capacity of commodity GPUs,
+while the encoder, diffusion transformer (DiT), and decoder
+stages exhibit highly imbalanced computational and memory footprints. A natural remedy is disaggregated serving—
+running stages as separate services on heterogeneous GPUs—
+yet this introduces new bottlenecks, including stage handoff
+overheads and fast-changing workloads that make crossstage provisioning and scheduling brittle.
+This paper presents DisagFusion, enabling asynchronous
+pipeline parallelism and elastic scheduling for disaggregated
+diffusion serving. First, DisagFusion introduces asynchronous pipeline parallelism that overlaps computation and
+stage-to-stage communication to reduce pipeline bubbles
+and mitigate network jitter. Second, DisagFusion employs
+a hybrid instance scheduling strategy that combines lightweight performance prediction with runtime feedback to
+continuously rebalance instance ratio across stages under
+workload shifts. We implement DisagFusion and evaluate it
+with modern diffusion models. Compared to a monolithic
+baseline, DisagFusion improves throughput by 3.4×–20.5×
+and reduces end-to-end latency by 18.5×, while enabling flexible, cost-efficient deployment across heterogeneous GPUs.
+
+1
+
+• It can remove cross-stage interference and improve
+throughput. By isolating the encoder, DiT, and decoder
+onto separate GPUs, each stage can run in its own
+kernel, memory pool, and concurrency control.
+• It increases resource utilization and reduces hardware
+cost. Heterogeneous stages can be mapped to heterogeneous GPUs (e.g., compute-dense DiT on high-end
+GPUs and memory, while lightweight stages on commodity GPUs) to better match price–performance.
+• It enables flexible instance provisioning across stages.
+Because the three stages are decoupled, we can independently scale the number of instances for the encoder, DiT, and decoder to better balance the pipeline
+and achieve higher throughput.
+
+Introduction
+
+Generative AI has rapidly evolved from research prototypes
+into production workflows spanning chatbots and coding
+assistants [3], and increasingly multimodal creation such as
+text-to-image [27, 28] and text-to-video generation [7, 32, 37].
+Within this landscape, diffusion-based models—often built
+upon denoising backbones and diffusion transformers—have
+emerged as the dominant paradigm for high-fidelity synthesis [9, 23]. These models inherently exhibit a decomposable execution structure comprising three distinct stages:
+an Encoder stage, a denoising Diffusion Transformer, and a
+Decoder stage [2, 7–9, 23, 27, 32, 34, 37]. Each stage needs to
+load model weights and activations, consuming substantial
+GPU memory. Moreover, in many production settings, generation is performed in an offline manner and the final output
+is returned only after completion, making the workload less
+sensitive to per-step latency than interactive inference [16].
+
+However, after adopting disaggregated deployment, we
+must also address several new challenges.
+1) Disaggregated serving requires careful workflow design to avoid the network becoming the bottleneck. With
+stage-to-stage communication on the critical path, network
+jitter directly translates into longer handoff time. Moreover,
+since the encoder and decoder are relatively short, they are
+typically provisioned with far fewer instances than the DiT,
+1
+
+Prompt
+
+and a synchronous send/receive pattern can further amplify
+tail latency and reduce overall throughput [5, 21].
+2) In generation services, the number of requests and
+request parameters vary over time. For instance, the request volume can exhibit a 2.2× peak-to-valley gap [4, 16, 25],
+and request parameters (e.g., output resolution, and denoise
+steps) also change dynamically [18, 33, 36]. On an A10, running 50-step inference of the Wan2.2 model takes 930 s, while
+4-step distilled inference takes only 74.1 s. In contrast, the
+encoder and decoder are relatively stable (e.g., 5.46 s and
+9.62 s). This indicates that the optimal instance ratio across
+stages can differ significantly under different workloads.
+Therefore, we present DisagFusion (code: https://github.c
+om/ModelTC/LightX2V), enabling asynchronous pipeline
+parallelism and elastic scheduling for disaggregated diffusion
+serving. DisagFusion ❶ devises an asynchronous pipeline
+parallelism mechanism that seamlessly overlaps computation with inter-stage communication, eliminating pipeline
+bubbles induced by communication overheads; and ❷ introduces a hybrid instance scheduling strategy that synthesizes
+static performance modeling with dynamic runtime feedback
+to achieve elasticity, sustaining near-optimal throughput
+even amidst volatile workload shifts.
+In summary, we make the following contributions:
+
+opt
+
+160
+
+DiT
+
+Video
+
+multi-step denoising
+
+Encoder DiffusionTransformer Decoder
+
+Emb
+
+GB
+
+80
+60
+40 37.8
+18.9
+20 BF16 INT8
+0
+Wan
+
+Enc
+
+Trans
+
+160.0
+
+Dec
+
+80.0
+58.1
+29.2
+BF16 INT8
+Qwen
+
+40.0
+FP16 FP8 INT4
+Hunyuan
+
+Figure 2. Memory footprint of different models. (The red
+lines indicate GPU memory capacities: 24 GB for RTX 4090
+and A10, 40 GB for A100, and 80 GB for A100 and H100.)
+the refined latents. Among these stages, the DiT module
+serves as the computational bottleneck, requiring extensive
+iterative processing to ensure output quality.
+2.2
+
+Workload Characteristics
+
+In this subsection, we analyze the model weights and compute intensity across different pipeline stages. Our measurements are collected on machines with different hardware
+configurations, and all runs use 50-step inference to ensure
+a consistent comparison.
+Substantial model weight memory consumption. Models with a large number of parameters often cannot fit entirely in GPUs with limited memory capacity. As shown
+in Figure 2, Wan is used for both T2V and I2V inference,
+whereas Qwen and Hunyuan are used for T2I inference. For
+the Wan 2.1 14B model [38], BF16 weights require 37.8 GB of
+GPU memory, which already cannot fit on consumer-grade
+GPUs such as NVIDIA A10 and RTX 4090; for the Qwen 2512
+model [26], the footprint reaches 58.1 GB, which cannot fit
+even on a 40 GB A100; even after quantization, the model remains too large to reside entirely on a single consumer-grade
+GPU (e.g., NVIDIA A10 or RTX 4090 with 24 GB VRAM). If
+using the Hunyuan model [35], even FP16 and FP8 precision
+cannot fit in the memory of any currently available GPU.
+When GPU memory is insufficient, parts of the model must
+be offloaded to host memory during inference, incurring
+non-negligible CPU–GPU data transfer overhead [31], and
+multi-GPU model parallelism introduces substantial interGPU communication overhead that limits scalability [15, 42].
+
+Background and Motivation
+
+We outline the diffusion architecture and its workload characteristics (§2.1, §2.2), then contrast monolithic and disaggregated deployments to identify key challenges and opportunities (§2.3, §2.4). Finally, we discuss the limitations of existing
+serving techniques for this domain (§2.5).
+2.1
+
+DiT
+
+Figure 1. Video Generation Pipeline based on Diffusion
+Transformers.
+
+• We analyze the benefits of disaggregated architecture
+and then systematically study two key challenges for
+disaggregated diffusion generation serving (§ 2).
+• To address these challenges, we propose DisagFusion
+with two techniques: asynchronous pipeline parallelism for stage-wise computation overlap, and hybridstrategy instance scheduling for heterogeneous workload (§ 3).
+• We implement DisagFusion and compare it against
+the monolithic baseline. DisagFusion reduces end-toend latency by 18.5×, and improves throughput by
+3.4×–20.5× over the baseline (§ 5).
+
+2
+
+DiT
+
+Image
+
+Diffusion Model Architecture
+
+As illustrated in Figure 1, generation models typically follow
+an Encoder-Transformer-Decoder architecture [23, 27]. The
+process begins with an Encoder stage that projects input
+conditions, such as text prompts and optional images, into a
+latent space. The core generation occurs within the Diffusion
+Transformer (DiT), which iteratively performs denoising on
+the latent features to synthesize temporal dynamics. Finally,
+a Decoder reconstructs the high-fidelity output frames from
+2
+
+8
+4
+0
+
+1.35
+2.34
+0.69
+2
+4
+
+4.6
+
+6
+QPM
+
+Time (s)
+
+GPUs
+
+119.380s
+
+10.5
+
+16
+
+Baseline
+DisagFusion
+8
+
+10
+
+Disagg
+
+Figure 4. Single-request end-to-end latency breakdown of
+the baseline and the disaggregated version (4-step inference).
+(Model denotes model loading/unloading overhead; Encode,
+DiT, and Decode denote computation time of three stages;
+P2P denotes inter-stage data transfer overhead.)
+
+Heterogeneous compute intensity across stages. The
+computational complexity of generation is predominantly
+governed by the DiT. The DiT ❶ has a much larger parameter
+size (e.g., Wan 2.1-14B in BF16 has 28.0 GB of DiT weights),
+and ❷ its attention computation scales as 𝑂 (𝑇 2 · 𝐷) for tokens 𝑇 and hidden dimension 𝐷. In addition, ❸ the denoising
+process requires multi-step iterations—typically 40–50 steps
+for standard samplers, and even distilled models such as
+LightX2V still require 4 or 8 steps [19]. In contrast, the encoder and decoder use only 9.6 GB and 0.1 GB of weights,
+respectively. Their computation scales roughly linearly with
+the number of pixels 𝐼 (approximately 𝑂 (𝐼 2 ) in practice),
+and they do not require iterative execution. Together, these
+factors make the DiT dominate the end-to-end runtime.
+2.3
+
+50
+0 Baseline
+
+Figure 3. Comparison of scalability for different deployment
+strategies (baseline and the disaggregated version).
+
+Model
+P2P
+Encode
+DiT
+Decode
+
+89.229s
+
+100
+
+Async
+4.1 4.0
+
+4.1 4.0
+
+Sync
+3.7
+
+QPM
+
+5
+4
+3
+2
+1
+0
+
+Monolithic vs. Disaggregated
+
+5%/0.2s
+
+3.2
+
+3.6 Ideal
+2.8
+
+10%/0.2s 10%/2s
+20%/2s
+Network Latency Setting
+
+Figure 5. Impact of network latency/jitter on synchronous
+inter-stage transfer. Here, “5%/0.2s” means that each transfer
+via the transfer engine has a 5% probability of incurring an
+additional 0.2-second delay.
+
+As shown in Figure 3, we evaluate a monolithic LightX2V
+deployment as the baseline and compare it against the disaggregated version. The result shows that the disaggregated
+version achieves higher throughput and better scalability.
+In the 8-GPU setting, its throughput is 3.41× of the baseline. This is because the weights of the three stages cannot
+fit entirely in GPU memory, so the monolithic deployment
+must load models for each stage onto the GPU when it runs,
+incurring substantial I/O overhead. In contrast, the disaggregated deployment loads each stage’s weights once onto its
+dedicated GPU and keeps them resident, thereby avoiding
+repeated loading/unloading, better utilizing GPU resources.
+To analyze the system performance bottlenecks, we measure the end-to-end latency breakdown for a single 4-step
+inference request under both the monolithic baseline and the
+disaggregated version (Figure 4). The baseline spends an extra 30.3 s on model loading/unloading, accounting for 25.3%
+of the total latency; the disaggregated version avoids this
+overhead by keeping each stage’s model resident and thus
+eliminates repeated loading. Under a stable network, the endto-end latency of the disaggregated version is dominated by
+computation in the encoder, transformer, and decoder stages,
+with the transformer accounting for most of the time (83%).
+This motivates a disaggregated deployment for diffusion
+model serving.
+
+2.4
+
+Challenges and Opportunity
+
+By adopting a disaggregated deployment strategy, our design
+effectively circumvents the model loading bottleneck while
+incurring negligible overhead. However, this architectural
+shift introduces two fundamental challenges.
+Challenge 1: Disaggregated serving requires careful
+workflow design to avoid the network becoming the bottleneck. A disaggregated architecture splits the model into
+independent services, incurring cross-node inter-stage communication. However, traditional synchronous coordination
+severely degrades performance and scalability. When stages
+pass intermediate results synchronously (i.e., the upstream
+stage blocks until the downstream stage receives them), transient network jitter can directly translate into bubble time
+and backpressure across the whole pipeline, significantly
+hurting tail latency and throughput (Figure 5). Even under
+mild fluctuations (10%/2s), throughput drops by 22.5%; under
+severe fluctuations (20%/2s), throughput drops by 30.3%.
+
+3
+
+Steps
+50-steps
+8-steps
+4-steps
+1-step
+
+Resolution
+
+Enc (s)
+
+DiT (s)
+
+Dec (s)
+
+832×480
+832×480
+832×480
+832×480
+
+5.46
+5.46
+5.46
+5.46
+
+930
+149
+74.1
+18.7
+
+9.62
+9.62
+9.62
+9.62
+
+QPM
+
+Table 1. Execution time of the config across stages. Other
+parameters use the default settings in the LightX2V project.
+
+Dynamic
+Static161
+Static152
+
+10
+8
+6
+4
+2
+0
+
+Opportunity 1: Asynchronous communication can
+eliminate pipeline bubbles caused by network latency.
+Synchronous handoffs force the sender to stall until the
+downstream stage acknowledges receipt, turning every network fluctuation into GPU idle time. In contrast, asynchronous communication decouples producer and consumer: the
+sender proceeds to the next request immediately after dispatching the tensor, overlapping computation with in-flight
+transfers. Transient jitter is therefore absorbed by inter-stage
+buffering rather than amplified into pipeline bubbles. The
+benefit is substantial—even under severe network conditions,
+throughput falls by only 11.0%, far less than the 30.3% drop
+suffered by the synchronous baseline.
+
+10
+15
+20
+Minute Since Start
+
+25
+
+30
+
+Figure 6. Real-time throughput under varying request parameters. The first 15 minutes use 4-step distill requests, after
+15 minutes, the requests switch to 1-step distill. Static161
+denotes a static 1:6:1 instance ratio, Static152 is defined similarly, and Dynamic denotes dynamic instance scheduling.
+memory management and prefill–decode splitting [11, 24,
+43, 45]. However, these optimizations rely on assumptions
+that do not hold for diffusion generation. We analyze their
+limitations from two perspectives:
+Inter-stage Latent Communication. In disaggregated
+LLM serving, cross-instance transfer involves small, regular
+KV cache blocks, making transfer latency negligible and synchronous handoffs tolerable [11, 24, 45]. In contrast, diffusion
+serving requires transmitting full intermediate latent tensors
+between the encoder, DiT, and decoder. These tensors are
+orders of magnitude larger and scale with output resolution
+and frame count. Synchronous transfers in this context cause
+upstream stages to block on network jitter, stalling the entire pipeline. Therefore, an asynchronous execution model
+overlapping communication with computation is essential
+to prevent throughput degradation.
+Dynamic Stage Bottlenecks. Disaggregated LLM systems typically rely on static provisioning, as the prefill and
+decode phases have relatively stable characteristics, and decode iteration counts are inherently unpredictable [21, 24,
+43, 45]. Conversely, diffusion generation offers deterministic per-stage execution times: the encoder and decoder
+run once with stable latency, and the DiT stage executes a
+user-specified number of denoising steps. Static strategies
+borrowed from LLMs fail to exploit this predictability, as
+the optimal instance ratio shifts continuously with request
+parameters (e.g., step count, resolution). Consequently, a
+hybrid instance scheduling mechanism—combining static
+performance prediction with dynamic runtime feedback—
+is required to continuously rebalance the number of stage
+instances against evolving workloads.
+
+Challenge 2: In generation services, the number of requests and request parameters vary over time. Table 1
+reports the per-stage latency of the Wan2.2 model under
+different step counts. Under 4-step distillation, the encoder,
+DiT, and decoder stages take approximately 5 s, 75 s, and 10
+s, respectively; under 1-step distillation, the corresponding
+latencies shift to 5 s, 20 s, and 10 s. Because the DiT stage
+dominates in the first scenario while becoming far less constraining in the second, the bottleneck stage moves across
+configurations. Consequently, no fixed encoder-to-DiT-todecoder instance ratio can sustain peak throughput under
+both workloads.
+Opportunity 2: Dynamic instance scheduling can maximize throughput under varying workloads. To highlight
+the time-varying nature of real-time serving workloads, we
+evaluate different workloads on an 8-GPU testbed. Figure 6
+shows the measured throughput under changing request parameters. Specifically, we send 4-step requests in the first 15
+minutes, and switch to 1-step requests after 15 minutes. For
+4-step requests, the 1/6/1 instance configuration achieves the
+highest throughput, whereas for 1-step requests, the 1/5/2
+configuration achieves the highest throughput. Therefore,
+by dynamically adjusting instances to use the 1/6/1 configuration in the first 15 minutes and the 1/5/2 configuration
+after 15 minutes, we can achieve the maximum throughput
+under both workloads.
+2.5
+
+5
+
+3
+
+Inefficiencies of Existing Works
+
+System Design
+
+This paper presents DisagFusion, a scalable and efficient serving system designed for diffusion models in disaggregated
+
+Disaggregated serving has been extensively explored in the
+context of LLMs, yielding techniques like KV-cache-centric
+4
+
+Controller
+Monitor
+
+Req
+
+Analyze
+
+Create/
+Reclaim
+
+Elastic
+Scheduler
+
+Request
+Dispatcher
+
+Init
+
+Diffusion
+Transformer
+
+§ 3.2
+
+Encoder
+
+Exec
+
+Complete
+
+Req
+
+Wait
+
+Phase 2 Req+T_url
+
+Transformer
+
+Decoder
+
+DiT Weights
+
+VAE
+
+VAE
+Decoder
+
+Queue
+
+VAE
+Encoder
+
+E
+
+T_url Latents
+
+Phase 1 Req+E_url
+
+Data
+Plane
+
+Ring Buffer Pool
+Report
+
+Req
+
+Control
+Plane
+
+§ 3.3
+
+Buffer
+
+Req
+
+Exec
+
+D_url
+Wait
+
+Complete
+
+E
+
+Latents
+Exec
+
+E
+
+Reporter
+T5/CLIP/VAE
+Queues
+
+Figure 8. A request workflow between three stages.
+
+Compute
+
+Latents
+
+responsible for initial request dispatching, while other services alternately transmit metadata to complete computation
+in their respective stages.
+The data plane consists of three computation stages (Encode, Diffusion Transformer, and Decode) that process data
+through a decentralized pipeline. These stages exchange
+intermediate tensors via the mooncake transfer engine, enabling zero-copy tensor transmission. The Encoder produces
+latent tensors, the Transformer consumes and refines them
+through iterative denoising, and the Decoder consumes the
+refined tensors to reconstruct the final output. This producerconsumer architecture supports asynchronous execution
+with computation-communication overlap.
+
+Communicate
+
+Figure 7. The overall architecture of DisagFusion.
+architectures. DisagFusion co-designs pipeline execution and
+resource management to actively combat the two dominant
+overheads of disaggregation: (1) synchronous inter-stage
+communication stalls GPU execution under network jitter,
+and (2) static instance allocations cannot adapt to dynamic
+workloads.
+We explain our asynchronous pipeline parallelism and
+hybrid-strategy instance scheduling in Sections 3.2 and 3.3.
+
+3.1.2 Hybrid-strategy Instance Scheduling. A dynamic
+scheduling mechanism combines static performance predictions with dynamic runtime indicators to enable adaptive
+resource provisioning. The Controller continuously monitors system metrics and makes scheduling decisions. For
+instance, scaling and resource allocation across stages based
+on workload characteristics and performance requirements.
+This hybrid approach achieves scalability, efficiency, and
+adaptability in disaggregated environments.
+
+• Asynchronous pipeline parallelism (§ 3.2). With
+the co-design of decentralized inter-stage coordination and asynchronous pipeline execution, we eliminate centralized bottlenecks and enable computationcommunication overlap.
+• Hybrid-strategy instance scheduling (§ 3.3). Our
+monitoring framework continuously aggregates service metrics and guides elastic scheduling decisions
+through a policy that fuses static performance models
+with dynamic runtime observations.
+3.1
+
+3.2
+
+Asynchronous Pipeline Parallelism
+
+As shown in Figure 8, DisagFusion organizes each generation request into an pipeline that mirrors a diffusion model’s
+computation graph: (1) Encoder, which preprocesses conditioning inputs (e.g., text prompts, negative prompts, and
+control signals) and produces conditioning hidden states (e.g.,
+T5, CLIP, VAE encoder outputs); (2) Transformer, which runs
+the main denoising backbone (e.g., a Transformer network)
+for iterative diffusion timesteps and updates the latent representation; (3) Decoder, which decodes the final latent into
+RGB output frames (e.g., via a VAE decoder) and performs
+lightweight post-processing before returning the output.
+Encoder stage (request admission and conditioning
+preparation). Upon arrival, the request scheduler inserts
+
+Overview
+
+Figure 7 presents the overall system architecture. System architecture comprises two main optimization modules: Asynchronous Pipeline Parallelism for request processing workflow and Hybrid-strategy Instance Scheduling for dynamic
+resource management.
+3.1.1 Asynchronous Pipeline Parallelism. The control
+plane is centered around the Ring Buffer Pool, which manages request metadata and service metadata. Services communicate through a producer-consumer model where each
+stage acts as both producer and consumer. The Controller is
+5
+
+Table 2. Notations used in the instance scheduling model.
+
+the request into the global request buffer. An encoder instance dequeues the request into its local request queue, and a
+worker thread then initializes the request (on-demand model
+loading and GPU memory allocation). Next, the encoder
+produces the request metadata into the phase1 buffer and
+enqueues the request into the execute queue. The Transformer instance that fetches the corresponding metadata
+asynchronously sends a destination address to the encoder;
+the encoder worker proceeds to compute and, upon completion, sends intermediate results to the Transformer and
+moves the request into the complete queue. After the send is
+acknowledged, the encoder dequeues it from complete queue
+and releases resources.
+Transformer stage (iterative denoising and cross-stage
+interaction). A transformer instance dequeues the request
+metadata, enqueues the request into its local request queue,
+and a worker thread initializes it (on-demand model loading,
+GPU memory allocation, and sending its address to the Encoder). The transformer then places metadata into the phase2
+buffer and enqueues the request into the waiting queue to
+await Encoder outputs. The Decoder instance fetches the
+corresponding metadata asynchronously and sends a destination address to the transformer. Once Encoder outputs are
+received, the transformer moves the request to the execute
+queue for computation; after finishing, it sends intermediate
+results to the Decoder, transitions the request into the complete queue, and finally dequeues it after successful sending
+to free resources.
+Decoder stage (latent decoding, post-processing, and
+response). A decoder instance dequeues the request metadata into its local request queue; a worker thread initializes
+it (on-demand model loading, GPU memory allocation, and
+sending its address to the Transformer). The request is then
+put into the waiting queue for Transformer outputs. After
+receiving the results, the decoder moves it into the execute
+queue to decode the latent into output frames. Once the final output is returned to the request scheduler, the decoder
+releases resources.
+The three stages communicate via asynchronous queues,
+allowing different requests to occupy different stages concurrently. As a result, each request can flow through the
+pipeline without being blocked by others at the same stage,
+and the overall processing becomes fully overlapped.
+3.3
+
+Meaning
+
+Unit
+
+𝐺
+𝐶
+𝑆𝑀
+𝑆𝐴
+𝐼
+𝑃
+𝐵
+𝑔
+𝑇
+QPS
+
+Total number of GPUs
+GPU memory capacity
+Model memory footprint
+Activation memory footprint
+Compute intensity
+GPU performance
+Communication bandwidth
+Number of GPUs used
+Execution time
+Throughput
+
+–
+GB
+GB
+GB
+FLOPs/byte
+TFLOP/s
+GB/s
+–
+s
+requests/s
+
+For each GPU, we also require that the model and activation memory footprints fit in GPU memory:
+𝑆 𝑀 + 𝑆𝐴 < 𝐶.
+(2)
+For a single request, the execution time of each stage can
+be modeled as the sum of computation time and communication time:
+𝑆𝐴,𝐸 · 𝐼𝐸 𝑆𝐴,𝐸
++
+,
+(3)
+𝑃𝐸
+𝐵𝐸
+𝑆𝐴,𝑇 · 𝐼𝑇 𝑆𝐴,𝑇 1 𝑆𝐴,𝑇 2
++
++
+,
+(4)
+𝑇𝑇 =
+𝑃𝑇
+𝐵𝑇 1
+𝐵𝑇 2
+𝑆𝐴,𝐷 · 𝐼𝐷 𝑆𝐴,𝐷
+𝑇𝐷 =
++
+.
+(5)
+𝑃𝐷
+𝐵𝐷
+Given the per-stage service rates, end-to-end throughput
+is determined by the minimum rate across all stages:
+
+
+𝑔𝐸 𝑔𝑇 𝑔𝐷
+, ,
+QPS = min
+.
+(6)
+𝑇𝐸 𝑇𝑇 𝑇𝐷
+Therefore, to maximize throughput, we should avoid the
+bottleneck effect across stages. Optimal instance allocation
+should approximately balance the per-stage service rates:
+𝑇𝐸 =
+
+𝑔𝐸 𝑔𝑇
+𝑔𝐷
+≈
+≈
+.
+(7)
+𝑇𝐸 𝑇𝑇
+𝑇𝐷
+For a static workload, 𝑇𝐸 , 𝑇𝑇 , and 𝑇𝐷 can be pre-computed
+and are thus easier to predict, making the required ETD instance ratio largely stable. However, under high-concurrency
+scenarios, request parameters exhibit heterogeneity, request
+arrival rates vary temporally, and the availability of heterogeneous GPUs changes dynamically. We monitor GPU
+utilization, queue length, and queueing delay. When service exhibits high GPU utilization coupled with a sustained
+growth in both queue length and queueing delay, we trigger
+a scale-out operation by provisioning additional instances
+to alleviate the load. Conversely, when an instance demonstrates low GPU utilization and maintains an empty queue
+over a monitoring period, we initiate a scale-in operation by
+de-provisioning that instance.
+
+Hybrid-Strategy Instance Scheduling
+
+When deploying the service in a cluster, we need to allocate
+a certain number of instances to the three stages. For simplicity, we assume each instance exclusively occupies one
+GPU. Table 2 summarizes the key variables. Let 𝑔𝐸 , 𝑔𝑇 , and
+𝑔𝐷 denote the numbers of GPUs allocated to the Encoder,
+Transformer, and Decoder stages, respectively. Then we have
+the resource constraint:
+𝑔𝐸 + 𝑔𝑇 + 𝑔𝐷 ≤ 𝐺 .
+
+Variable
+
+(1)
+6
+
+Algorithm 1 Hybrid-strategy instance scheduling
+Require: Monitoring interval Δ; scale-out thresholds
+𝑈 high, 𝑄 high ; scale-in thresholds 𝑈 low ; a workload-change
+ˆ mapping
+detector Changed(·); a learned predictor 𝑔(·)
+workloads to desired instance counts.
+1: Initialize instance counts 𝑛 𝐸 , 𝑛𝑇 , 𝑛 𝐷
+2: Initialize history buffer 𝐻 ← ∅
+3: while system is running do
+4:
+Collect metrics 𝑚 ← {𝑢𝑠 , 𝑞𝑠 , 𝑑𝑠 } for each service
+𝑠 ∈ {𝐸,𝑇 , 𝐷 }
+5:
+Append 𝑚 and recent request parameters into 𝐻
+6:
+if Changed(𝐻 ) then
+7:
+Workload features 𝑥 ← Featurize(𝐻 )
+ˆ
+8:
+(𝑛ˆ𝐸 , 𝑛ˆ𝑇 , 𝑛ˆ𝐷 ) ← 𝑔(𝑥)
+9:
+Apply({𝑛𝐸 , 𝑛𝑇 , 𝑛𝐷 }, {𝑛ˆ𝐸 , 𝑛ˆ𝑇 , 𝑛ˆ𝐷 })
+10:
+continue
+11:
+end if
+12:
+for all service 𝑠 ∈ {𝐸,𝑇 , 𝐷 } do
+13:
+if 𝑢𝑠 > 𝑈 high and 𝑞𝑠 > 𝑄 high and 𝑑𝑠 > 𝑑𝑠′ then
+14:
+ScaleOut(𝑠)
+15:
+else if 𝑢𝑠 < 𝑈 low and 𝑞𝑠 = 0 then
+16:
+ScaleIn(𝑠)
+17:
+end if
+18:
+end for
+19:
+Sleep for Δ
+20: end while
+
+Ring Buffer Pool
+Req
+Q1
+
+Phase 1
+Q2
+
+Q3
+
+Q4
+
+Phase 2
+Q5
+
+Q6 …… Qn
+
+Put: {req metadata,
+service A's metadata}
+Send: url
+
+Service A
+Q1,Q3,Q4
+
+P2P: latents
+
+Get
+Service B
+Q3,Q5,Q7
+
+Queue Priority Settings
+
+Figure 9. Decentralized queue scheduling.
+ˆ estimates the tara change is detected, the predictor 𝑔(·)
+get instance counts based on features from the recent trace.
+Following the allocation update, the loop skips subsequent
+reactive logic to prevent interference, advancing immediately
+to the next iteration. Lines 11–17 implement the scheduling
+strategy. We trigger a scale-out operation only when the
+service GPU utilization reaches saturation, the queue length
+grows significantly, and the average queueing delay is increasing. Conversely, we initiate a scale-in operation when
+the utilization drops to a low level and the queue is empty, indicating that the pending workload has been cleared. Line 18
+sleeps for Δ before the next iteration.
+
+Since these metrics are inherently reactive and may fail
+to capture abrupt workload spikes, we complement the feedback loop with a predictive layer. By learning the mapping
+between historical workload characteristics (e.g., request
+parameters) and the optimal service ratio, the system can
+proactively reconfigure resources in anticipation of demand
+shifts. In response to significant workload fluctuations over
+time, we leverage the trained model to forecast the required
+instance count and proactively adjust system capacity.
+Algorithm 1 summarizes our hybrid scheduling workflow.
+Here, the monitoring interval Δ is set to 2 s by default to
+accommodate the response time required for cold starts and
+reclamation. 𝑈 high is the scale-out utilization threshold (default 80%), and 𝑄 high is the scale-out threshold for queue
+length (default 5), used to scale out when the current GPU
+utilization exceeds the configured threshold and queued requests become excessive so that additional instances can
+share the load. 𝑈 low is the scale-in utilization threshold (default 20%), used to reclaim instances when GPU utilization
+is insufficient. The scheduler runs in a control loop. Lines 1–
+2 initialize the instance counts 𝑛 and a history buffer 𝐻 .
+Lines 3–5 periodically collect service metrics (utilization 𝑢𝑠 ,
+queue length 𝑞𝑠 , average queueing delay 𝑑𝑠 ) and update 𝐻 .
+Lines 6–10 implement the proactive adjustment mechanism.
+We first identifying the most frequent workload in 𝐻 . Once
+
+4
+4.1
+
+Implementation
+Network Communication
+
+DisagFusion employs ZeroMQ (ZMQ) [44] for inter-stage
+signaling and the Mooncake Transfer Engine [20] for highefficiency data transmission. By strictly separating the control plane (task metadata) from the data plane (intermediate
+results), the architecture effectively mitigates head-of-line
+blocking caused by large messages, thereby enhancing system stability under high-concurrency scenarios.
+To ensure robust and efficient transmission, ZeroMQ sockets operate in an asynchronous non-blocking mode managed
+by a unified polling mechanism. The system incorporates
+resilience features such as exponential backoff retries to handle connection jitter and timeouts gracefully. Furthermore,
+DisagFusion exposes configurable parameters—including
+high-water marks and buffer sizes—enabling fine-grained
+optimization to balance throughput and latency across diverse hardware and workload patterns.
+4.2
+
+Decentralized Queue Scheduling
+
+DisagFusion employs a decentralized queue scheduling mechanism to meet the low-latency demands of generative inference. Successive stages are decoupled via RDMA-backed
+7
+
+metadata queues using a producer–consumer pattern. This
+approach circumvents the bottlenecks and single-point-offailure risks inherent to centralized queues, thereby improving multi-node throughput and robustness.
+We split each request into two distinct objects: control
+plane (metadata) and data plane (payload). This module primarily focuses on providing low-latency request scheduling and instance coordination. As illustrated in Figure 9,
+the request scheduling path transmits only lightweight request metadata, writing these payloads into pre-registered
+RDMA buffer queue slots, while large-scale intermediate
+latents are accessed separately via Mooncake Transfer Engine. Leveraging fixed-length metadata, the system achieves
+𝑂 (1) queue operations, reducing memory copies and protocol overhead to improve stage-transition efficiency. We
+utilize RDMA Fetch-and-Add (FAA) atomic operations for
+lock-free queue concurrency control and leverage RDMA
+one-sided read/write verbs for producer–consumer queue
+access, replacing the traditional ZMQ push–pull model to
+provide a lower-latency communication channel.
+To construct these RDMA-backed metadata queues, the
+Controller selects a small set of machines for each stage
+to host circular buffers and disseminates their addresses to
+instances. Each instance maintains a local queue table that
+records the buffer locations for all stages. When accessing a
+given stage queue, it preferentially chooses the buffer with
+lower network latency to reduce communication overhead.
+Each stage operates as a consumer of its upstream and a
+producer for its downstream, exchanging fixed-size metadata
+via a shared queue. This design decentralizes scheduling
+decisions, eliminating the global lock contention and controlplane congestion of centralized approaches. Additionally,
+on-demand consumption from shared queues allows for finegrained load control without complex central coordination.
+Furthermore, the decentralized queue scheduling significantly enhances scalability. To handle escalating loads, the
+system supports horizontal scaling of consumer instances
+at bottleneck stages, allowing dynamic queue subscription
+without reconfiguring centralized logic. Additionally, queuelevel backpressure prevents congestion propagation: when
+downstream queues near capacity, upstream production is
+automatically rerouted to maintain overall pipeline stability.
+4.3
+
+as a single batch, this approach effectively amortizes the overhead associated with system calls and per-message headers.
+The batching policy incorporates a dual-trigger approach
+based on both size and time thresholds: transmission is triggered immediately when the accumulated payload reaches
+the batch size limit or when the waiting time exceeds the
+timeout threshold. This design strikes a balance between
+throughput enhancement and tail-latency control.
+4.4
+
+Fault Tolerance
+
+For fault detection, DisagFusion employs timeout-based strategies that enable communicating peers to promptly detect
+node disconnections, link anomalies, and processing stalls.
+Each request carries a unique request ID for end-to-end tracing and retry deduplication, preventing duplicate execution
+during failure recovery.
+At the fault recovery level, the system adopts automatic
+reconnection with bounded retry for transient network failures, and triggers instance reclamation and reallocation for
+prolonged unavailability. Given the stateless nature of our
+services, failed instances can be directly substituted. Moreover, requests are decoupled from specific nodes and can be
+rerouted to any operational instance following a timeout,
+which significantly enhances system elasticity.
+
+5
+
+Evaluation
+
+In this section, we evaluate DisagFusion to answer the following questions:
+• Does DisagFusion preserve generation quality compared to baselines (§5.2)?
+• How does DisagFusion improve end-to-end latency
+under different models, and deployment configurations (§5.3)?
+• How scalable is DisagFusion as we scale out the distributed deployment (§5.4)?
+• How robust is DisagFusion to workload heterogeneity
+(§5.5)?
+• How does DisagFusion behave under different instance ratios and elastic scheduling policies (§5.6)?
+• How efficiently does DisagFusion utilize resources
+(§5.7)?
+5.1
+
+Zero-Copy and Batched Messaging
+
+Experiment Setup
+
+Testbed. We run experiments on three two-server clusters:
+(1) two machines, each equipped with 8 × NVIDIA A10 GPUs;
+(2) two machines, each equipped with 8 × RTX 4090 GPUs;
+and (3) two machines, each equipped with 8 × NVIDIA H100
+GPUs. All machines have identical CPU and memory configurations: two Intel Xeon Platinum 8369B CPUs (128 logical
+threads in total) and 502 GiB of DRAM. Each machine is
+connected via 100 Gbps RDMA.
+Models. We evaluate DisagFusion on two representative generative AI workloads that emphasize visual synthesis. The
+
+To mitigate data movement overhead, DisagFusion adopts a
+zero-copy transmission strategy within the data plane. Memory is allocated directly on the GPU device memory, and
+inter-GPU tensor transfers are facilitated via the GDirect
+mechanism [22]. This approach substantially alleviates CPU
+overhead associated with memory copying, thereby improving resource utilization in high-throughput scenarios.
+To optimize the transmission path, the system employs a
+message batching mechanism. By aggregating multiple small
+messages within a brief time window and transmitting them
+8
+
+Request Ratio
+
+Figure 10. Examples of images generated by DisagFusion.
+Table 3. Generation-quality metrics. In each cell, the score
+is the baseline result, and DisagFusion achieves scores consistent with the baseline. (SC: subject consistency; BC: background consistency; AQ: aesthetic quality; IQ: imaging quality.)
+SC
+
+BC
+
+AQ
+
+IQ
+
+T2V 50-step
+I2V 40-step
+I2V 8-step
+I2V 4-step
+I2V 1-step
+
+0.960
+0.993
+0.993
+0.993
+0.967
+
+0.938
+0.971
+0.969
+0.967
+0.955
+
+0.655
+0.673
+0.667
+0.664
+0.632
+
+0.595
+0.684
+0.678
+0.676
+0.721
+
+(a) Wan2.2 (A10), I2V 4-step.
+
+Request Ratio
+
+Workload
+
+first is Wan2.2 [39], a state-of-the-art diffusion model. This
+workload exercises the complete DiT pipeline, including VAE
+encoding/decoding and large-scale latent tensor transfers,
+providing a rigorous test for our disaggregated architecture
+under high-bandwidth, synchronous dependencies. The second is Qwen-Image-2512 [26], a large-scale image generation
+model with 25.12 billion parameters. Although it generates
+images rather than videos, its massive model size (exceeding
+the memory capacity of a single A100 or consumer-grade
+GPU) and its adoption of a diffusion transformer backbone
+make it an ideal workload for stressing memory disaggregation and stage-level pipeline parallelism. Unless otherwise
+stated, we use the official releases and their default inference
+configurations, varying request parameters (e.g., diffusion
+steps or generation length) as specified in each experiment.
+Baselines. We compare against the monolithic deployment
+of LightX2V as our baseline. To ensure a fair comparison, we
+strictly match the total number of GPUs between DisagFusion and the baseline across all experiments. In multi-GPU inference scenarios, we employ tensor parallelism to optimize
+the baseline’s multi-GPU performance, thereby establishing
+a strong baseline for evaluating the benefits of DisagFusion.
+5.2
+
+DisagFusion
+LightX2V
+100%
+18.5x
+99%
+80%
+60%
+13.0x
+40% 50%
+20%
+0%102
+104
+103
+End-to-End Latency (s)
+DisagFusion
+LightX2V
+100%
+30.5x
+99%
+80%
+60%
+24.7x
+40% 50%
+20%
+0%
+104
+102
+103
+End-to-End Latency (s)
+(b) Qwen2512 (4090), T2I 8-step.
+
+Figure 11. End-to-end latency comparison between
+LightX2V and DisagFusion in serving requests.
+same prompts and random seeds on a single node with 8
+GPUs and 16 GPUs, respectively, and compare against the
+monolithic baseline under the same GPU budgets. We use
+a resolution of 832×480 and generate 81 frames for each
+request.
+Figure 10 shows real examples generated by DisagFusion,
+and the results are visually identical to those produced by
+LightX2V. Table 3 reports the quality scores for T2V and I2V.
+The results show that DisagFusion produces quality scores
+consistent with the monolithic baseline, indicating that stage
+separation and inter-stage transfers do not affect the final
+outputs. In addition to end-to-end quality metrics, we perform a tensor-level correctness validation by attaching hash
+checks to transmitted tensors. This verifies that tensors received by downstream stages exactly match those produced
+by upstream stages, ruling out data corruption or unintended
+numerical deviations during transfer.
+
+Generation Quality
+
+We validate that DisagFusion’s stage disaggregation does
+not compromise generation quality. Since DisagFusion splits
+the end-to-end pipeline into Encoder/Transformer/Decoder
+stages and transfers intermediate tensors across stage boundaries, we want to confirm that the produced outputs remain
+indistinguishable from the monolithic baseline. We run the
+
+5.3
+
+End-to-End Latency
+
+In this experiment, we evaluate the end-to-end latency of DisagFusion and LightX2V using Wan2.2 [39] and Qwen2512 [26]
+models. We run the Wan2.2 experiments on eight A10 GPUs
+9
+
+DisagFusion
+
+4
+
+16
+
+(a) Wan2.2 (A10), T2V 50-step.
+
+0
+
+4
+
+8
+GPUs
+
+16
+
+(b) Wan2.2 (A10), I2V 4-step.
+
+43.7
+20
+0
+
+10.8
+20.4
+
+QPM
+
+1.35
+4.6
+
+QPM
+
+4.6
+8
+GPUs
+
+5
+
+40
+0.69
+2.34
+
+0
+
+0.228
+
+5
+
+0.114
+2.34
+
+QPM
+
+10
+
+5.52
+9
+
+10
+
+10.5
+
+8.51
+
+LightX2V
+
+4
+
+8
+GPUs
+
+16
+
+(c) Qwen2512 (4090), T2I 8-step.
+
+Figure 12. Comparison of scalability for LightX2V and DisagFusion under different workloads.
+and the Qwen2512 experiments on eight RTX 4090 GPUs.
+As illustrated by the CDF curves in Figure 11, DisagFusion
+consistently exhibits a significant leftward shift compared
+to LightX2V across both models, indicating superior latency
+performance.
+Specifically, for the Wan2.2 model (Figure 11a), the 50%
+and 99% latencies of DisagFusion are 13.0× and 18.5× lower
+than those of LightX2V, respectively. The performance gains
+are even more pronounced with the large-scale Qwen2512
+model (Figure 11b), where DisagFusion achieves median and
+tail latencies that are 24.7× and 30.5× lower than LightX2V.
+This substantial improvement stems from two key factors: (i)
+DisagFusion shortens per-request inference time by disaggregating computation into stages, avoiding the blocking GPU
+load/unload operations required by the monolithic baseline;
+and (ii) DisagFusion employs pipelined execution to overlap
+requests across stages, thereby minimizing queue buildup. In
+contrast, LightX2V processes requests synchronously and serially, leading to lower GPU utilization and higher queueing
+delays, particularly under the heavy load of large models.
+5.4
+
+DisagFusion
+4.1 4.0 4.1 4.0
+
+QPM
+
+5
+4
+3
+2
+1
+0
+
+5%/0.2s
+
+DisagFusion-Sync
+3.7
+
+3.2
+
+3.6 Ideal
+2.8
+
+10%/0.2s 10%/2s
+20%/2s
+Network Latency Setting
+
+Figure 13. Network latency comparison between DisagFusion and DisagFusion’s synchronous variant.
+throughput on 4 and 8 GPUs. Similarly, for the I2V 4-step
+task (Figure 12b), DisagFusion scales from 2.34 to 10.5 QPM,
+surpassing the baseline by factors of 3.4× and 7.7×. In the
+evaluation using the Qwen2512 (4090) model (Figure 12c),
+DisagFusion successfully scales to 16 GPUs, achieving 43.7
+QPM—more than double its 8-GPU performance and 4.0×
+faster than the baseline on 8 GPUs. This robust scalability
+stems from DisagFusion’s architecture, where independent
+instances fully utilize GPU resources without cross-instance
+dependencies, allowing aggregate throughput to grow directly with the number of GPUs.
+
+Distributed Scalability
+
+To evaluate DisagFusion’s scalability, we measure the throughput of DisagFusion and the LightX2V monolithic baseline
+with 4, 8, and 16 GPUs. For each test, we send 30 identical
+requests. The results are shown in Figure 12.
+Both systems exhibit near-linear scaling within the supported range; however, DisagFusion consistently delivers
+superior performance. A critical limitation of the LightX2V
+baseline is its single-node deployment architecture, which
+restricts it to a maximum of 8 GPUs and prevents it from
+scaling to the 16-GPU multi-node configuration. In contrast,
+DisagFusion successfully scales across all settings. Specifically, in the T2V 50-step workload (Figure 12a), DisagFusion
+achieves throughputs of 2.34, 4.6, and 8.51 QPM on 4, 8,
+and 16 GPUs, respectively. This significantly outperforms
+LightX2V, delivering approximately 20.5× and 20.3× higher
+
+5.5
+
+Robustness Analysis
+
+Disaggregated serving is inherently sensitive to network
+conditions because inter-stage tensor transfers lie on the
+critical path. To evaluate DisagFusion’s robustness against
+unpredictable network behavior, we simulate four jitter patterns commonly observed in production clusters (Figure 13):
+(1) stable network, where each transfer has a 5% probability
+of incurring an additional 0.2 s delay; (2) mild jitter, 10%/0.2 s;
+(3) moderate jitter, 10%/2 s; and (4) severe jitter, 20%/2 s.
+10
+
+DisagFusion
+DisagFusion-S161
+DisagFusion-S152
+
+10
+8
+6
+4
+2
+
+8
+QPM
+
+QPM
+
+10
+
+5
+
+10
+15
+20
+Minute Since Start
+
+25
+
+20
+
+30
+
+10
+8
+6
+4
+2
+
+DisagFusion
+DisagFusion-Static
+
+0
+
+5
+
+10
+15
+20
+Minute Since Start
+
+25
+
+5
+
+10
+15
+20
+Minute Since Start
+
+25
+
+30
+
+Figure 15. Real-time throughput under varying request parameters on the H100 cluster.
+
+(a) Real-time throughput under varying request parameters.
+
+QPM
+
+6
+4
+
+0
+
+In the parameter-varying trace, we compare DisagFusion’s
+dynamic scheduling against fixed instance allocations (1:6:1
+and 1:5:2). During the first 15 minutes (4-step requests), the
+DiT stage is the bottleneck for both fixed settings. The 1:6:1
+allocation (DisagFusion-S161) achieves a throughput of 4.9
+QPM, outperforming the 1:5:2 allocation (DisagFusion-S152),
+which is more severely constrained at 4.0 QPM. However,
+after the switch to 1-step requests (t > 15 min), the bottleneck shifts. For the 1:6:1 setting, the bottleneck moves to the
+Decoder, capping throughput at 6.2 QPM. In contrast, the
+1:5:2 setting becomes Encoder-bottlenecked, allowing it to
+reach 11.0 QPM. DisagFusion automatically adapts to these
+changes: it implicitly aligns with the optimal 1:6:1 configuration in the first window and switches to the 1:5:2 configuration in the second, thereby sustaining the maximum possible
+throughput throughout the trace.
+In the request-rate-varying trace, we evaluate DisagFusion’s dynamic scale-out capability. During the first 15 minutes, the request rate is low (0.1req/s), allowing the initial
+1:6:1 allocation to serve requests without queueing. However, when the rate doubles to 0.2req/s after 15 minutes, the
+system with only 8 GPUs becomes saturated, causing the
+request queue to build up. To address this, DisagFusion’s
+elastic scheduling detects the backpressure and automatically provisions an additional 8-GPU machine, shifting the
+instance ratio to 1:13:2. Under this expanded configuration,
+the throughput bottleneck shifts to the DiT stage, raising
+the system’s capacity to 10.5 QPM. Consequently, DisagFusion successfully absorbs the increased load and stabilizes at
+the new, higher throughput, whereas a static configuration
+suffers from unbounded queuing delays.
+Furthermore, we evaluate the system on the H100 cluster under varying request parameter workloads. As shown
+in Figure 15, DisagFusion consistently achieves the highest
+throughput, maintaining 6.72 QPM in the first phase and scaling up to 9.62 QPM in the second. In contrast, static baselines
+fail to adapt efficiently. The 1:6:1 allocation (DisagFusionS161) plateaus at 6.64 QPM, unable to exploit the increased
+
+30
+
+(b) Real-time throughput under varying request rates.
+
+Figure 14. Real-time throughput performance under dynamic workloads.
+Under mild jitter, both synchronous and asynchronous designs remain stable. However, as jitter becomes more severe,
+the synchronous baseline suffers drastic throughput drops—
+22.5% under moderate jitter and 30.3% under severe jitter—
+because the upstream stage blocks until the downstream acknowledges receipt, turning every network delay into GPU
+idle time. In contrast, DisagFusion limits the degradation to
+8.8% and 11.0%, respectively. By decoupling stages via asynchronous queues, DisagFusion overlaps the communication
+of one request with the computation of another; transient
+jitter is therefore absorbed by queue buffering rather than
+propagated as pipeline bubbles, making the system substantially less sensitive to network fluctuations.
+5.6
+
+DisagFusion
+DisagFusion-S161
+DisagFusion-S152
+
+Instance Ratio & Elastic Scheduling
+
+To study different strategies under dynamic load, we measure
+the real-time throughput of DisagFusion and the monolithic
+baseline under two workload traces that vary request parameters and request rates. For both traces, the first 15 minutes
+use 4-step requests with a fixed arrival rate of 0.1 req/s. After
+15 minutes, the parameter-varying trace switches the incoming requests to 1-step, while the rate-varying trace increases
+the arrival rate to 0.2 req/s. Figure 14a and Figure 14b report
+the results, respectively.
+11
+
+LightX2V GPU Mem
+DisagFusion GPU Mem
+75
+25
+
+5
+
+10
+15
+20
+Time from Start (min)
+
+25
+
+0
+30
+
+Figure 16. Comparison of GPU utilization and memory footprint under different deployment strategies (LightX2V and
+DisagFusion).
+request rate. Meanwhile, the 1:5:2 allocation (DisagFusionS152) suffers from a severe bottleneck in the first phase (4.75
+QPM) and, despite recovering to 8.67 QPM later, still lags behind DisagFusion. These results confirm that DisagFusion’s
+dynamic scheduling is essential for maximizing hardware
+utilization across varying workloads.
+5.7
+
+Related Works
+
+Diffusion serving and diffusion systems. Recent research
+efforts have emerged to systematically organize and enhance
+the serving of diffusion models. [16] provides a productiondriven analysis of diffusion serving, highlighting the impact of workload dynamics and scheduling decisions on
+efficiency. On the model side, diffusion-based generation
+has rapidly evolved from early diffusion and text-to-video
+systems [8, 32, 37] to recent latent diffusion and adaptation
+techniques [2, 6, 7, 34, 41]. On the systems side, research
+initiatives focus on enhancing the throughput and latency of
+diffusion transformers through optimizations at the kernel,
+memory, and execution levels (e.g., DiT-Serve [18]). Alternatively, other approaches aim to reduce end-to-end overhead
+via the integration of lightweight serving components (e.g.,
+SwiftDiffusion [13] and DiffServe [40]). Recent systems also
+study workflow-aware serving when a diffusion pipeline is
+augmented with many adapters (e.g., LegoDiffusion [17] and
+Katz [12]) and optimize mask-based image editing pipelines
+via caching and scheduling (e.g., FlashPS [10]). Production
+serving stacks are evolving to integrate diffusion pipelines
+as native components, thereby unifying multimodal serving
+capabilities (e.g., SGLang Diffusion [29, 30]). Meanwhile, specialized frameworks such as LightX2V [19] offer tailored optimizations to streamline the deployment of generation models. Orthogonally, distributed inference frameworks such as
+DistriFusion [14] leverage multi-GPU parallelism to distribute diffusion inference, thereby facilitating high-resolution
+image generation. In contrast to these approaches, DisagFusion focuses on a disaggregated, stage-separated architecture
+tailored specifically for diffusion. This work characterizes
+the unique performance bottlenecks arising from inter-stage
+tensor transfers within this architectural paradigm.
+Disaggregated serving for LLMs/multimodal models. Disaggregated serving has also been extensively studied
+for LLMs and multimodal models, where the goal is to decouple heterogeneous phases and improve goodput under
+dynamic load. Prior systems disaggregate computation and
+memory (e.g., Mooncake [24]) or split prefill and decoding
+to enable better multiplexing and resource provisioning (e.g.,
+Orca [43], AlpaServe [15], and DistServe [45]). On one hand,
+frameworks target the computational layer via continuous
+batching and advanced scheduling (e.g., PagedAttention [11]
+and Sarathi-Serve [1]). On the other hand, memory-centric
+approaches address memory constraints by exploiting model
+offloading and heterogeneous memory solutions to support
+large-scale generative models [31]. These designs demonstrate the general benefits of disaggregation, but they target
+token-level generation with KV-cache management as the
+dominant concern. DisagFusion addresses a different setting:
+diffusion generation has a natural Encoder–Transformer–
+Decoder structure with highly imbalanced stage costs, and
+
+50
+
+50
+0
+0
+
+6
+
+GPU Memory (%)
+
+GPU Utilization (%)
+
+100
+
+LightX2V GPU Util
+DisagFusion GPU Util
+
+Resource Utilization
+
+We next evaluate how efficiently DisagFusion utilizes GPU
+resources compared to the monolithic LightX2V baseline.
+We run a 30-minute continuous serving experiment using
+4-step Wan2.2 requests, and record per-GPU utilization and
+memory footprint throughout the run under the same total
+GPU budget.
+Sustained and smooth utilization. Figure 16 compares
+the GPU utilization time series. The monolithic baseline exhibits pronounced utilization oscillations: GPUs are often
+idle while the service is waiting for CPU-side orchestration, intermediate transfers, or model (un)loading, and the
+bursty execution leads to frequent under-utilized periods.
+In contrast, DisagFusion maintains consistently higher and
+smoother utilization across GPUs. This is because stage disaggregation enables (i) better intra-stage load balance (each
+stage runs a homogeneous kernel mix) and (ii) pipelined
+overlap across requests, so different stages can remain busy
+even when individual requests experience transient stalls.
+Reduced and stable memory pressure. We also track GPU
+memory usage during the 30-minute run. The baseline must
+keep more components resident simultaneously to execute
+the end-to-end model within a single process, leading to
+a higher and more volatile memory footprint and leaving
+less headroom for batching and concurrency. In contrast,
+DisagFusion separates model components across distinct
+stages and machines, ensuring that each GPU maintains
+only the parameters and activations for its assigned stage.
+This alleviates peak per-GPU memory pressure and stabilizes
+memory footprints over time, thereby enhancing robustness
+under concurrent workloads.
+12
+
+stage separation makes network jitter and inter-stage backpressure first-order performance factors.
+
+7
+
+[13] Yifan Li, Zhaoyang Zhang, Haoyang Wu, Zhenhua Zheng, Hao Zhang,
+and Kaiming Chen. 2024. SwiftDiffusion: Efficient Diffusion Model
+Serving with Add-on Modules. arXiv preprint arXiv:2407.02031 (2024).
+https://doi.org/10.48550/arXiv.2407.02031
+[14] Zhen Li, Chen Feng, Yuhang Yang, Zongyi Wang, Yuxuan Zhang,
+and Wei Chen. 2024. DistriFusion: Distributed Parallel Inference for
+High-Resolution Diffusion Models. In Proceedings of the IEEE/CVF
+Conference on Computer Vision and Pattern Recognition (CVPR).
+[15] Zhuohan Li, Lianmin Zheng, Yinmin Zhong, Vincent Liu, Ying Sheng,
+Xin Jin, Yanping Huang, Zhifeng Chen, Hao Zhang, Joseph E. Gonzalez,
+and Ion Stoica. 2023. AlpaServe: Statistical Multiplexing with Model
+Parallelism for Deep Learning Serving. In 17th USENIX Symposium
+on Operating Systems Design and Implementation (OSDI 23). USENIX
+Association, 663–679.
+[16] Yanying Lin, Shuaipeng Wu, Shutian Luo, Hong Xu, Haiying Shen,
+Chong Ma, Min Shen, Le Chen, Chengzhong Xu, Lin Qu, et al. 2025.
+Understanding Diffusion Model Serving in Production: A Top-Down
+Analysis of Workload, Scheduling, and Resource Efficiency. In Proceedings of the 2025 ACM Symposium on Cloud Computing. 1–15.
+[17] Yuan Liu, Jinyang Zhang, Ming Xu, Wei Li, Kai Chen, and Hao Zhang.
+2026. LegoDiffusion: Modular Diffusion Models with Pluginable
+Adapters. arXiv preprint arXiv:2604.08123. https://doi.org/10.4
+8550/arXiv.2604.08123
+[18] Michael Luo, Aaron Hao, Zhengxu Yan, Chengkun Cao, and Quang
+Luong Nhat Nguyen. 2025. DiT-Serve: An Efficient Serving Engine
+for Diffusion Transformers. arXiv preprint. To appear.
+[19] ModelTC. 2025. LightX2V. GitHub repository. https://github.com/M
+odelTC/LightX2V
+[20] Mooncake Project. 2025. Mooncake Transfer Engine Design. Online
+documentation. https://kvcache-ai.github.io/mooncake/docs/transfe
+r-engine.html
+[21] Deepak Narayanan et al. 2020. Clockwork: Predictable Performance
+for Unpredictable Workloads. In 14th USENIX Symposium on Operating
+Systems Design and Implementation (OSDI 20).
+[22] NVIDIA. 2024. GPUDirect RDMA (NVIDIA Documentation). NVIDIA
+Developer Documentation. https://docs.nvidia.com/cuda/gpudirectrdma/
+[23] William Peebles and Saining Xie. 2023. Scalable Diffusion Models
+with Transformers. arXiv preprint arXiv:2212.09748. https://doi.org/
+10.48550/arXiv.2212.09748
+[24] Ruoyu Qin, Zheming Li, Weiran He, Jialei Cui, Heyi Tang, Feng Ren,
+Teng Ma, Shangming Cai, Yineng Zhang, Mingxing Zhang, et al. 2024.
+Mooncake: A kvcache-centric disaggregated architecture for llm serving. ACM Transactions on Storage (2024).
+[25] Haoran Qiu, Anish Biswas, Zihan Zhao, Jayashree Mohan, Alind Khare,
+Esha Choukse, Íñigo Goiri, Zeyu Zhang, Haiying Shen, Chetan Bansal,
+et al. 2025. Modserve: Scalable and resource-efficient large multimodal
+model serving. arXiv preprint arXiv:2502.00937 (2025).
+[26] Qwen Team. 2024. Qwen-Image-2512 (Hugging Face model card).
+Hugging Face. https://huggingface.co/Qwen/Qwen-Image-2512
+[27] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser,
+and Björn Ommer. 2022. High-Resolution Image Synthesis with Latent Diffusion Models. In Proceedings of the IEEE/CVF Conference on
+Computer Vision and Pattern Recognition (CVPR). 10684–10695.
+[28] Chitwan Saharia, William Chan, Saurabh Saxena, et al. 2022. Photorealistic Text-to-Image Diffusion Models with Deep Language Understanding. arXiv preprint arXiv:2205.11487 (2022). https://doi.org/10.4
+8550/arXiv.2205.11487
+[29] SGLang Project. 2025. SGLang Diffusion Documentation. Online
+documentation. https://docs.sglang.ai/en/latest/diffusion/
+[30] SGLang Team. 2025. SGLang Diffusion: Serving Diffusion Models
+with SGLang. Blog post. https://lmsys.org/blog/2025-04-21-sglangdiffusion/
+
+Conclusion
+
+This paper presents DisagFusion, enabling asynchronous
+pipeline parallelism and elastic scheduling for disaggregated
+diffusion serving. By decoupling the pipeline into heterogeneous stages and introducing asynchronous pipeline parallelism, DisagFusion effectively addresses memory constraints and stage imbalance. Combined with a hybrid scheduling strategy, it achieves 3.4×–20.5× throughput improvement and 18.5× reduction in latency compared to monolithic
+deployments, significantly enhancing serving efficiency.
+
+References
+[1] Amey Agrawal, Nitin Kedia, Ashish Panwar, Jayashree Mohan, Nipun
+Kwatra, Bhargav S. Gulavani, Alexey Tumanov, and Ramachandran
+Ramjee. 2024. Taming Throughput-Latency Tradeoff in LLM Inference
+with Sarathi-Serve. arXiv preprint arXiv:2403.02310. https://doi.org/
+10.48550/arXiv.2403.02310
+[2] Andreas Blattmann et al. 2023. VideoLDM: Latent Video Diffusion Models for High-Fidelity Video Generation. arXiv preprint
+arXiv:2304.08818 (2023). https://doi.org/10.48550/arXiv.2304.08818
+[3] Tom B. Brown et al. 2020. Language Models are Few-Shot Learners.
+arXiv preprint arXiv:2005.14165 (2020). https://doi.org/10.48550/arXiv
+.2005.14165
+[4] Patrick H Coppock, Brian Zhang, Eliot H Solomon, Vasilis Kypriotis,
+Leon Yang, Bikash Sharma, Dan Schatzberg, Todd C Mowry, and
+Dimitrios Skarlatos. 2025. LithOS: An operating system for efficient
+machine learning on GPUs. In Proceedings of the ACM SIGOPS 31st
+Symposium on Operating Systems Principles. 1–17.
+[5] Daniel Crankshaw et al. 2020. InferLine: Latency-aware Provisioning
+and Scaling for Prediction Serving Pipelines. In Proceedings of the 2020
+ACM Symposium on Operating Systems Principles (SOSP 20).
+[6] Yuwei Guo et al. 2023. AnimateDiff: Animate Your Personalized Textto-Image Diffusion Models without Specific Tuning. arXiv preprint
+arXiv:2307.04725 (2023). https://doi.org/10.48550/arXiv.2307.04725
+[7] Jonathan Ho et al. 2022. Imagen Video: High Definition Video Generation with Diffusion Models. arXiv preprint arXiv:2210.02303 (2022).
+https://doi.org/10.48550/arXiv.2210.02303
+[8] Jonathan Ho, William Chan, Chitwan Saharia, et al. 2022. Video
+Diffusion Models. arXiv preprint arXiv:2204.03458 (2022). https:
+//doi.org/10.48550/arXiv.2204.03458
+[9] Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising Diffusion
+Probabilistic Models. arXiv preprint arXiv:2006.11239 (2020). https:
+//doi.org/10.48550/arXiv.2006.11239
+[10] Xiaoxiao Jiang, Suyi Li, Lingyun Yang, Tianyu Feng, Zhipeng Di, Weiyi
+Lu, Guoxuan Zhu, Xiu Lin, Kan Liu, Yinghao Yu, et al. 2026. FlashPS:
+Efficient Generative Image Editing with Mask-aware Caching and
+Scheduling. In Proceedings of the 21st European Conference on Computer
+Systems. 2109–2125.
+[11] Woosuk Kwon, Zhuohan Li, Siyuan Zhuang, Ying Sheng, Lianmin
+Zheng, Cody Hao Yu, Joseph E. Gonzalez, Hao Zhang, and Ion Stoica.
+2023. Efficient Memory Management for Large Language Model
+Serving with PagedAttention. arXiv preprint arXiv:2309.06180. https:
+//doi.org/10.48550/arXiv.2309.06180
+[12] Suyi Li, Lingyun Yang, Xiaoxiao Jiang, Hanfeng Lu, Dakai An, Zhipeng
+Di, Weiyi Lu, Jiawei Chen, Kan Liu, Yinghao Yu, et al. 2025. Katz:
+Efficient workflow serving for diffusion models with many adapters.
+In 2025 USENIX Annual Technical Conference (USENIX ATC 25). 1037–
+1052.
+13
+
+[31] Ying Sheng, Lianmin Zheng, Binhang Yuan, Zhuohan Li, Max
+Ryabinin, Daniel Y. Fu, Zhiqiang Xie, Beidi Chen, Clark Barrett,
+Joseph E. Gonzalez, Percy Liang, Christopher Ré, Ion Stoica, and
+Ce Zhang. 2023. FlexGen: High-Throughput Generative Inference
+of Large Language Models with a Single GPU. arXiv preprint
+arXiv:2303.06865 (2023). https://doi.org/10.48550/arXiv.2303.06865
+[32] Uriel Singer, Adam Polyak, J. Zohar, et al. 2022. Make-A-Video:
+Text-to-Video Generation without Text-Video Data. arXiv preprint
+arXiv:2209.14792 (2022). https://doi.org/10.48550/arXiv.2209.14792
+[33] SoPrompts. 2026. Sora vs Runway vs Pika: Comparison. Blog post.
+https://soprompts.com/blog/sora-vs-runway-vs-pika
+[34] Stability AI et al. 2023. Stable Video Diffusion: Scaling Latent Video
+Diffusion Models to Large Datasets. arXiv preprint arXiv:2311.15127
+(2023). https://doi.org/10.48550/arXiv.2311.15127
+[35] Tencent. 2024. HunyuanVideo (GitHub repository). GitHub. https:
+//github.com/Tencent/HunyuanVideo
+[36] Vidwave. 2026. Pika Labs vs Stable Diffusion Video: Quality Test
+Results. Blog post. https://vidwave.ai/pika-labs-vs-stable-diffusionvideo-quality-test-results
+[37] Ruben Villegas et al. 2022. Phenaki: Variable Length Video Generation from Open Domain Textual Descriptions. arXiv preprint
+arXiv:2210.02399 (2022). https://doi.org/10.48550/arXiv.2210.02399
+[38] Wan-AI. 2024. Wan2.1-T2V-14B (Hugging Face model card). Hugging
+Face. https://huggingface.co/Wan-AI/Wan2.1-T2V-14B
+[39] Wan-Video. 2025. Wan2.2 (GitHub repository). GitHub. https:
+//github.com/Wan-Video/Wan2.2
+
+[40] Ziyu Wang, Zhe Li, Yao Xu, Yuxuan Zhang, Le Chen, and Hao Zhang.
+2024. DiffServe: Efficiently Serving Text-to-Image Diffusion Models
+with Query-Aware Model Scaling. arXiv preprint arXiv:2411.15381
+(2024). https://doi.org/10.48550/arXiv.2411.15381
+[41] Jay Zhangjie Wu, Yixiao Ge, et al. 2023. Tune-A-Video: One-Shot
+Tuning of Image Diffusion Models for Text-to-Video Generation. arXiv
+preprint arXiv:2212.11565 (2023). https://doi.org/10.48550/arXiv.2212.
+11565
+[42] Zhewei Yao et al. 2022. DeepSpeed Inference: Enabling Efficient Inference of Transformer Models at Scale. In Proceedings of the International
+Conference for High Performance Computing, Networking, Storage and
+Analysis (SC).
+[43] Gyeong-In Yu, Joo Seong Jeong, Geon-Woo Kim, Soojeong Kim, and
+Byung-Gon Chun. 2022. Orca: A Distributed Serving System for
+Transformer-Based Generative Models. In 16th USENIX Symposium
+on Operating Systems Design and Implementation (OSDI 22). USENIX
+Association, 521–538.
+[44] ZeroMQ Community. 2026. ZeroMQ. Project website. https://zero
+mq.org/
+[45] Yinmin Zhong, Shengyu Liu, Junda Chen, Jianbo Hu, Yibo Zhu, Xuanzhe Liu, Xin Jin, and Hao Zhang. 2024. DistServe: Disaggregating
+Prefill and Decoding for Goodput-optimized Large Language Model
+Serving. In 18th USENIX Symposium on Operating Systems Design and
+Implementation (OSDI 24). USENIX Association, 193–210.
+
+14
+
+
