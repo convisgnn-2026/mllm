@@ -26,7 +26,7 @@ NS=${NS:-"50 100 200"}
 MIXES=${MIXES:-"prefill:2048:128=1.0 decode:128:1024=1.0 mixed:2048:128=0.5,128:1024=0.5"}
 
 PIDS=()
-cleanup() { echo "cleanup"; kill "${PIDS[@]}" 2>/dev/null; sleep 4; kill -9 "${PIDS[@]}" 2>/dev/null; pkill -9 -f "toy_proxy_server|rr_proxy_server" 2>/dev/null; }
+cleanup() { echo "cleanup"; kill "${PIDS[@]}" ${SM:-} 2>/dev/null; sleep 4; kill -9 "${PIDS[@]}" 2>/dev/null; pkill -9 -f "toy_proxy_server|rr_proxy_server" 2>/dev/null; }
 trap cleanup EXIT
 
 serve() { # gpu port role(full|producer|consumer) side_port
@@ -65,7 +65,7 @@ for mixspec in $MIXES; do
     [ -s "$cell/summary.json" ] && { echo "skip $cell"; continue; }
     nvidia-smi --query-gpu=timestamp,index,utilization.gpu,memory.used --format=csv,noheader -lms 500 > "$cell/gpu.csv" 2>/dev/null & SM=$!
     $V/python bench/hetero/loadgen.py --model "$MODEL" --n "$n" --mix "$mix" --rate inf --seed 0 --tag "$CONFIG" --out "$cell" 2>&1 | grep -v -E "^(INFO|WARNING)"
-    kill $SM 2>/dev/null
+    kill $SM 2>/dev/null; wait $SM 2>/dev/null
     sleep 5   # 인스턴스 안정화
   done
 done
