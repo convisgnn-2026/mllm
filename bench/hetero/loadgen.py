@@ -69,10 +69,13 @@ async def one(client, url, model, prompt, sout, idx, t_launch, rec, sem):
         except Exception as e:  # 기록만 하고 계속
             err = repr(e)[:120]
         t1 = time.perf_counter()
+        # TPOT 는 실제 생성 토큰 수(usage.completion_tokens)로 나눈다. 스트리밍 청크 하나에 토큰이 여러 개 실릴 수 있어
+        # 청크 수(ntok)로 나누면 1.3~1.9배 부풀려진다 (2026-09-29 발견). 청크 수는 chunks 로 따로 남긴다.
+        gen = (usage or {}).get("completion_tokens") or ntok
         rec.append(dict(idx=idx, launch=t_launch, start=t0, first=first or float("nan"), end=t1,
                         ttft=(first - t0) if first else float("nan"),
-                        tpot=((t1 - first) / max(ntok - 1, 1)) if first else float("nan"),
-                        e2e=t1 - t0, out_tokens=ntok,
+                        tpot=((t1 - first) / max(gen - 1, 1)) if first else float("nan"),
+                        e2e=t1 - t0, out_tokens=gen, chunks=ntok,
                         usage_prompt=(usage or {}).get("prompt_tokens"), usage_completion=(usage or {}).get("completion_tokens"),
                         err=err))
 

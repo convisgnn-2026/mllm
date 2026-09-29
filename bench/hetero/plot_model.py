@@ -32,7 +32,7 @@ def decode_points(k):
         if not m or f"prefill_in{m.group(2)}" not in d:
             continue
         B, S = int(m.group(1)), int(m.group(2))
-        meas = (d[key] - d[f"prefill_in{S}"]) / 255
+        meas = (d[key] - M.prefill_batched(d, k, B, S)) / 255
         over = B * (S + 256) > cap_tokens(k)
         pts.append(dict(B=B, S=S, l=S + 128, meas=meas, over=over))
     return pts

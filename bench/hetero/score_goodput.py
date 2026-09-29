@@ -35,7 +35,8 @@ def load():
             cell = os.path.dirname(f); name, n = os.path.basename(cell).split("_n")
             s = json.load(open(f))
             rows = list(csv.DictReader(open(os.path.join(cell, "requests.csv"))))
-            tpot = [float(r["tpot"]) * 1e3 for r in rows if r["err"] == "" and int(r["out_tokens"]) > 0]
+            tpot = [(float(r["end"]) - float(r["first"])) / max(int(r.get("usage_completion") or r["out_tokens"]) - 1, 1) * 1e3
+                    for r in rows if r["err"] == "" and int(r["out_tokens"]) > 0 and r["first"] not in ("nan", "")]
             d[(c, name, int(n))] = dict(makespan=s["makespan_s"], tpot=tpot, n=len(rows))
     return d
 

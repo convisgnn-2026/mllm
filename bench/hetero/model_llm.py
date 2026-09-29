@@ -52,15 +52,21 @@ def load(k):
     return d
 
 
+def prefill_batched(d, k, B, S):
+    """배치 B 개 프롬프트의 프리필 시간 ≈ B·T_pre(S) − (B−1)·β0 (고정비는 스텝당 한 번). β0 는 프리필 적합값."""
+    b0 = {"4090": 0.0051, "3090": 0.0117}[k]
+    return B * d[f"prefill_in{S}"] - (B - 1) * b0
+
+
 def points(k):
-    """(단계, 설명, 예측 raw s, 실측 s). 디코드 스텝 실측 = (E2E − T_pre(S_in)) / 255, 평균 문맥 l = S_in + 128."""
+    """(단계, 설명, 예측 raw s, 실측 s). 디코드 스텝 실측 = (E2E − B개 프리필) / 255, 평균 문맥 l = S_in + 128."""
     d = load(k); pre, dec = [], []
     for S in (128, 256, 512, 1024, 2048, 4096):
         pre.append((f"prefill S={S}", t_pre_raw(S, k), d[f"prefill_in{S}"]))
     for B in (1, 2, 4, 8, 16, 32, 64):
-        dec.append((f"decode B={B} S=128", t_dec_raw(B, 256, k), (d[f"decode_b{B}_in128"] - d["prefill_in128"]) / 255))
+        dec.append((f"decode B={B} S=128", t_dec_raw(B, 256, k), (d[f"decode_b{B}_in128"] - prefill_batched(d, k, B, 128)) / 255))
     for S in (512, 1024, 2048, 4096):
-        dec.append((f"decode B=8 S={S}", t_dec_raw(8, S + 128, k), (d[f"decode_b8_in{S}"] - d[f"prefill_in{S}"]) / 255))
+        dec.append((f"decode B=8 S={S}", t_dec_raw(8, S + 128, k), (d[f"decode_b8_in{S}"] - prefill_batched(d, k, 8, S)) / 255))
     return pre, dec
 
 
@@ -121,7 +127,7 @@ def fit_multi(k):
         if not m or f"prefill_in{m.group(2)}" not in d:
             continue
         B, S = int(m.group(1)), int(m.group(2))
-        X.append(row(B, S + 128)); y.append((d[key] - d[f"prefill_in{S}"]) / 255); lab.append(f"B={B} S={S}")
+        X.append(row(B, S + 128)); y.append((d[key] - prefill_batched(d, k, B, S)) / 255); lab.append(f"B={B} S={S}")
     X, y = np.array(X), np.array(y); beta, _ = nnls(X, y); pred = X @ beta
     err = (pred - y) / y
     return beta, lab, pred, y, float(np.mean(np.abs(err))), float(np.max(np.abs(err)))
