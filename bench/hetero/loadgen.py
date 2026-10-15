@@ -21,6 +21,37 @@ import numpy as np
 from transformers import AutoTokenizer
 
 
+def load_trace(path, n, seed, max_in=8000, offset=None):
+    """Azure LLM 트레이스 형식(TIMESTAMP,ContextTokens,GeneratedTokens)에서 연속 n 건. 반환 [(in_len, out_len)], 상대 도착 시각(초)."""
+    from datetime import datetime
+    rows = list(csv.DictReader(open(path)))
+    if offset is None:                                     # 전체 중앙값(입력·출력)에 가장 가까운 연속 구간을 고른다 (대표 구간)
+        import statistics as st
+        ci = [int(r["ContextTokens"]) for r in rows]; go = [int(r["GeneratedTokens"]) for r in rows]
+        gi, gg = st.median(ci), st.median(go); best = (1e18, 0)
+        for off in range(0, max(1, len(rows) - n), max(1, n // 4)):
+            d = abs(st.median(ci[off:off + n]) - gi) / gi + abs(st.median(go[off:off + n]) - gg) / max(gg, 1)
+            best = min(best, (d, off))
+        offset = best[1]
+    rows = rows[offset:offset + n]
+    t = [datetime.strptime(r["TIMESTAMP"][:26], "%Y-%m-%d %H:%M:%S.%f") for r in rows]
+    rel = [(x - t[0]).total_seconds() for x in t]
+    lens = [(max(8, min(int(r["ContextTokens"]), max_in)), max(1, int(r["GeneratedTokens"]))) for r in rows]
+    return lens, rel
+
+
+def make_prompts_lens(tok, lens, seed):
+    """요청마다 다른 (in_len, out_len). 프롬프트는 무작위 토큰을 디코드해 재토큰화 길이를 맞춘다."""
+    rng = random.Random(seed); vocab = tok.vocab_size; items = []
+    for sin, sout in lens:
+        ids = [rng.randrange(1000, vocab - 1000) for _ in range(sin + 64)]
+        text = tok.decode(ids, skip_special_tokens=True); enc = tok(text, add_special_tokens=False)["input_ids"]; target = sin - 1
+        while len(enc) > target:
+            enc = enc[:target]; text = tok.decode(enc, skip_special_tokens=True); enc = tok(text, add_special_tokens=False)["input_ids"]
+        items.append((text, len(enc) + 1, sout))
+    return items
+
+
 def make_prompts(tok, classes, n, seed):
     """클래스 비율대로 n 개의 (prompt, in_len, out_len). 프롬프트는 무작위 토큰 id 를 디코드해 만들고
     재토큰화 길이가 정확히 in_len 이 되도록 잘라 맞춘다(BOS 포함)."""
@@ -82,14 +113,23 @@ async def one(client, url, model, prompt, sout, idx, t_launch, rec, sem):
 
 async def run(a):
     tok = AutoTokenizer.from_pretrained(a.model)
-    classes = []
-    for part in a.mix.split(","):
-        io, frac = part.split("="); sin, sout = io.split(":")
-        classes.append((int(sin), int(sout), float(frac)))
-    items = make_prompts(tok, classes, a.n, a.seed)
     rng = np.random.default_rng(a.seed)
-    gaps = np.zeros(a.n) if a.rate == "inf" else rng.exponential(1.0 / float(a.rate), a.n)
-    arr = np.cumsum(gaps)
+    if a.trace:
+        lens, rel = load_trace(a.trace, a.n, a.seed)
+        items = make_prompts_lens(tok, lens, a.seed)
+        if a.trace_arrivals == "real":                       # 실제 도착 간격을 목표 평균 도착률로 배율 조정
+            mean_rate = (len(rel) - 1) / max(rel[-1], 1e-9); arr = np.array(rel) * (mean_rate / float(a.rate))
+        else:
+            arr = np.cumsum(rng.exponential(1.0 / float(a.rate), a.n))
+        a.mix = f"trace:{os.path.basename(a.trace)}:{a.trace_arrivals}"
+    else:
+        classes = []
+        for part in a.mix.split(","):
+            io, frac = part.split("="); sin, sout = io.split(":")
+            classes.append((int(sin), int(sout), float(frac)))
+        items = make_prompts(tok, classes, a.n, a.seed)
+        gaps = np.zeros(a.n) if a.rate == "inf" else rng.exponential(1.0 / float(a.rate), a.n)
+        arr = np.cumsum(gaps)
     rec = []; sem = asyncio.Semaphore(a.max_concurrency)
     limits = httpx.Limits(max_connections=4096, max_keepalive_connections=4096)
     async with httpx.AsyncClient(timeout=None, limits=limits) as client:
@@ -131,6 +171,8 @@ if __name__ == "__main__":
     p.add_argument("--n", type=int, default=200)
     p.add_argument("--mix", default="2048:128=0.5,128:1024=0.5")
     p.add_argument("--rate", default="inf")
+    p.add_argument("--trace", default="", help="Azure LLM 트레이스 CSV (TIMESTAMP,ContextTokens,GeneratedTokens)")
+    p.add_argument("--trace-arrivals", default="real", choices=["real", "poisson"], help="real = 실제 도착 간격을 --rate 에 맞춰 배율 조정")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--max-concurrency", type=int, default=4096)
     p.add_argument("--tag", default="")

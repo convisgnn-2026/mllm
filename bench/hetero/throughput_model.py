@@ -244,7 +244,7 @@ def main_pd():
     params = json.load(open(os.path.join(OUT, "throughput_params.json"))); bm = params["beta_mix"]
     global CHUNK; CHUNK = params["chunk"]
     rows, errs, agree, tot = evaluate_all(bm)
-    lines = ["", "# 전 구성 예측 대 실측 (req/s, 예측/실측) — 모델 v1 + PD + 붕괴 보정(overflow×feed)", "",
+    lines = ["", "# 전 구성 예측 대 실측 (req/s, 예측/실측) — 모델 v1 + PD + 포화 보정(overflow×feed)", "",
              "| mix | n | A | B | C | D | 예측 승자 | 실측 승자 |", "|---|---|---|---|---|---|---|---|"] + rows
     lines += ["", "구성별 MAPE / 편향: " + ", ".join(f"{c} {np.mean(np.abs(e)):.0%} / {np.mean(e):+.0%}" for c, e in errs.items() if e),
               f"승자 일치 {agree}/{tot}", ""]
@@ -255,9 +255,9 @@ if __name__ == "__main__":
     main_pd()
 
 
-# ---- PD 붕괴 보정 (LLM-Pilot §IV-C 식 회귀, 변수 = KV overflow × 공급비) --------------------------------
+# ---- PD 포화 보정 (LLM-Pilot §IV-C 식 회귀, 변수 = KV overflow × 공급비) --------------------------------
 # 디코더 용량을 넘는 디코드 KV 요구(overflow)와 프리필러가 디코더보다 빨리 공급하는 정도(feed)가 클수록
-# 선점 순환으로 처리량이 무너진다. 28칸 적합: ratio = min(1, (ov·min(feed,3)/1.58)^-0.71)  → PD MAPE 109% → 15%.
+# 선점 순환으로 처리량이 포화된다. 28칸 적합: ratio = min(1, (ov·min(feed,3)/1.58)^-0.71)  → PD MAPE 109% → 15%.
 THRASH = dict(x0=1.58, k=0.71, feed_cap=3.0)
 
 
@@ -272,3 +272,60 @@ def predict_pd_calibrated(mix, n, P, D, beta_mix):
     x = ov * feed; ratio = min(1.0, (x / THRASH["x0"]) ** (-THRASH["k"])) if x > 0 else 1.0
     q = dict(p); q["req_per_s"] = p["req_per_s"] * ratio; q["makespan"] = n / q["req_per_s"]; q["thrash_ratio"] = ratio; q["overflow"] = ov
     return q
+
+
+# ---- 열린 도착 (포아송 λ) 예측 ---------------------------------------------------------------
+def arrivals_for(n, rate, seed=0):
+    rng = np.random.default_rng(seed); return np.cumsum(rng.exponential(1.0 / rate, n))
+
+
+def predict_open_rep(mix, n, rate, w4, w3, beta_mix, seed=0):
+    rs = reqs_for(mix, n, seed); arr = arrivals_for(n, rate, seed)
+    seq = ["4090"] * w4 + ["3090"] * w3; idx4 = [j for j in range(n) if seq[j % len(seq)] == "4090"]; idx3 = [j for j in range(n) if j not in set(idx4)]
+    out = {}
+    for k, idx in (("4090", idx4), ("3090", idx3)):
+        if idx:
+            mk, tt, tp = simulate_card_arrivals([rs[j] for j in idx], k, beta_mix, [arr[j] for j in idx], prefilled=False)
+            out[k] = (mk, tt, tp)
+    mk = max(v[0] for v in out.values()); tt = sum((v[1] for v in out.values()), []); tp = sum((v[2] for v in out.values()), [])
+    return dict(makespan=mk, req_per_s=n / mk, ttft_ms=1e3 * np.median(tt), ttft_p90_ms=1e3 * np.percentile(tt, 90),
+                tpot_ms=1e3 * np.median(tp), tpot_p90_ms=1e3 * np.percentile(tp, 90), ttft=tt, tpot=tp)
+
+
+def predict_open_pd(mix, n, rate, P, D, beta_mix, seed=0):
+    rs = reqs_for(mix, n, seed); arr = arrivals_for(n, rate, seed)
+    # 프리필 카드: 도착 순 FCFS, 스텝마다 chunk 예산 (도착 전엔 대기)
+    b = BETA[P]["prefill"]; t = 0.0; done = [None] * n; i0 = 0; pf = [0] * n
+    while i0 < n:
+        if arr[i0] > t:
+            t = arr[i0]
+        budget = CHUNK; Ptok = 0; j = i0
+        while j < n and arr[j] <= t and budget > 0:
+            take = min(rs[j][0] - pf[j], budget); pf[j] += take; budget -= take; Ptok += take
+            if pf[j] >= rs[j][0]:
+                j += 1
+            else:
+                break
+        t += b["b0"] + b["b1"] * M.f_prefill(Ptok) / M.CARDS[P]["C"]
+        for q in range(i0, j):
+            done[q] = t
+        i0 = j
+    link_free = 0.0; darr = []
+    for i in range(n):
+        s = max(done[i], link_free); link_free = s + LINK["a"] + rs[i][0] * M.KV_TOK / LINK["bw"]; darr.append(link_free)
+    mk, _, tp = simulate_card_arrivals(rs, D, beta_mix, darr, prefilled=True)
+    tt = [d - a for d, a in zip(darr, arr)]
+    ov = sum(r[0] + r[1] for r in rs if r == CLASSES["decode"]) / KV_CAP_PD[D]
+    return dict(makespan=mk, req_per_s=n / mk, ttft_ms=1e3 * np.median(tt), ttft_p90_ms=1e3 * np.percentile(tt, 90),
+                tpot_ms=1e3 * np.median(tp), tpot_p90_ms=1e3 * np.percentile(tp, 90), ttft=tt, tpot=tp, overflow=ov)
+
+
+def capacity_table(beta_mix):
+    """닫힌 모델 처리량(req/s) = 각 (구성, mix) 의 용량 근사 (n=200). 열린 도착률 격자의 기준."""
+    cap = {}
+    for mix in MIXES:
+        for c, (w4, w3) in CFG.items():
+            cap[(c, mix)] = predict_rep(mix, 200, w4, w3, beta_mix)["req_per_s"]
+        for c, (P, D) in CFG_PD.items():
+            cap[(c, mix)] = predict_pd_calibrated(mix, 200, P, D, beta_mix)["req_per_s"]
+    return cap

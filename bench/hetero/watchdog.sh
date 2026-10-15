@@ -10,3 +10,5 @@ while [ ! -e "$STOP" ]; do
   done
   sleep 15
 done
+# 참고: vllm bench/serve 를 kill 하면 EngineCore 자식이 고아로 남아 GPU 메모리를 잡을 수 있다.
+#       정리는  pkill -9 -f "VLLM::EngineCore"  또는  nvidia-smi --query-compute-apps=pid --format=csv,noheader | xargs kill -9

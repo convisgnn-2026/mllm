@@ -1,0 +1,68 @@
+{
+  "limitation": "Primer includes preprocessing, HTTP and file transfer. Association is not GPU causality. Old pilot lacks chunk timestamps; only request-level association available.",
+  "cases": {
+    "gated_high": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.32613787480285605,
+      "request_overlap_vs_chunk_gap_pearson": 0.7554566318090301,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "gated_low": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.07381827263337286,
+      "request_overlap_vs_chunk_gap_pearson": 0.6348866618175851,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "llm_only": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.0,
+      "request_overlap_vs_chunk_gap_pearson": null,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "mixed_high": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.30430337667495994,
+      "request_overlap_vs_chunk_gap_pearson": 0.7650768680604324,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "mixed_low": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.06785605881157077,
+      "request_overlap_vs_chunk_gap_pearson": 0.4690357956873128,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "vlm_only_high": {
+      "llm_requests": 0,
+      "mean_primer_overlap_fraction": null,
+      "request_overlap_vs_chunk_gap_pearson": null,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    },
+    "vlm_only_low": {
+      "llm_requests": 0,
+      "mean_primer_overlap_fraction": null,
+      "request_overlap_vs_chunk_gap_pearson": null,
+      "gap_overlapping_primer_p90_s": null,
+      "gap_outside_primer_p90_s": null,
+      "gaps_overlapping": 0,
+      "gaps_outside": 0
+    }
+  }
+}

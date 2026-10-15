@@ -1,141 +1,35 @@
-# vidbench — 이종 GPU 풀 서빙 solver (LLM · VLM · video DiT)
+# mllm — 고정 이종 GPU의 혼재 추론 연구
 
-> **현재 틀 (2026-09): LLM-Pilot 확장.** 고정 온프레미스 이종 GPU 풀에서 LLM·VLM·DiT 테넌트를 섞어 받을 때,
-> 기존 서빙 기법을 레버로 삼아 상호작용을 모델링하고 solver가 구성을 고른다.
-> MIG·video DiT 결과는 헤드라인에서 내려왔고(§14 판정), 이제 이종 실험 도구로 쓴다.
->
-> **논증과 설계는 [`docs/design.md`](docs/design.md), 재시작은 [`docs/handoff.md`](docs/handoff.md).**
-> 시뮬레이터 빌드·패치는 [`docs/llmservingsim-patches.md`](docs/llmservingsim-patches.md).
+LLM-PILOT을 LLM·VLM·DiT가 함께 실행되는 멀티모달 추론 환경으로 확장한다. 서비스별 SLO를 만족하도록 모델별 분할 전략·단계 배치·GPU 자원 구성을 선택하고, 주어진 서비스 수요를 충족하는 자원 비용을 최소화하는 것이 최종 목표다.
 
+## 최신 연구 현황 — 2026-10-15 정리
 
-**연구 질문:** 고정된 온프레미스 이종 GPU 풀에서 테넌트별 SLO를 지키며 최대한 많이 받으려면,
-어떤 테넌트를 어느 카드에, 어떤 레버(PD 분리 · KV 파킹 · 단계 분리 · 동거)로 올려야 하는가.
+**최신 완료 실험 기록: 2026-10-14.** 아래 항목이 현재 연구의 최신 실측이다.
 
-*(2026-09 이전 질문: "GPU를 몇 장 쓰고 각각을 어떻게 MIG로 쪼개야 하는가" — §14에서 효과가 좁다고
-판정되어 헤드라인에서 내려왔다. 측정과 모델은 그대로 살아 이종 실험 도구로 쓴다.)*
+- **LLM+DiT:** 4090+3090에서 LLM P/D 분리 배치와 서비스별 GPU 배치를 seed 0–4로 비교했다. 텍스트 첫 응답과 이미지 완료 사이의 trade-off를 관측했다. DiT 자체의 단계 분리 효과를 검증한 실험은 아니다.
+- **LLM+VLM:** VLM encoder와 독립 LLM의 GPU 공유 및 encoder 배치 변경을 비교했다. 단독 기준·혼합 실행 비교와 4개 부하 × 2개 배치 실험을 완료했다(seed 0). 해당 부하 범위에서는 VLM 단계들을 4090에 모은 배치가 주요 지연 지표에 유리했다.
+- **현재 검증 범위:** 두 서비스 조합의 공유 실행·배치 효과까지 확인했다. 세 모델 동시 실행, SLO 기반 최종 solver 및 비용 절감 효과의 검증은 남아 있다. GPU 속도·전송·공유 실행 효과를 구분해 해석한다.
 
-```
-min  N                                   [물리 GPU 수]
-s.t. Capacity(σ) ≥ λ                     도착률을 감당할 것
-     ∀ 템플릿 t,  ∃ 워커 w : 실행 가능      메모리 하드 제약
-     SAR_c(σ) ≥ α_c   ∀ 요청 종류 c        [Phase 2]
-     레이아웃이 MIG 배치 규칙을 만족
-```
+![최신 혼합 실행 실험 요약](results/hetero/mixed_summary/mixed_split_summary.png)
 
-전체 서사와 근거는 **`~/papers/study/1_research_flow.md`** 에 정리되어 있다.
+### 실행 코드와 결과
 
----
+저장소 루트에서 실행한다. GPU 실험은 두 GPU를 사용하며, 기존 출력 보호와 완료 실행 건너뛰기 동작이 있으므로 재실험 시 출력 설정을 확인한다.
 
-## 폴더 구조
-
-```
-vidbench/
-├── solver/        ★ 메인 — 모델과 solver
-│   ├── model.py       서비스시간·용량·실행가능성 + MIG 레이아웃 카탈로그
-│   ├── solver.py      min N s.t. Capacity ≥ λ  (필터 + 완전탐색)
-│   └── validate.py    실측 대조 (요청 7,130건 · 구성 39개)
-│
-├── bench/         실험 harness — TetriServe 규약 이식
-│   ├── workload.py         감마 도착(rate, cv) + 요청 크기 분포
-│   ├── serve_bench.py      워커풀 + 디스패처, 타임스탬프만 기록
-│   ├── score_slo.py        사후 채점 — 한 번 돌리고 SLO 여러 개로 평가
-│   ├── profile_stages.py   스테이지별 지연·메모리 프로파일
-│   ├── bench_concurrency.py  동일 요청 K개 (직렬 vs 동시)
-│   └── bench_mixed.py        혼합 워크로드 + 요청별 마감
-│
-├── figures/       논문 그림
-│   ├── plot_pareto.py     ★ 메인 — 비용 vs SAR 프론티어
-│   ├── plot_tail.py       p95 꼬리 지연 (부하 스윕)
-│   ├── plot_threshold.py  SLO 임계점
-│   └── exploratory/       버려진 시도 (기록용)
-│
-│   ├── cosolve.py         ★ DiT+LLM+VLM 풀 분할 co-solver (두 시뮬레이터를 한 solver 아래)
-│   └── dynamic.py         ★ 시간축 — solver 가 필요한 이유 (GPU 불필요)
-│
-├── scripts/       실험 실행 셸/파이썬 스크립트
-│   ├── setup_llmservingsim.sh  ★ docker 없이 LLMServingSim 2.0 빌드
-│   ├── sweep_pd_kvo.py         P:D × 호스트 KV 비율 × 도착률
-│   ├── sweep_llm_pool.py       colo 1~4장 (co-solver 재료)
-│   ├── sweep_vlm_pool.py       VLM (이미지 토큰 +576)
-│   └── sweep_pool_parking.py   위 둘을 KV 파킹 on 으로
-├── slo_configs/   SLO 정의 — 템플릿별 절대 초, 0.75x ~ 6.0x 스윕
-├── results/       모든 실측 데이터와 그림
-│   └── servingsim/            LLMServingSim 스윕 결과 + 우리 패치 diff
-├── docs/          design.md · handoff.md · research-flow.md · llmservingsim-patches.md
-├── papers/        참고 논문 26편 (PDF + 추출 텍스트) 와 TetriServe 코드 (MIT). 클러스터 옮길 때 같이 보려고
-└── logs/
-```
-
-**경로 규칙:** 모든 스크립트는 실행 위치와 무관하게 저장소 루트로 `chdir` 하므로
-`results/`, `slo_configs/` 를 상대경로로 그대로 쓴다. 어디서 실행해도 된다.
-
----
-
-## 사용법
-
-```bash
-PY=~/venv/jinwoo/bin/python
-
-# ── solver ─────────────────────────────────────────────
-$PY solver/model.py                              # 레이아웃 카탈로그와 실행가능성
-$PY solver/validate.py                           # 모델을 실측과 대조
-$PY solver/solver.py --rate 1.65 --mix short --validated-only
-$PY solver/solver.py --sweep --mix short --validated-only
-
-# ── 실험 ───────────────────────────────────────────────
-$PY bench/workload.py -n 150 --rate 1.0 --cv 1.0 \
-    --shape-dist short_seqlen_high -o results/wl.json
-$PY bench/serve_bench.py --workload results/wl.json --policy 2F \
-    --devices GPU-<uuid>,GPU-<uuid> --n-gpus 2 -o results/run.json
-$PY bench/score_slo.py "results/run.json" --sweep
-
-# ── 그림 ───────────────────────────────────────────────
-$PY figures/plot_pareto.py
-$PY figures/plot_tail.py
-```
-
----
-
-## 검증 상태
-
-| 대상 | 결과 | 비교 |
+| 실험 | 실행 진입점 | 결과 |
 |---|---|---|
-| 서비스 시간 `t = t_full·(148(1−B)/S + B)`, B=0.184 | **MAPE 2.0%** | LLM-Pilot 6% |
-| 처리 용량 `Σ 1/E[service]` | **MAPE 2.2%** (구성 39개) | — |
+| LLM+DiT 반복 비교 | `python bench/hetero/run_controlled_batch.py` → `run_mixed_modal.sh` | [반복 실험 보고서](results/hetero/controlled_runs/comparison.md) |
+| LLM+VLM 배치 비교 | `python bench/hetero/vlm/run_placement_study.py` → `run_interference_pilot.py` | [배치 비교](results/hetero/vlm_placement_seed0/comparison.json) |
+| LLM+VLM 부하 변화 | `python bench/hetero/vlm/run_placement_study.py --load-sweep` | [부하별 비교](results/hetero/vlm_placement_load_sweep_seed0/comparison.json) |
+| 요약 그림 생성 | `python bench/hetero/plot_mixed_summary.py` | [그림 수치](results/hetero/mixed_summary/plotted_values.json) |
 
-**모델이 틀리는 두 곳** (체계적 편향, 방향은 보수적):
-- 70 SM × 작은 요청을 **과대예측** (+13%) → 2분할 용량을 과소예측 (−6%)
-- **이종 풀**을 과대예측 (+11%) — 용량식이 "모든 워커가 같은 요청 구성을 처리한다"고
-  가정하는데, 크기 맞춤 배정에서는 거짓. Phase 2 시뮬레이터로 해결 예정
+세부 조건·한계·후속 과제는 [연구 및 실험 기록](docs/solver_need_experiments.md)을 따른다.
 
-`solver.py --validated-only` 는 실제로 트래픽을 돌려본 레이아웃
-(Full · 2분할 · 7분할) 으로만 답을 제한한다. 그 밖은 외삽이며 `⚠` 로 표시된다.
 
----
+## 연구 기록
 
-## 하드웨어 주의
+- [연구 배경·미팅 기록](docs/1013_meeting.md)
+- [실험 조건·진행 결과·한계](docs/solver_need_experiments.md)
+- [연구 환경](docs/research_env.md)
 
-**공유 서버다.** GPU 0·2·4·7 에는 다른 사용자의 tritonserver 가 상주하므로
-**1·3·5·6 만 사용한다.** 실행 스크립트에 보호 목록이 하드코딩되어 있다.
-
-`CUDA_VISIBLE_DEVICES` 에 **숫자 인덱스를 쓰지 말 것.** 노드의 어느 GPU라도
-MIG 모드이면 CUDA 의 디바이스 열거가 밀려서 엉뚱한 GPU를 잡는다
-(실제로 이 때문에 GPU 4·7 위에서 작업이 돌아간 적이 있다). **GPU UUID 를 쓴다.**
-
-```bash
-nvidia-smi --query-gpu=uuid --format=csv,noheader --id=1     # GPU-xxxx...
-nvidia-smi -L | grep -oP 'MIG-[0-9a-f-]+'                    # MIG 조각 UUID
-```
-
-MIG 원복:
-```bash
-sudo nvidia-smi mig -i <N> -dci && sudo nvidia-smi mig -i <N> -dgi \
-  && sudo nvidia-smi -i <N> -mig 0
-```
-
----
-
-## 다음 (Phase 2)
-
-이산사건 시뮬레이터로 **배정까지 모사**하여
-(a) 이종 풀의 용량 예측을 고치고, (b) SAR 제약을 solver 에 추가한다.
+이 업데이트는 최신 연구 코드·문서·결과를 담는다. 대용량 profiler trace와 실행 로그, 외부 논문 자료 및 이전 연구의 폴더 재배치는 포함하지 않는다.

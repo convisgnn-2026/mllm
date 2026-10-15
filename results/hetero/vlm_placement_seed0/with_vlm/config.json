@@ -1,0 +1,38 @@
+{
+  "seed": 0,
+  "encoder_placement": "with_vlm",
+  "gpu_assignment": {
+    "encoder": "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+    "llm": "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e",
+    "vlm_language": "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b"
+  },
+  "profile_enabled": false,
+  "cases": [
+    [
+      "llm_only",
+      1.0,
+      0.0,
+      0
+    ],
+    [
+      "mixed_high",
+      1.0,
+      2.0,
+      0
+    ],
+    [
+      "vlm_only_high",
+      0.0,
+      2.0,
+      0
+    ]
+  ],
+  "models": [
+    "meta-llama/Llama-3.2-3B-Instruct",
+    "Qwen/Qwen2-VL-2B-Instruct"
+  ],
+  "image_size": 672,
+  "max_pixels": 451584,
+  "baseline": "all models resident; only selected service receives requests",
+  "payload_sha256": "e542260da1ed058a576590db5f6582507c18c5b5b0d8ec98f779a360cab923d8"
+}

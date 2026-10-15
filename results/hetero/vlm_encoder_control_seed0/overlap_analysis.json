@@ -1,0 +1,41 @@
+{
+  "limitation": "Primer includes preprocessing, HTTP and file transfer. Association is not GPU causality. Old pilot lacks chunk timestamps; only request-level association available.",
+  "cases": {
+    "adaptive_pause": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.35894870330511613,
+      "request_overlap_vs_chunk_gap_pearson": 0.6932947983330215,
+      "gap_overlapping_primer_p90_s": 0.028965168399736285,
+      "gap_outside_primer_p90_s": 0.012709696544334292,
+      "gaps_overlapping": 4786,
+      "gaps_outside": 13696
+    },
+    "fixed_pause": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.31697745602270716,
+      "request_overlap_vs_chunk_gap_pearson": 0.7969983141957433,
+      "gap_overlapping_primer_p90_s": 0.027530615823343395,
+      "gap_outside_primer_p90_s": 0.01198428450152278,
+      "gaps_overlapping": 4433,
+      "gaps_outside": 14044
+    },
+    "free": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.31118093140751046,
+      "request_overlap_vs_chunk_gap_pearson": 0.710926441207269,
+      "gap_overlapping_primer_p90_s": 0.027908299304544925,
+      "gap_outside_primer_p90_s": 0.012287532398477198,
+      "gaps_overlapping": 3975,
+      "gaps_outside": 14509
+    },
+    "serialized": {
+      "llm_requests": 74,
+      "mean_primer_overlap_fraction": 0.35592613075525514,
+      "request_overlap_vs_chunk_gap_pearson": 0.7405405058864105,
+      "gap_overlapping_primer_p90_s": 0.028714518062770367,
+      "gap_outside_primer_p90_s": 0.01246356200426817,
+      "gaps_overlapping": 4551,
+      "gaps_outside": 13939
+    }
+  }
+}

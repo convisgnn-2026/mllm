@@ -1,0 +1,13 @@
+{
+  "seed": 0,
+  "duration_s": 60,
+  "warmup_s": 15,
+  "feedback_period_s": 0.1,
+  "slow_chunk_threshold_s": 0.025,
+  "slow_signal_valid_s": 0.1,
+  "first_response_state_valid_s": 0.3,
+  "max_added_policy_wait_s": 0.1,
+  "poll_s": 0.005,
+  "first_response_state": "sent LLM requests with no first content chunk; includes queue and network",
+  "queue_wait_bounded": false
+}

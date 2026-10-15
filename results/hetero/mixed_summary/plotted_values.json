@@ -1,0 +1,28 @@
+[
+  {
+    "experiment": "LLM+DiT",
+    "metric": "ttft",
+    "stage_split": 1.1427173950129146,
+    "service_separate": 0.39974557207581685
+  },
+  {
+    "experiment": "LLM+DiT",
+    "metric": "e2e",
+    "stage_split": 4.27319223762972,
+    "service_separate": 20.832705429578038
+  },
+  {
+    "experiment": "LLM+VLM",
+    "metric": "e2e_s",
+    "service": "llm",
+    "stage_split": 4.979353894463778,
+    "service_separate": 3.7763324794916686
+  },
+  {
+    "experiment": "LLM+VLM",
+    "metric": "ttft_s",
+    "service": "vlm",
+    "stage_split": 0.5228728449241771,
+    "service_separate": 0.1926822059082504
+  }
+]

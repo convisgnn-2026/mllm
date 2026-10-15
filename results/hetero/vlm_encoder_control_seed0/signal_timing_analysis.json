@@ -1,0 +1,45 @@
+{
+  "limitation": "Signals are client chunk arrivals. Pending first response includes queue, network and prefill. Primer includes CPU/file/HTTP. These timings do not isolate GPU kernels or prove causality. Feedback buckets overlap in time.",
+  "cases": {
+    "adaptive_pause": {
+      "primers_started_in_measurement": 167,
+      "slow_feedback_events": 404,
+      "slow_events_received_during_primer": 207,
+      "primers_with_recent_slow_feedback": 22,
+      "primers_with_recent_pending_first_response_feedback": 0,
+      "policy_wait_over_1ms_count": 89,
+      "policy_wait_p90_s": 0.1009966088924557,
+      "feedback_transit_p90_s": null
+    },
+    "fixed_pause": {
+      "primers_started_in_measurement": 167,
+      "slow_feedback_events": 352,
+      "slow_events_received_during_primer": 146,
+      "primers_with_recent_slow_feedback": 73,
+      "primers_with_recent_pending_first_response_feedback": 0,
+      "policy_wait_over_1ms_count": 55,
+      "policy_wait_p90_s": 0.019322927016764878,
+      "feedback_transit_p90_s": null
+    },
+    "free": {
+      "primers_started_in_measurement": 168,
+      "slow_feedback_events": 365,
+      "slow_events_received_during_primer": 153,
+      "primers_with_recent_slow_feedback": 70,
+      "primers_with_recent_pending_first_response_feedback": 0,
+      "policy_wait_over_1ms_count": 0,
+      "policy_wait_p90_s": 0.0,
+      "feedback_transit_p90_s": null
+    },
+    "serialized": {
+      "primers_started_in_measurement": 167,
+      "slow_feedback_events": 382,
+      "slow_events_received_during_primer": 179,
+      "primers_with_recent_slow_feedback": 78,
+      "primers_with_recent_pending_first_response_feedback": 0,
+      "policy_wait_over_1ms_count": 0,
+      "policy_wait_p90_s": 0.0,
+      "feedback_transit_p90_s": null
+    }
+  }
+}

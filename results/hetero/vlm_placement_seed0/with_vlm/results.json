@@ -1,0 +1,80 @@
+[
+  {
+    "case": "llm_only",
+    "start_unix_s": 1791879147.1222498,
+    "warmup_s": 15,
+    "duration_s": 90.0,
+    "gate_limit": 0,
+    "plan_sha256": "41f2a8411a633a73e7c21d8fc528129860436467c04d1dc1e0be8e3d88a99f2f",
+    "metrics": {
+      "llm": {
+        "n": 74,
+        "errors": 0,
+        "ttft_s": 0.14681799206127694,
+        "tpot_s": 0.01342736676590992,
+        "e2e_s": 3.612739925172041,
+        "chunk_gap_p90_s": 0.012144787244033069
+      },
+      "vlm": {
+        "n": 0,
+        "errors": 0,
+        "ttft_s": null,
+        "tpot_s": null,
+        "e2e_s": null,
+        "chunk_gap_p90_s": null
+      }
+    }
+  },
+  {
+    "case": "mixed_high",
+    "start_unix_s": 1791879257.1756685,
+    "warmup_s": 15,
+    "duration_s": 90.0,
+    "gate_limit": 0,
+    "plan_sha256": "8b3d7e8bdd68bdbdbc2fe206715beaaebcb5c7c57af0a2376fd08ab3c380b5b6",
+    "metrics": {
+      "llm": {
+        "n": 74,
+        "errors": 0,
+        "ttft_s": 0.1770842147030653,
+        "tpot_s": 0.013973122238291098,
+        "e2e_s": 3.7763324794916686,
+        "chunk_gap_p90_s": 0.013146513844840228
+      },
+      "vlm": {
+        "n": 168,
+        "errors": 0,
+        "ttft_s": 0.1926822059082504,
+        "tpot_s": 0.014754325744237691,
+        "e2e_s": 1.0968235731567728,
+        "chunk_gap_p90_s": 0.0175230663549155
+      }
+    }
+  },
+  {
+    "case": "vlm_only_high",
+    "start_unix_s": 1791879367.9151409,
+    "warmup_s": 15,
+    "duration_s": 90.0,
+    "gate_limit": 0,
+    "plan_sha256": "cbae6b0f2637641b2381481652913b245705e6878f607a2c7884464673cd3213",
+    "metrics": {
+      "llm": {
+        "n": 0,
+        "errors": 0,
+        "ttft_s": null,
+        "tpot_s": null,
+        "e2e_s": null,
+        "chunk_gap_p90_s": null
+      },
+      "vlm": {
+        "n": 168,
+        "errors": 0,
+        "ttft_s": 0.18829954234046653,
+        "tpot_s": 0.014585026208355669,
+        "e2e_s": 1.0803546479705808,
+        "chunk_gap_p90_s": 0.01610632374882698
+      }
+    }
+  }
+]

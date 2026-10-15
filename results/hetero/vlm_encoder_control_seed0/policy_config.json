@@ -1,0 +1,15 @@
+{
+  "modes": {
+    "0": "free",
+    "1": "serialized",
+    "2": "fixed_pause",
+    "3": "adaptive_pause"
+  },
+  "fixed_pause_s": 0.02,
+  "slow_chunk_gap_threshold_s": 0.025,
+  "feedback_period_s": 0.1,
+  "slow_signal_valid_s": 0.1,
+  "max_added_policy_wait_s": 0.1,
+  "poll_s": 0.005,
+  "queue_wait_bounded": false
+}

@@ -1,0 +1,26 @@
+{
+  "case": "vlm_only_high",
+  "start_unix_s": 1791879802.1312442,
+  "warmup_s": 15,
+  "duration_s": 90.0,
+  "gate_limit": 0,
+  "plan_sha256": "cbae6b0f2637641b2381481652913b245705e6878f607a2c7884464673cd3213",
+  "metrics": {
+    "llm": {
+      "n": 0,
+      "errors": 0,
+      "ttft_s": null,
+      "tpot_s": null,
+      "e2e_s": null,
+      "chunk_gap_p90_s": null
+    },
+    "vlm": {
+      "n": 168,
+      "errors": 0,
+      "ttft_s": 0.23106992044365882,
+      "tpot_s": 0.014538660059712591,
+      "e2e_s": 1.1335217146725192,
+      "chunk_gap_p90_s": 0.01633033758727834
+    }
+  }
+}

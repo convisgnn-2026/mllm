@@ -1,0 +1,26 @@
+{
+  "case": "serialized",
+  "start_unix_s": 1791875350.2008295,
+  "warmup_s": 15,
+  "duration_s": 90,
+  "gate_limit": 1,
+  "plan_sha256": "8b3d7e8bdd68bdbdbc2fe206715beaaebcb5c7c57af0a2376fd08ab3c380b5b6",
+  "metrics": {
+    "llm": {
+      "n": 74,
+      "errors": 0,
+      "ttft_s": 0.31783392432777974,
+      "tpot_s": 0.019819142172003496,
+      "e2e_s": 5.366539458478583,
+      "chunk_gap_p90_s": 0.02861381540540606
+    },
+    "vlm": {
+      "n": 168,
+      "errors": 0,
+      "ttft_s": 0.42127667279958,
+      "tpot_s": 0.014595301735347935,
+      "e2e_s": 1.3276614235168709,
+      "chunk_gap_p90_s": 0.016532501508481803
+    }
+  }
+}

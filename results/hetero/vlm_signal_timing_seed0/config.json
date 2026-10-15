@@ -1,0 +1,31 @@
+{
+  "seed": 0,
+  "cases": [
+    [
+      "serialized",
+      1.0,
+      2.0,
+      1
+    ],
+    [
+      "prefill_guard",
+      1.0,
+      2.0,
+      4
+    ],
+    [
+      "reactive_gap",
+      1.0,
+      2.0,
+      3
+    ]
+  ],
+  "models": [
+    "meta-llama/Llama-3.2-3B-Instruct",
+    "Qwen/Qwen2-VL-2B-Instruct"
+  ],
+  "image_size": 672,
+  "max_pixels": 451584,
+  "baseline": "all models resident; only selected service receives requests",
+  "payload_sha256": "21ab986849f492ac9b8eb328c71b45509f93af37b65ecac2592fda04a69ff285"
+}

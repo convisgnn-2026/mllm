@@ -1,0 +1,35 @@
+{
+  "limitation": "Signals are client chunk arrivals. Pending first response includes queue, network and prefill. Primer includes CPU/file/HTTP. These timings do not isolate GPU kernels or prove causality. Feedback buckets overlap in time.",
+  "cases": {
+    "prefill_guard": {
+      "primers_started_in_measurement": 108,
+      "slow_feedback_events": 250,
+      "slow_events_received_during_primer": 107,
+      "primers_with_recent_slow_feedback": 55,
+      "primers_with_recent_pending_first_response_feedback": 28,
+      "policy_wait_over_1ms_count": 11,
+      "policy_wait_p90_s": 0.0029950725380330995,
+      "feedback_transit_p90_s": 0.0014686584472656254
+    },
+    "reactive_gap": {
+      "primers_started_in_measurement": 108,
+      "slow_feedback_events": 260,
+      "slow_events_received_during_primer": 117,
+      "primers_with_recent_slow_feedback": 18,
+      "primers_with_recent_pending_first_response_feedback": 29,
+      "policy_wait_over_1ms_count": 58,
+      "policy_wait_p90_s": 0.10123079775366932,
+      "feedback_transit_p90_s": 0.0015992641448974608
+    },
+    "serialized": {
+      "primers_started_in_measurement": 108,
+      "slow_feedback_events": 222,
+      "slow_events_received_during_primer": 94,
+      "primers_with_recent_slow_feedback": 47,
+      "primers_with_recent_pending_first_response_feedback": 30,
+      "policy_wait_over_1ms_count": 0,
+      "policy_wait_p90_s": 0.0,
+      "feedback_transit_p90_s": 0.001434922218322754
+    }
+  }
+}

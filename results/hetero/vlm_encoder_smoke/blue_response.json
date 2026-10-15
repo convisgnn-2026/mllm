@@ -1,0 +1,44 @@
+{
+  "image": "blue",
+  "e2e_s": 0.3052535050082952,
+  "response": {
+    "id": "chatcmpl-4cb9a3c4-ac19-4359-9f6d-72c6c7e481e6",
+    "object": "chat.completion",
+    "created": 1791872295,
+    "model": "Qwen/Qwen2-VL-2B-Instruct",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "The shape in the image is a square. It is solid blue in color.",
+          "refusal": null,
+          "annotations": null,
+          "audio": null,
+          "function_call": null,
+          "reasoning": null
+        },
+        "logprobs": null,
+        "finish_reason": "stop",
+        "stop_reason": null,
+        "token_ids": null,
+        "routed_experts": null
+      }
+    ],
+    "service_tier": null,
+    "system_fingerprint": "vllm-0.28.0-870e1f5b",
+    "usage": {
+      "prompt_tokens": 175,
+      "total_tokens": 192,
+      "completion_tokens": 17,
+      "prompt_tokens_details": null,
+      "completion_tokens_details": null
+    },
+    "prompt_logprobs": null,
+    "prompt_token_ids": null,
+    "prompt_text": null,
+    "kv_transfer_params": null,
+    "ec_transfer_params": null,
+    "metrics": null
+  }
+}

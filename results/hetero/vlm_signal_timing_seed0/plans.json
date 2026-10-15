@@ -1,0 +1,2933 @@
+{
+  "serialized": [
+    {
+      "kind": "vlm",
+      "idx": 0,
+      "planned_s": 0.4312752492747111
+    },
+    {
+      "kind": "vlm",
+      "idx": 1,
+      "planned_s": 1.1492866209897306
+    },
+    {
+      "kind": "llm",
+      "idx": 0,
+      "planned_s": 1.8606071110652234
+    },
+    {
+      "kind": "vlm",
+      "idx": 2,
+      "planned_s": 2.8269007514505446
+    },
+    {
+      "kind": "llm",
+      "idx": 1,
+      "planned_s": 3.279236264036985
+    },
+    {
+      "kind": "vlm",
+      "idx": 3,
+      "planned_s": 3.4127148333689634
+    },
+    {
+      "kind": "llm",
+      "idx": 2,
+      "planned_s": 3.824949409578578
+    },
+    {
+      "kind": "vlm",
+      "idx": 4,
+      "planned_s": 4.026476460097979
+    },
+    {
+      "kind": "llm",
+      "idx": 3,
+      "planned_s": 4.124591721792392
+    },
+    {
+      "kind": "vlm",
+      "idx": 5,
+      "planned_s": 4.555545182124361
+    },
+    {
+      "kind": "llm",
+      "idx": 4,
+      "planned_s": 4.840546471559542
+    },
+    {
+      "kind": "vlm",
+      "idx": 6,
+      "planned_s": 5.04994578949537
+    },
+    {
+      "kind": "vlm",
+      "idx": 7,
+      "planned_s": 5.0513020282573144
+    },
+    {
+      "kind": "llm",
+      "idx": 5,
+      "planned_s": 5.3596296577614595
+    },
+    {
+      "kind": "vlm",
+      "idx": 8,
+      "planned_s": 5.884734289002957
+    },
+    {
+      "kind": "vlm",
+      "idx": 9,
+      "planned_s": 6.236065505130097
+    },
+    {
+      "kind": "vlm",
+      "idx": 10,
+      "planned_s": 6.332646025297613
+    },
+    {
+      "kind": "llm",
+      "idx": 6,
+      "planned_s": 6.891174505356142
+    },
+    {
+      "kind": "llm",
+      "idx": 7,
+      "planned_s": 7.252593148693992
+    },
+    {
+      "kind": "llm",
+      "idx": 8,
+      "planned_s": 7.899996618247295
+    },
+    {
+      "kind": "vlm",
+      "idx": 11,
+      "planned_s": 8.14223695665907
+    },
+    {
+      "kind": "llm",
+      "idx": 9,
+      "planned_s": 8.775582257125986
+    },
+    {
+      "kind": "vlm",
+      "idx": 12,
+      "planned_s": 9.91985988955897
+    },
+    {
+      "kind": "vlm",
+      "idx": 13,
+      "planned_s": 9.97515636744048
+    },
+    {
+      "kind": "vlm",
+      "idx": 14,
+      "planned_s": 10.91263282418339
+    },
+    {
+      "kind": "vlm",
+      "idx": 15,
+      "planned_s": 11.147906067526067
+    },
+    {
+      "kind": "vlm",
+      "idx": 16,
+      "planned_s": 11.150891862336842
+    },
+    {
+      "kind": "llm",
+      "idx": 10,
+      "planned_s": 11.162776725448648
+    },
+    {
+      "kind": "vlm",
+      "idx": 17,
+      "planned_s": 11.333963296891637
+    },
+    {
+      "kind": "vlm",
+      "idx": 18,
+      "planned_s": 11.761267729247677
+    },
+    {
+      "kind": "llm",
+      "idx": 11,
+      "planned_s": 11.865341827367981
+    },
+    {
+      "kind": "llm",
+      "idx": 12,
+      "planned_s": 12.196401719346236
+    },
+    {
+      "kind": "vlm",
+      "idx": 19,
+      "planned_s": 12.796806923798481
+    },
+    {
+      "kind": "llm",
+      "idx": 13,
+      "planned_s": 13.606186652841014
+    },
+    {
+      "kind": "vlm",
+      "idx": 20,
+      "planned_s": 14.137394224463815
+    },
+    {
+      "kind": "vlm",
+      "idx": 21,
+      "planned_s": 14.336427137286673
+    },
+    {
+      "kind": "llm",
+      "idx": 14,
+      "planned_s": 14.569487749939547
+    },
+    {
+      "kind": "vlm",
+      "idx": 22,
+      "planned_s": 14.770547026914327
+    },
+    {
+      "kind": "llm",
+      "idx": 15,
+      "planned_s": 14.857845172205273
+    },
+    {
+      "kind": "vlm",
+      "idx": 23,
+      "planned_s": 15.609918754009389
+    },
+    {
+      "kind": "vlm",
+      "idx": 24,
+      "planned_s": 15.980793268254336
+    },
+    {
+      "kind": "vlm",
+      "idx": 25,
+      "planned_s": 16.61146314441037
+    },
+    {
+      "kind": "vlm",
+      "idx": 26,
+      "planned_s": 17.19266767290919
+    },
+    {
+      "kind": "llm",
+      "idx": 16,
+      "planned_s": 17.26297536971845
+    },
+    {
+      "kind": "vlm",
+      "idx": 27,
+      "planned_s": 17.38497243485085
+    },
+    {
+      "kind": "vlm",
+      "idx": 28,
+      "planned_s": 17.650649048902263
+    },
+    {
+      "kind": "vlm",
+      "idx": 29,
+      "planned_s": 18.444577548329985
+    },
+    {
+      "kind": "vlm",
+      "idx": 30,
+      "planned_s": 18.529301918107173
+    },
+    {
+      "kind": "vlm",
+      "idx": 31,
+      "planned_s": 19.80724071469388
+    },
+    {
+      "kind": "vlm",
+      "idx": 32,
+      "planned_s": 21.2066642902732
+    },
+    {
+      "kind": "llm",
+      "idx": 17,
+      "planned_s": 21.32497720478463
+    },
+    {
+      "kind": "vlm",
+      "idx": 33,
+      "planned_s": 22.969057942722976
+    },
+    {
+      "kind": "llm",
+      "idx": 18,
+      "planned_s": 22.986852413076974
+    },
+    {
+      "kind": "vlm",
+      "idx": 34,
+      "planned_s": 23.995692311091776
+    },
+    {
+      "kind": "vlm",
+      "idx": 35,
+      "planned_s": 24.142129921179997
+    },
+    {
+      "kind": "vlm",
+      "idx": 36,
+      "planned_s": 24.377533778884278
+    },
+    {
+      "kind": "vlm",
+      "idx": 37,
+      "planned_s": 25.200746030817584
+    },
+    {
+      "kind": "llm",
+      "idx": 19,
+      "planned_s": 25.31133502059574
+    },
+    {
+      "kind": "vlm",
+      "idx": 38,
+      "planned_s": 25.54558802043192
+    },
+    {
+      "kind": "llm",
+      "idx": 20,
+      "planned_s": 25.682612593438463
+    },
+    {
+      "kind": "vlm",
+      "idx": 39,
+      "planned_s": 26.073751893183644
+    },
+    {
+      "kind": "vlm",
+      "idx": 40,
+      "planned_s": 26.783713179978175
+    },
+    {
+      "kind": "vlm",
+      "idx": 41,
+      "planned_s": 26.97652010748538
+    },
+    {
+      "kind": "llm",
+      "idx": 21,
+      "planned_s": 26.99132295291031
+    },
+    {
+      "kind": "vlm",
+      "idx": 42,
+      "planned_s": 27.636797066684935
+    },
+    {
+      "kind": "vlm",
+      "idx": 43,
+      "planned_s": 27.728174139282043
+    },
+    {
+      "kind": "vlm",
+      "idx": 44,
+      "planned_s": 27.90429659289746
+    },
+    {
+      "kind": "vlm",
+      "idx": 45,
+      "planned_s": 28.29500499476393
+    },
+    {
+      "kind": "llm",
+      "idx": 22,
+      "planned_s": 29.282357886232244
+    },
+    {
+      "kind": "llm",
+      "idx": 23,
+      "planned_s": 30.434320104551347
+    },
+    {
+      "kind": "llm",
+      "idx": 24,
+      "planned_s": 31.07324943078136
+    },
+    {
+      "kind": "llm",
+      "idx": 25,
+      "planned_s": 31.179389370186936
+    },
+    {
+      "kind": "vlm",
+      "idx": 46,
+      "planned_s": 31.582954611363416
+    },
+    {
+      "kind": "llm",
+      "idx": 26,
+      "planned_s": 31.748854213268647
+    },
+    {
+      "kind": "llm",
+      "idx": 27,
+      "planned_s": 32.692739634136025
+    },
+    {
+      "kind": "vlm",
+      "idx": 47,
+      "planned_s": 33.12569579347847
+    },
+    {
+      "kind": "vlm",
+      "idx": 48,
+      "planned_s": 33.40862524493618
+    },
+    {
+      "kind": "vlm",
+      "idx": 49,
+      "planned_s": 33.449052628078924
+    },
+    {
+      "kind": "vlm",
+      "idx": 50,
+      "planned_s": 33.5670566947243
+    },
+    {
+      "kind": "vlm",
+      "idx": 51,
+      "planned_s": 33.607933156868896
+    },
+    {
+      "kind": "vlm",
+      "idx": 52,
+      "planned_s": 33.736746852907736
+    },
+    {
+      "kind": "vlm",
+      "idx": 53,
+      "planned_s": 34.04170016990753
+    },
+    {
+      "kind": "vlm",
+      "idx": 54,
+      "planned_s": 34.710226959111196
+    },
+    {
+      "kind": "llm",
+      "idx": 28,
+      "planned_s": 35.134713851246424
+    },
+    {
+      "kind": "vlm",
+      "idx": 55,
+      "planned_s": 35.755547943911665
+    },
+    {
+      "kind": "vlm",
+      "idx": 56,
+      "planned_s": 37.068595434637416
+    },
+    {
+      "kind": "vlm",
+      "idx": 57,
+      "planned_s": 37.79039405682363
+    },
+    {
+      "kind": "vlm",
+      "idx": 58,
+      "planned_s": 38.42386914504714
+    },
+    {
+      "kind": "llm",
+      "idx": 29,
+      "planned_s": 38.5341039002414
+    },
+    {
+      "kind": "vlm",
+      "idx": 59,
+      "planned_s": 38.62695285211573
+    },
+    {
+      "kind": "vlm",
+      "idx": 60,
+      "planned_s": 39.158332957433196
+    },
+    {
+      "kind": "vlm",
+      "idx": 61,
+      "planned_s": 39.174827531658906
+    },
+    {
+      "kind": "llm",
+      "idx": 30,
+      "planned_s": 39.18229640855076
+    },
+    {
+      "kind": "vlm",
+      "idx": 62,
+      "planned_s": 39.63910787279799
+    },
+    {
+      "kind": "vlm",
+      "idx": 63,
+      "planned_s": 39.6553577126742
+    },
+    {
+      "kind": "vlm",
+      "idx": 64,
+      "planned_s": 40.53697952856955
+    },
+    {
+      "kind": "vlm",
+      "idx": 65,
+      "planned_s": 40.78213541827666
+    },
+    {
+      "kind": "vlm",
+      "idx": 66,
+      "planned_s": 41.10617468728382
+    },
+    {
+      "kind": "llm",
+      "idx": 31,
+      "planned_s": 41.18707530966603
+    },
+    {
+      "kind": "llm",
+      "idx": 32,
+      "planned_s": 41.48884590816322
+    },
+    {
+      "kind": "vlm",
+      "idx": 67,
+      "planned_s": 41.96657036297212
+    },
+    {
+      "kind": "vlm",
+      "idx": 68,
+      "planned_s": 42.18191516328443
+    },
+    {
+      "kind": "vlm",
+      "idx": 69,
+      "planned_s": 42.485011828434736
+    },
+    {
+      "kind": "vlm",
+      "idx": 70,
+      "planned_s": 43.03647039589427
+    },
+    {
+      "kind": "llm",
+      "idx": 33,
+      "planned_s": 43.123744341395486
+    },
+    {
+      "kind": "llm",
+      "idx": 34,
+      "planned_s": 43.91936577097017
+    },
+    {
+      "kind": "llm",
+      "idx": 35,
+      "planned_s": 43.93350698849961
+    },
+    {
+      "kind": "vlm",
+      "idx": 71,
+      "planned_s": 44.36463560557195
+    },
+    {
+      "kind": "vlm",
+      "idx": 72,
+      "planned_s": 44.718434618157644
+    },
+    {
+      "kind": "vlm",
+      "idx": 73,
+      "planned_s": 45.09520996512803
+    },
+    {
+      "kind": "llm",
+      "idx": 36,
+      "planned_s": 45.205418528694274
+    },
+    {
+      "kind": "vlm",
+      "idx": 74,
+      "planned_s": 45.63472340339775
+    },
+    {
+      "kind": "llm",
+      "idx": 37,
+      "planned_s": 45.71428530928732
+    },
+    {
+      "kind": "vlm",
+      "idx": 75,
+      "planned_s": 45.85457034804678
+    },
+    {
+      "kind": "vlm",
+      "idx": 76,
+      "planned_s": 46.472943618760105
+    },
+    {
+      "kind": "vlm",
+      "idx": 77,
+      "planned_s": 47.03060423174851
+    },
+    {
+      "kind": "vlm",
+      "idx": 78,
+      "planned_s": 47.062954171421666
+    },
+    {
+      "kind": "llm",
+      "idx": 38,
+      "planned_s": 47.45636916160771
+    },
+    {
+      "kind": "vlm",
+      "idx": 79,
+      "planned_s": 47.81158239788686
+    },
+    {
+      "kind": "vlm",
+      "idx": 80,
+      "planned_s": 47.91381958930868
+    },
+    {
+      "kind": "vlm",
+      "idx": 81,
+      "planned_s": 47.92761316280137
+    },
+    {
+      "kind": "llm",
+      "idx": 39,
+      "planned_s": 48.55945102766747
+    },
+    {
+      "kind": "llm",
+      "idx": 40,
+      "planned_s": 48.56059450049784
+    },
+    {
+      "kind": "vlm",
+      "idx": 82,
+      "planned_s": 48.66455876273503
+    },
+    {
+      "kind": "vlm",
+      "idx": 83,
+      "planned_s": 48.86990805176253
+    },
+    {
+      "kind": "vlm",
+      "idx": 84,
+      "planned_s": 48.94817077050366
+    },
+    {
+      "kind": "vlm",
+      "idx": 85,
+      "planned_s": 49.10877087222977
+    },
+    {
+      "kind": "llm",
+      "idx": 41,
+      "planned_s": 49.24097920199324
+    },
+    {
+      "kind": "vlm",
+      "idx": 86,
+      "planned_s": 49.66776656294503
+    },
+    {
+      "kind": "vlm",
+      "idx": 87,
+      "planned_s": 49.84263135267673
+    },
+    {
+      "kind": "vlm",
+      "idx": 88,
+      "planned_s": 50.31509113163132
+    },
+    {
+      "kind": "vlm",
+      "idx": 89,
+      "planned_s": 50.43140932700278
+    },
+    {
+      "kind": "llm",
+      "idx": 42,
+      "planned_s": 51.26292780062861
+    },
+    {
+      "kind": "llm",
+      "idx": 43,
+      "planned_s": 51.54252382266399
+    },
+    {
+      "kind": "vlm",
+      "idx": 90,
+      "planned_s": 51.80317119302365
+    },
+    {
+      "kind": "vlm",
+      "idx": 91,
+      "planned_s": 51.84282201306118
+    },
+    {
+      "kind": "llm",
+      "idx": 44,
+      "planned_s": 51.935869216240306
+    },
+    {
+      "kind": "vlm",
+      "idx": 92,
+      "planned_s": 52.19987708327048
+    },
+    {
+      "kind": "vlm",
+      "idx": 93,
+      "planned_s": 52.20214387820235
+    },
+    {
+      "kind": "vlm",
+      "idx": 94,
+      "planned_s": 52.69430929964994
+    },
+    {
+      "kind": "vlm",
+      "idx": 95,
+      "planned_s": 52.76630906966549
+    },
+    {
+      "kind": "llm",
+      "idx": 45,
+      "planned_s": 53.979721492874475
+    },
+    {
+      "kind": "llm",
+      "idx": 46,
+      "planned_s": 54.19176078963686
+    },
+    {
+      "kind": "vlm",
+      "idx": 96,
+      "planned_s": 54.406278475758896
+    },
+    {
+      "kind": "vlm",
+      "idx": 97,
+      "planned_s": 54.60738744072227
+    },
+    {
+      "kind": "llm",
+      "idx": 47,
+      "planned_s": 55.02995857636045
+    },
+    {
+      "kind": "vlm",
+      "idx": 98,
+      "planned_s": 55.22591829093577
+    },
+    {
+      "kind": "llm",
+      "idx": 48,
+      "planned_s": 55.302575931780105
+    },
+    {
+      "kind": "vlm",
+      "idx": 99,
+      "planned_s": 55.625657682076664
+    },
+    {
+      "kind": "vlm",
+      "idx": 100,
+      "planned_s": 57.46730389258407
+    },
+    {
+      "kind": "vlm",
+      "idx": 101,
+      "planned_s": 57.72072405673026
+    },
+    {
+      "kind": "vlm",
+      "idx": 102,
+      "planned_s": 57.76823841420175
+    },
+    {
+      "kind": "vlm",
+      "idx": 103,
+      "planned_s": 57.80280386819213
+    },
+    {
+      "kind": "vlm",
+      "idx": 104,
+      "planned_s": 57.98885721727667
+    },
+    {
+      "kind": "llm",
+      "idx": 49,
+      "planned_s": 58.73033035943083
+    },
+    {
+      "kind": "vlm",
+      "idx": 105,
+      "planned_s": 59.23640454072779
+    },
+    {
+      "kind": "vlm",
+      "idx": 106,
+      "planned_s": 60.286403396288286
+    },
+    {
+      "kind": "llm",
+      "idx": 50,
+      "planned_s": 60.355793336471166
+    },
+    {
+      "kind": "vlm",
+      "idx": 107,
+      "planned_s": 60.43029391330318
+    },
+    {
+      "kind": "vlm",
+      "idx": 108,
+      "planned_s": 60.43687606786656
+    },
+    {
+      "kind": "llm",
+      "idx": 51,
+      "planned_s": 60.94994544648457
+    },
+    {
+      "kind": "llm",
+      "idx": 52,
+      "planned_s": 61.033811758256256
+    },
+    {
+      "kind": "vlm",
+      "idx": 109,
+      "planned_s": 61.2063959962961
+    },
+    {
+      "kind": "llm",
+      "idx": 53,
+      "planned_s": 61.41955454328158
+    },
+    {
+      "kind": "vlm",
+      "idx": 110,
+      "planned_s": 61.69930901336595
+    },
+    {
+      "kind": "llm",
+      "idx": 54,
+      "planned_s": 62.128710467765075
+    },
+    {
+      "kind": "vlm",
+      "idx": 111,
+      "planned_s": 62.40424721397479
+    },
+    {
+      "kind": "vlm",
+      "idx": 112,
+      "planned_s": 62.74045899702372
+    },
+    {
+      "kind": "vlm",
+      "idx": 113,
+      "planned_s": 62.860205306451995
+    },
+    {
+      "kind": "vlm",
+      "idx": 114,
+      "planned_s": 63.3112912471373
+    },
+    {
+      "kind": "llm",
+      "idx": 55,
+      "planned_s": 64.82929596264448
+    },
+    {
+      "kind": "vlm",
+      "idx": 115,
+      "planned_s": 64.83922585495095
+    },
+    {
+      "kind": "llm",
+      "idx": 56,
+      "planned_s": 64.94477173874496
+    },
+    {
+      "kind": "vlm",
+      "idx": 116,
+      "planned_s": 65.60491837400384
+    },
+    {
+      "kind": "llm",
+      "idx": 57,
+      "planned_s": 65.74609951006268
+    },
+    {
+      "kind": "vlm",
+      "idx": 117,
+      "planned_s": 66.9490359239443
+    },
+    {
+      "kind": "llm",
+      "idx": 58,
+      "planned_s": 66.97218640460552
+    },
+    {
+      "kind": "vlm",
+      "idx": 118,
+      "planned_s": 67.0323760936796
+    },
+    {
+      "kind": "vlm",
+      "idx": 119,
+      "planned_s": 67.05322623250352
+    },
+    {
+      "kind": "llm",
+      "idx": 59,
+      "planned_s": 67.76502334627324
+    },
+    {
+      "kind": "vlm",
+      "idx": 120,
+      "planned_s": 68.44942759364766
+    },
+    {
+      "kind": "vlm",
+      "idx": 121,
+      "planned_s": 69.04024627267887
+    },
+    {
+      "kind": "llm",
+      "idx": 60,
+      "planned_s": 69.44954512461308
+    },
+    {
+      "kind": "vlm",
+      "idx": 122,
+      "planned_s": 69.80083327522395
+    },
+    {
+      "kind": "vlm",
+      "idx": 123,
+      "planned_s": 70.02722825695098
+    },
+    {
+      "kind": "llm",
+      "idx": 61,
+      "planned_s": 70.2266906411411
+    },
+    {
+      "kind": "vlm",
+      "idx": 124,
+      "planned_s": 70.54563062118567
+    },
+    {
+      "kind": "vlm",
+      "idx": 125,
+      "planned_s": 71.05311580526241
+    },
+    {
+      "kind": "vlm",
+      "idx": 126,
+      "planned_s": 72.10155335190932
+    },
+    {
+      "kind": "vlm",
+      "idx": 127,
+      "planned_s": 72.78845680699773
+    },
+    {
+      "kind": "vlm",
+      "idx": 128,
+      "planned_s": 72.86094686312863
+    },
+    {
+      "kind": "llm",
+      "idx": 62,
+      "planned_s": 73.54645217450619
+    },
+    {
+      "kind": "vlm",
+      "idx": 129,
+      "planned_s": 73.56068269540212
+    },
+    {
+      "kind": "vlm",
+      "idx": 130,
+      "planned_s": 73.74127180018189
+    },
+    {
+      "kind": "llm",
+      "idx": 63,
+      "planned_s": 74.47073885887815
+    }
+  ],
+  "prefill_guard": [
+    {
+      "kind": "vlm",
+      "idx": 0,
+      "planned_s": 0.4312752492747111
+    },
+    {
+      "kind": "vlm",
+      "idx": 1,
+      "planned_s": 1.1492866209897306
+    },
+    {
+      "kind": "llm",
+      "idx": 0,
+      "planned_s": 1.8606071110652234
+    },
+    {
+      "kind": "vlm",
+      "idx": 2,
+      "planned_s": 2.8269007514505446
+    },
+    {
+      "kind": "llm",
+      "idx": 1,
+      "planned_s": 3.279236264036985
+    },
+    {
+      "kind": "vlm",
+      "idx": 3,
+      "planned_s": 3.4127148333689634
+    },
+    {
+      "kind": "llm",
+      "idx": 2,
+      "planned_s": 3.824949409578578
+    },
+    {
+      "kind": "vlm",
+      "idx": 4,
+      "planned_s": 4.026476460097979
+    },
+    {
+      "kind": "llm",
+      "idx": 3,
+      "planned_s": 4.124591721792392
+    },
+    {
+      "kind": "vlm",
+      "idx": 5,
+      "planned_s": 4.555545182124361
+    },
+    {
+      "kind": "llm",
+      "idx": 4,
+      "planned_s": 4.840546471559542
+    },
+    {
+      "kind": "vlm",
+      "idx": 6,
+      "planned_s": 5.04994578949537
+    },
+    {
+      "kind": "vlm",
+      "idx": 7,
+      "planned_s": 5.0513020282573144
+    },
+    {
+      "kind": "llm",
+      "idx": 5,
+      "planned_s": 5.3596296577614595
+    },
+    {
+      "kind": "vlm",
+      "idx": 8,
+      "planned_s": 5.884734289002957
+    },
+    {
+      "kind": "vlm",
+      "idx": 9,
+      "planned_s": 6.236065505130097
+    },
+    {
+      "kind": "vlm",
+      "idx": 10,
+      "planned_s": 6.332646025297613
+    },
+    {
+      "kind": "llm",
+      "idx": 6,
+      "planned_s": 6.891174505356142
+    },
+    {
+      "kind": "llm",
+      "idx": 7,
+      "planned_s": 7.252593148693992
+    },
+    {
+      "kind": "llm",
+      "idx": 8,
+      "planned_s": 7.899996618247295
+    },
+    {
+      "kind": "vlm",
+      "idx": 11,
+      "planned_s": 8.14223695665907
+    },
+    {
+      "kind": "llm",
+      "idx": 9,
+      "planned_s": 8.775582257125986
+    },
+    {
+      "kind": "vlm",
+      "idx": 12,
+      "planned_s": 9.91985988955897
+    },
+    {
+      "kind": "vlm",
+      "idx": 13,
+      "planned_s": 9.97515636744048
+    },
+    {
+      "kind": "vlm",
+      "idx": 14,
+      "planned_s": 10.91263282418339
+    },
+    {
+      "kind": "vlm",
+      "idx": 15,
+      "planned_s": 11.147906067526067
+    },
+    {
+      "kind": "vlm",
+      "idx": 16,
+      "planned_s": 11.150891862336842
+    },
+    {
+      "kind": "llm",
+      "idx": 10,
+      "planned_s": 11.162776725448648
+    },
+    {
+      "kind": "vlm",
+      "idx": 17,
+      "planned_s": 11.333963296891637
+    },
+    {
+      "kind": "vlm",
+      "idx": 18,
+      "planned_s": 11.761267729247677
+    },
+    {
+      "kind": "llm",
+      "idx": 11,
+      "planned_s": 11.865341827367981
+    },
+    {
+      "kind": "llm",
+      "idx": 12,
+      "planned_s": 12.196401719346236
+    },
+    {
+      "kind": "vlm",
+      "idx": 19,
+      "planned_s": 12.796806923798481
+    },
+    {
+      "kind": "llm",
+      "idx": 13,
+      "planned_s": 13.606186652841014
+    },
+    {
+      "kind": "vlm",
+      "idx": 20,
+      "planned_s": 14.137394224463815
+    },
+    {
+      "kind": "vlm",
+      "idx": 21,
+      "planned_s": 14.336427137286673
+    },
+    {
+      "kind": "llm",
+      "idx": 14,
+      "planned_s": 14.569487749939547
+    },
+    {
+      "kind": "vlm",
+      "idx": 22,
+      "planned_s": 14.770547026914327
+    },
+    {
+      "kind": "llm",
+      "idx": 15,
+      "planned_s": 14.857845172205273
+    },
+    {
+      "kind": "vlm",
+      "idx": 23,
+      "planned_s": 15.609918754009389
+    },
+    {
+      "kind": "vlm",
+      "idx": 24,
+      "planned_s": 15.980793268254336
+    },
+    {
+      "kind": "vlm",
+      "idx": 25,
+      "planned_s": 16.61146314441037
+    },
+    {
+      "kind": "vlm",
+      "idx": 26,
+      "planned_s": 17.19266767290919
+    },
+    {
+      "kind": "llm",
+      "idx": 16,
+      "planned_s": 17.26297536971845
+    },
+    {
+      "kind": "vlm",
+      "idx": 27,
+      "planned_s": 17.38497243485085
+    },
+    {
+      "kind": "vlm",
+      "idx": 28,
+      "planned_s": 17.650649048902263
+    },
+    {
+      "kind": "vlm",
+      "idx": 29,
+      "planned_s": 18.444577548329985
+    },
+    {
+      "kind": "vlm",
+      "idx": 30,
+      "planned_s": 18.529301918107173
+    },
+    {
+      "kind": "vlm",
+      "idx": 31,
+      "planned_s": 19.80724071469388
+    },
+    {
+      "kind": "vlm",
+      "idx": 32,
+      "planned_s": 21.2066642902732
+    },
+    {
+      "kind": "llm",
+      "idx": 17,
+      "planned_s": 21.32497720478463
+    },
+    {
+      "kind": "vlm",
+      "idx": 33,
+      "planned_s": 22.969057942722976
+    },
+    {
+      "kind": "llm",
+      "idx": 18,
+      "planned_s": 22.986852413076974
+    },
+    {
+      "kind": "vlm",
+      "idx": 34,
+      "planned_s": 23.995692311091776
+    },
+    {
+      "kind": "vlm",
+      "idx": 35,
+      "planned_s": 24.142129921179997
+    },
+    {
+      "kind": "vlm",
+      "idx": 36,
+      "planned_s": 24.377533778884278
+    },
+    {
+      "kind": "vlm",
+      "idx": 37,
+      "planned_s": 25.200746030817584
+    },
+    {
+      "kind": "llm",
+      "idx": 19,
+      "planned_s": 25.31133502059574
+    },
+    {
+      "kind": "vlm",
+      "idx": 38,
+      "planned_s": 25.54558802043192
+    },
+    {
+      "kind": "llm",
+      "idx": 20,
+      "planned_s": 25.682612593438463
+    },
+    {
+      "kind": "vlm",
+      "idx": 39,
+      "planned_s": 26.073751893183644
+    },
+    {
+      "kind": "vlm",
+      "idx": 40,
+      "planned_s": 26.783713179978175
+    },
+    {
+      "kind": "vlm",
+      "idx": 41,
+      "planned_s": 26.97652010748538
+    },
+    {
+      "kind": "llm",
+      "idx": 21,
+      "planned_s": 26.99132295291031
+    },
+    {
+      "kind": "vlm",
+      "idx": 42,
+      "planned_s": 27.636797066684935
+    },
+    {
+      "kind": "vlm",
+      "idx": 43,
+      "planned_s": 27.728174139282043
+    },
+    {
+      "kind": "vlm",
+      "idx": 44,
+      "planned_s": 27.90429659289746
+    },
+    {
+      "kind": "vlm",
+      "idx": 45,
+      "planned_s": 28.29500499476393
+    },
+    {
+      "kind": "llm",
+      "idx": 22,
+      "planned_s": 29.282357886232244
+    },
+    {
+      "kind": "llm",
+      "idx": 23,
+      "planned_s": 30.434320104551347
+    },
+    {
+      "kind": "llm",
+      "idx": 24,
+      "planned_s": 31.07324943078136
+    },
+    {
+      "kind": "llm",
+      "idx": 25,
+      "planned_s": 31.179389370186936
+    },
+    {
+      "kind": "vlm",
+      "idx": 46,
+      "planned_s": 31.582954611363416
+    },
+    {
+      "kind": "llm",
+      "idx": 26,
+      "planned_s": 31.748854213268647
+    },
+    {
+      "kind": "llm",
+      "idx": 27,
+      "planned_s": 32.692739634136025
+    },
+    {
+      "kind": "vlm",
+      "idx": 47,
+      "planned_s": 33.12569579347847
+    },
+    {
+      "kind": "vlm",
+      "idx": 48,
+      "planned_s": 33.40862524493618
+    },
+    {
+      "kind": "vlm",
+      "idx": 49,
+      "planned_s": 33.449052628078924
+    },
+    {
+      "kind": "vlm",
+      "idx": 50,
+      "planned_s": 33.5670566947243
+    },
+    {
+      "kind": "vlm",
+      "idx": 51,
+      "planned_s": 33.607933156868896
+    },
+    {
+      "kind": "vlm",
+      "idx": 52,
+      "planned_s": 33.736746852907736
+    },
+    {
+      "kind": "vlm",
+      "idx": 53,
+      "planned_s": 34.04170016990753
+    },
+    {
+      "kind": "vlm",
+      "idx": 54,
+      "planned_s": 34.710226959111196
+    },
+    {
+      "kind": "llm",
+      "idx": 28,
+      "planned_s": 35.134713851246424
+    },
+    {
+      "kind": "vlm",
+      "idx": 55,
+      "planned_s": 35.755547943911665
+    },
+    {
+      "kind": "vlm",
+      "idx": 56,
+      "planned_s": 37.068595434637416
+    },
+    {
+      "kind": "vlm",
+      "idx": 57,
+      "planned_s": 37.79039405682363
+    },
+    {
+      "kind": "vlm",
+      "idx": 58,
+      "planned_s": 38.42386914504714
+    },
+    {
+      "kind": "llm",
+      "idx": 29,
+      "planned_s": 38.5341039002414
+    },
+    {
+      "kind": "vlm",
+      "idx": 59,
+      "planned_s": 38.62695285211573
+    },
+    {
+      "kind": "vlm",
+      "idx": 60,
+      "planned_s": 39.158332957433196
+    },
+    {
+      "kind": "vlm",
+      "idx": 61,
+      "planned_s": 39.174827531658906
+    },
+    {
+      "kind": "llm",
+      "idx": 30,
+      "planned_s": 39.18229640855076
+    },
+    {
+      "kind": "vlm",
+      "idx": 62,
+      "planned_s": 39.63910787279799
+    },
+    {
+      "kind": "vlm",
+      "idx": 63,
+      "planned_s": 39.6553577126742
+    },
+    {
+      "kind": "vlm",
+      "idx": 64,
+      "planned_s": 40.53697952856955
+    },
+    {
+      "kind": "vlm",
+      "idx": 65,
+      "planned_s": 40.78213541827666
+    },
+    {
+      "kind": "vlm",
+      "idx": 66,
+      "planned_s": 41.10617468728382
+    },
+    {
+      "kind": "llm",
+      "idx": 31,
+      "planned_s": 41.18707530966603
+    },
+    {
+      "kind": "llm",
+      "idx": 32,
+      "planned_s": 41.48884590816322
+    },
+    {
+      "kind": "vlm",
+      "idx": 67,
+      "planned_s": 41.96657036297212
+    },
+    {
+      "kind": "vlm",
+      "idx": 68,
+      "planned_s": 42.18191516328443
+    },
+    {
+      "kind": "vlm",
+      "idx": 69,
+      "planned_s": 42.485011828434736
+    },
+    {
+      "kind": "vlm",
+      "idx": 70,
+      "planned_s": 43.03647039589427
+    },
+    {
+      "kind": "llm",
+      "idx": 33,
+      "planned_s": 43.123744341395486
+    },
+    {
+      "kind": "llm",
+      "idx": 34,
+      "planned_s": 43.91936577097017
+    },
+    {
+      "kind": "llm",
+      "idx": 35,
+      "planned_s": 43.93350698849961
+    },
+    {
+      "kind": "vlm",
+      "idx": 71,
+      "planned_s": 44.36463560557195
+    },
+    {
+      "kind": "vlm",
+      "idx": 72,
+      "planned_s": 44.718434618157644
+    },
+    {
+      "kind": "vlm",
+      "idx": 73,
+      "planned_s": 45.09520996512803
+    },
+    {
+      "kind": "llm",
+      "idx": 36,
+      "planned_s": 45.205418528694274
+    },
+    {
+      "kind": "vlm",
+      "idx": 74,
+      "planned_s": 45.63472340339775
+    },
+    {
+      "kind": "llm",
+      "idx": 37,
+      "planned_s": 45.71428530928732
+    },
+    {
+      "kind": "vlm",
+      "idx": 75,
+      "planned_s": 45.85457034804678
+    },
+    {
+      "kind": "vlm",
+      "idx": 76,
+      "planned_s": 46.472943618760105
+    },
+    {
+      "kind": "vlm",
+      "idx": 77,
+      "planned_s": 47.03060423174851
+    },
+    {
+      "kind": "vlm",
+      "idx": 78,
+      "planned_s": 47.062954171421666
+    },
+    {
+      "kind": "llm",
+      "idx": 38,
+      "planned_s": 47.45636916160771
+    },
+    {
+      "kind": "vlm",
+      "idx": 79,
+      "planned_s": 47.81158239788686
+    },
+    {
+      "kind": "vlm",
+      "idx": 80,
+      "planned_s": 47.91381958930868
+    },
+    {
+      "kind": "vlm",
+      "idx": 81,
+      "planned_s": 47.92761316280137
+    },
+    {
+      "kind": "llm",
+      "idx": 39,
+      "planned_s": 48.55945102766747
+    },
+    {
+      "kind": "llm",
+      "idx": 40,
+      "planned_s": 48.56059450049784
+    },
+    {
+      "kind": "vlm",
+      "idx": 82,
+      "planned_s": 48.66455876273503
+    },
+    {
+      "kind": "vlm",
+      "idx": 83,
+      "planned_s": 48.86990805176253
+    },
+    {
+      "kind": "vlm",
+      "idx": 84,
+      "planned_s": 48.94817077050366
+    },
+    {
+      "kind": "vlm",
+      "idx": 85,
+      "planned_s": 49.10877087222977
+    },
+    {
+      "kind": "llm",
+      "idx": 41,
+      "planned_s": 49.24097920199324
+    },
+    {
+      "kind": "vlm",
+      "idx": 86,
+      "planned_s": 49.66776656294503
+    },
+    {
+      "kind": "vlm",
+      "idx": 87,
+      "planned_s": 49.84263135267673
+    },
+    {
+      "kind": "vlm",
+      "idx": 88,
+      "planned_s": 50.31509113163132
+    },
+    {
+      "kind": "vlm",
+      "idx": 89,
+      "planned_s": 50.43140932700278
+    },
+    {
+      "kind": "llm",
+      "idx": 42,
+      "planned_s": 51.26292780062861
+    },
+    {
+      "kind": "llm",
+      "idx": 43,
+      "planned_s": 51.54252382266399
+    },
+    {
+      "kind": "vlm",
+      "idx": 90,
+      "planned_s": 51.80317119302365
+    },
+    {
+      "kind": "vlm",
+      "idx": 91,
+      "planned_s": 51.84282201306118
+    },
+    {
+      "kind": "llm",
+      "idx": 44,
+      "planned_s": 51.935869216240306
+    },
+    {
+      "kind": "vlm",
+      "idx": 92,
+      "planned_s": 52.19987708327048
+    },
+    {
+      "kind": "vlm",
+      "idx": 93,
+      "planned_s": 52.20214387820235
+    },
+    {
+      "kind": "vlm",
+      "idx": 94,
+      "planned_s": 52.69430929964994
+    },
+    {
+      "kind": "vlm",
+      "idx": 95,
+      "planned_s": 52.76630906966549
+    },
+    {
+      "kind": "llm",
+      "idx": 45,
+      "planned_s": 53.979721492874475
+    },
+    {
+      "kind": "llm",
+      "idx": 46,
+      "planned_s": 54.19176078963686
+    },
+    {
+      "kind": "vlm",
+      "idx": 96,
+      "planned_s": 54.406278475758896
+    },
+    {
+      "kind": "vlm",
+      "idx": 97,
+      "planned_s": 54.60738744072227
+    },
+    {
+      "kind": "llm",
+      "idx": 47,
+      "planned_s": 55.02995857636045
+    },
+    {
+      "kind": "vlm",
+      "idx": 98,
+      "planned_s": 55.22591829093577
+    },
+    {
+      "kind": "llm",
+      "idx": 48,
+      "planned_s": 55.302575931780105
+    },
+    {
+      "kind": "vlm",
+      "idx": 99,
+      "planned_s": 55.625657682076664
+    },
+    {
+      "kind": "vlm",
+      "idx": 100,
+      "planned_s": 57.46730389258407
+    },
+    {
+      "kind": "vlm",
+      "idx": 101,
+      "planned_s": 57.72072405673026
+    },
+    {
+      "kind": "vlm",
+      "idx": 102,
+      "planned_s": 57.76823841420175
+    },
+    {
+      "kind": "vlm",
+      "idx": 103,
+      "planned_s": 57.80280386819213
+    },
+    {
+      "kind": "vlm",
+      "idx": 104,
+      "planned_s": 57.98885721727667
+    },
+    {
+      "kind": "llm",
+      "idx": 49,
+      "planned_s": 58.73033035943083
+    },
+    {
+      "kind": "vlm",
+      "idx": 105,
+      "planned_s": 59.23640454072779
+    },
+    {
+      "kind": "vlm",
+      "idx": 106,
+      "planned_s": 60.286403396288286
+    },
+    {
+      "kind": "llm",
+      "idx": 50,
+      "planned_s": 60.355793336471166
+    },
+    {
+      "kind": "vlm",
+      "idx": 107,
+      "planned_s": 60.43029391330318
+    },
+    {
+      "kind": "vlm",
+      "idx": 108,
+      "planned_s": 60.43687606786656
+    },
+    {
+      "kind": "llm",
+      "idx": 51,
+      "planned_s": 60.94994544648457
+    },
+    {
+      "kind": "llm",
+      "idx": 52,
+      "planned_s": 61.033811758256256
+    },
+    {
+      "kind": "vlm",
+      "idx": 109,
+      "planned_s": 61.2063959962961
+    },
+    {
+      "kind": "llm",
+      "idx": 53,
+      "planned_s": 61.41955454328158
+    },
+    {
+      "kind": "vlm",
+      "idx": 110,
+      "planned_s": 61.69930901336595
+    },
+    {
+      "kind": "llm",
+      "idx": 54,
+      "planned_s": 62.128710467765075
+    },
+    {
+      "kind": "vlm",
+      "idx": 111,
+      "planned_s": 62.40424721397479
+    },
+    {
+      "kind": "vlm",
+      "idx": 112,
+      "planned_s": 62.74045899702372
+    },
+    {
+      "kind": "vlm",
+      "idx": 113,
+      "planned_s": 62.860205306451995
+    },
+    {
+      "kind": "vlm",
+      "idx": 114,
+      "planned_s": 63.3112912471373
+    },
+    {
+      "kind": "llm",
+      "idx": 55,
+      "planned_s": 64.82929596264448
+    },
+    {
+      "kind": "vlm",
+      "idx": 115,
+      "planned_s": 64.83922585495095
+    },
+    {
+      "kind": "llm",
+      "idx": 56,
+      "planned_s": 64.94477173874496
+    },
+    {
+      "kind": "vlm",
+      "idx": 116,
+      "planned_s": 65.60491837400384
+    },
+    {
+      "kind": "llm",
+      "idx": 57,
+      "planned_s": 65.74609951006268
+    },
+    {
+      "kind": "vlm",
+      "idx": 117,
+      "planned_s": 66.9490359239443
+    },
+    {
+      "kind": "llm",
+      "idx": 58,
+      "planned_s": 66.97218640460552
+    },
+    {
+      "kind": "vlm",
+      "idx": 118,
+      "planned_s": 67.0323760936796
+    },
+    {
+      "kind": "vlm",
+      "idx": 119,
+      "planned_s": 67.05322623250352
+    },
+    {
+      "kind": "llm",
+      "idx": 59,
+      "planned_s": 67.76502334627324
+    },
+    {
+      "kind": "vlm",
+      "idx": 120,
+      "planned_s": 68.44942759364766
+    },
+    {
+      "kind": "vlm",
+      "idx": 121,
+      "planned_s": 69.04024627267887
+    },
+    {
+      "kind": "llm",
+      "idx": 60,
+      "planned_s": 69.44954512461308
+    },
+    {
+      "kind": "vlm",
+      "idx": 122,
+      "planned_s": 69.80083327522395
+    },
+    {
+      "kind": "vlm",
+      "idx": 123,
+      "planned_s": 70.02722825695098
+    },
+    {
+      "kind": "llm",
+      "idx": 61,
+      "planned_s": 70.2266906411411
+    },
+    {
+      "kind": "vlm",
+      "idx": 124,
+      "planned_s": 70.54563062118567
+    },
+    {
+      "kind": "vlm",
+      "idx": 125,
+      "planned_s": 71.05311580526241
+    },
+    {
+      "kind": "vlm",
+      "idx": 126,
+      "planned_s": 72.10155335190932
+    },
+    {
+      "kind": "vlm",
+      "idx": 127,
+      "planned_s": 72.78845680699773
+    },
+    {
+      "kind": "vlm",
+      "idx": 128,
+      "planned_s": 72.86094686312863
+    },
+    {
+      "kind": "llm",
+      "idx": 62,
+      "planned_s": 73.54645217450619
+    },
+    {
+      "kind": "vlm",
+      "idx": 129,
+      "planned_s": 73.56068269540212
+    },
+    {
+      "kind": "vlm",
+      "idx": 130,
+      "planned_s": 73.74127180018189
+    },
+    {
+      "kind": "llm",
+      "idx": 63,
+      "planned_s": 74.47073885887815
+    }
+  ],
+  "reactive_gap": [
+    {
+      "kind": "vlm",
+      "idx": 0,
+      "planned_s": 0.4312752492747111
+    },
+    {
+      "kind": "vlm",
+      "idx": 1,
+      "planned_s": 1.1492866209897306
+    },
+    {
+      "kind": "llm",
+      "idx": 0,
+      "planned_s": 1.8606071110652234
+    },
+    {
+      "kind": "vlm",
+      "idx": 2,
+      "planned_s": 2.8269007514505446
+    },
+    {
+      "kind": "llm",
+      "idx": 1,
+      "planned_s": 3.279236264036985
+    },
+    {
+      "kind": "vlm",
+      "idx": 3,
+      "planned_s": 3.4127148333689634
+    },
+    {
+      "kind": "llm",
+      "idx": 2,
+      "planned_s": 3.824949409578578
+    },
+    {
+      "kind": "vlm",
+      "idx": 4,
+      "planned_s": 4.026476460097979
+    },
+    {
+      "kind": "llm",
+      "idx": 3,
+      "planned_s": 4.124591721792392
+    },
+    {
+      "kind": "vlm",
+      "idx": 5,
+      "planned_s": 4.555545182124361
+    },
+    {
+      "kind": "llm",
+      "idx": 4,
+      "planned_s": 4.840546471559542
+    },
+    {
+      "kind": "vlm",
+      "idx": 6,
+      "planned_s": 5.04994578949537
+    },
+    {
+      "kind": "vlm",
+      "idx": 7,
+      "planned_s": 5.0513020282573144
+    },
+    {
+      "kind": "llm",
+      "idx": 5,
+      "planned_s": 5.3596296577614595
+    },
+    {
+      "kind": "vlm",
+      "idx": 8,
+      "planned_s": 5.884734289002957
+    },
+    {
+      "kind": "vlm",
+      "idx": 9,
+      "planned_s": 6.236065505130097
+    },
+    {
+      "kind": "vlm",
+      "idx": 10,
+      "planned_s": 6.332646025297613
+    },
+    {
+      "kind": "llm",
+      "idx": 6,
+      "planned_s": 6.891174505356142
+    },
+    {
+      "kind": "llm",
+      "idx": 7,
+      "planned_s": 7.252593148693992
+    },
+    {
+      "kind": "llm",
+      "idx": 8,
+      "planned_s": 7.899996618247295
+    },
+    {
+      "kind": "vlm",
+      "idx": 11,
+      "planned_s": 8.14223695665907
+    },
+    {
+      "kind": "llm",
+      "idx": 9,
+      "planned_s": 8.775582257125986
+    },
+    {
+      "kind": "vlm",
+      "idx": 12,
+      "planned_s": 9.91985988955897
+    },
+    {
+      "kind": "vlm",
+      "idx": 13,
+      "planned_s": 9.97515636744048
+    },
+    {
+      "kind": "vlm",
+      "idx": 14,
+      "planned_s": 10.91263282418339
+    },
+    {
+      "kind": "vlm",
+      "idx": 15,
+      "planned_s": 11.147906067526067
+    },
+    {
+      "kind": "vlm",
+      "idx": 16,
+      "planned_s": 11.150891862336842
+    },
+    {
+      "kind": "llm",
+      "idx": 10,
+      "planned_s": 11.162776725448648
+    },
+    {
+      "kind": "vlm",
+      "idx": 17,
+      "planned_s": 11.333963296891637
+    },
+    {
+      "kind": "vlm",
+      "idx": 18,
+      "planned_s": 11.761267729247677
+    },
+    {
+      "kind": "llm",
+      "idx": 11,
+      "planned_s": 11.865341827367981
+    },
+    {
+      "kind": "llm",
+      "idx": 12,
+      "planned_s": 12.196401719346236
+    },
+    {
+      "kind": "vlm",
+      "idx": 19,
+      "planned_s": 12.796806923798481
+    },
+    {
+      "kind": "llm",
+      "idx": 13,
+      "planned_s": 13.606186652841014
+    },
+    {
+      "kind": "vlm",
+      "idx": 20,
+      "planned_s": 14.137394224463815
+    },
+    {
+      "kind": "vlm",
+      "idx": 21,
+      "planned_s": 14.336427137286673
+    },
+    {
+      "kind": "llm",
+      "idx": 14,
+      "planned_s": 14.569487749939547
+    },
+    {
+      "kind": "vlm",
+      "idx": 22,
+      "planned_s": 14.770547026914327
+    },
+    {
+      "kind": "llm",
+      "idx": 15,
+      "planned_s": 14.857845172205273
+    },
+    {
+      "kind": "vlm",
+      "idx": 23,
+      "planned_s": 15.609918754009389
+    },
+    {
+      "kind": "vlm",
+      "idx": 24,
+      "planned_s": 15.980793268254336
+    },
+    {
+      "kind": "vlm",
+      "idx": 25,
+      "planned_s": 16.61146314441037
+    },
+    {
+      "kind": "vlm",
+      "idx": 26,
+      "planned_s": 17.19266767290919
+    },
+    {
+      "kind": "llm",
+      "idx": 16,
+      "planned_s": 17.26297536971845
+    },
+    {
+      "kind": "vlm",
+      "idx": 27,
+      "planned_s": 17.38497243485085
+    },
+    {
+      "kind": "vlm",
+      "idx": 28,
+      "planned_s": 17.650649048902263
+    },
+    {
+      "kind": "vlm",
+      "idx": 29,
+      "planned_s": 18.444577548329985
+    },
+    {
+      "kind": "vlm",
+      "idx": 30,
+      "planned_s": 18.529301918107173
+    },
+    {
+      "kind": "vlm",
+      "idx": 31,
+      "planned_s": 19.80724071469388
+    },
+    {
+      "kind": "vlm",
+      "idx": 32,
+      "planned_s": 21.2066642902732
+    },
+    {
+      "kind": "llm",
+      "idx": 17,
+      "planned_s": 21.32497720478463
+    },
+    {
+      "kind": "vlm",
+      "idx": 33,
+      "planned_s": 22.969057942722976
+    },
+    {
+      "kind": "llm",
+      "idx": 18,
+      "planned_s": 22.986852413076974
+    },
+    {
+      "kind": "vlm",
+      "idx": 34,
+      "planned_s": 23.995692311091776
+    },
+    {
+      "kind": "vlm",
+      "idx": 35,
+      "planned_s": 24.142129921179997
+    },
+    {
+      "kind": "vlm",
+      "idx": 36,
+      "planned_s": 24.377533778884278
+    },
+    {
+      "kind": "vlm",
+      "idx": 37,
+      "planned_s": 25.200746030817584
+    },
+    {
+      "kind": "llm",
+      "idx": 19,
+      "planned_s": 25.31133502059574
+    },
+    {
+      "kind": "vlm",
+      "idx": 38,
+      "planned_s": 25.54558802043192
+    },
+    {
+      "kind": "llm",
+      "idx": 20,
+      "planned_s": 25.682612593438463
+    },
+    {
+      "kind": "vlm",
+      "idx": 39,
+      "planned_s": 26.073751893183644
+    },
+    {
+      "kind": "vlm",
+      "idx": 40,
+      "planned_s": 26.783713179978175
+    },
+    {
+      "kind": "vlm",
+      "idx": 41,
+      "planned_s": 26.97652010748538
+    },
+    {
+      "kind": "llm",
+      "idx": 21,
+      "planned_s": 26.99132295291031
+    },
+    {
+      "kind": "vlm",
+      "idx": 42,
+      "planned_s": 27.636797066684935
+    },
+    {
+      "kind": "vlm",
+      "idx": 43,
+      "planned_s": 27.728174139282043
+    },
+    {
+      "kind": "vlm",
+      "idx": 44,
+      "planned_s": 27.90429659289746
+    },
+    {
+      "kind": "vlm",
+      "idx": 45,
+      "planned_s": 28.29500499476393
+    },
+    {
+      "kind": "llm",
+      "idx": 22,
+      "planned_s": 29.282357886232244
+    },
+    {
+      "kind": "llm",
+      "idx": 23,
+      "planned_s": 30.434320104551347
+    },
+    {
+      "kind": "llm",
+      "idx": 24,
+      "planned_s": 31.07324943078136
+    },
+    {
+      "kind": "llm",
+      "idx": 25,
+      "planned_s": 31.179389370186936
+    },
+    {
+      "kind": "vlm",
+      "idx": 46,
+      "planned_s": 31.582954611363416
+    },
+    {
+      "kind": "llm",
+      "idx": 26,
+      "planned_s": 31.748854213268647
+    },
+    {
+      "kind": "llm",
+      "idx": 27,
+      "planned_s": 32.692739634136025
+    },
+    {
+      "kind": "vlm",
+      "idx": 47,
+      "planned_s": 33.12569579347847
+    },
+    {
+      "kind": "vlm",
+      "idx": 48,
+      "planned_s": 33.40862524493618
+    },
+    {
+      "kind": "vlm",
+      "idx": 49,
+      "planned_s": 33.449052628078924
+    },
+    {
+      "kind": "vlm",
+      "idx": 50,
+      "planned_s": 33.5670566947243
+    },
+    {
+      "kind": "vlm",
+      "idx": 51,
+      "planned_s": 33.607933156868896
+    },
+    {
+      "kind": "vlm",
+      "idx": 52,
+      "planned_s": 33.736746852907736
+    },
+    {
+      "kind": "vlm",
+      "idx": 53,
+      "planned_s": 34.04170016990753
+    },
+    {
+      "kind": "vlm",
+      "idx": 54,
+      "planned_s": 34.710226959111196
+    },
+    {
+      "kind": "llm",
+      "idx": 28,
+      "planned_s": 35.134713851246424
+    },
+    {
+      "kind": "vlm",
+      "idx": 55,
+      "planned_s": 35.755547943911665
+    },
+    {
+      "kind": "vlm",
+      "idx": 56,
+      "planned_s": 37.068595434637416
+    },
+    {
+      "kind": "vlm",
+      "idx": 57,
+      "planned_s": 37.79039405682363
+    },
+    {
+      "kind": "vlm",
+      "idx": 58,
+      "planned_s": 38.42386914504714
+    },
+    {
+      "kind": "llm",
+      "idx": 29,
+      "planned_s": 38.5341039002414
+    },
+    {
+      "kind": "vlm",
+      "idx": 59,
+      "planned_s": 38.62695285211573
+    },
+    {
+      "kind": "vlm",
+      "idx": 60,
+      "planned_s": 39.158332957433196
+    },
+    {
+      "kind": "vlm",
+      "idx": 61,
+      "planned_s": 39.174827531658906
+    },
+    {
+      "kind": "llm",
+      "idx": 30,
+      "planned_s": 39.18229640855076
+    },
+    {
+      "kind": "vlm",
+      "idx": 62,
+      "planned_s": 39.63910787279799
+    },
+    {
+      "kind": "vlm",
+      "idx": 63,
+      "planned_s": 39.6553577126742
+    },
+    {
+      "kind": "vlm",
+      "idx": 64,
+      "planned_s": 40.53697952856955
+    },
+    {
+      "kind": "vlm",
+      "idx": 65,
+      "planned_s": 40.78213541827666
+    },
+    {
+      "kind": "vlm",
+      "idx": 66,
+      "planned_s": 41.10617468728382
+    },
+    {
+      "kind": "llm",
+      "idx": 31,
+      "planned_s": 41.18707530966603
+    },
+    {
+      "kind": "llm",
+      "idx": 32,
+      "planned_s": 41.48884590816322
+    },
+    {
+      "kind": "vlm",
+      "idx": 67,
+      "planned_s": 41.96657036297212
+    },
+    {
+      "kind": "vlm",
+      "idx": 68,
+      "planned_s": 42.18191516328443
+    },
+    {
+      "kind": "vlm",
+      "idx": 69,
+      "planned_s": 42.485011828434736
+    },
+    {
+      "kind": "vlm",
+      "idx": 70,
+      "planned_s": 43.03647039589427
+    },
+    {
+      "kind": "llm",
+      "idx": 33,
+      "planned_s": 43.123744341395486
+    },
+    {
+      "kind": "llm",
+      "idx": 34,
+      "planned_s": 43.91936577097017
+    },
+    {
+      "kind": "llm",
+      "idx": 35,
+      "planned_s": 43.93350698849961
+    },
+    {
+      "kind": "vlm",
+      "idx": 71,
+      "planned_s": 44.36463560557195
+    },
+    {
+      "kind": "vlm",
+      "idx": 72,
+      "planned_s": 44.718434618157644
+    },
+    {
+      "kind": "vlm",
+      "idx": 73,
+      "planned_s": 45.09520996512803
+    },
+    {
+      "kind": "llm",
+      "idx": 36,
+      "planned_s": 45.205418528694274
+    },
+    {
+      "kind": "vlm",
+      "idx": 74,
+      "planned_s": 45.63472340339775
+    },
+    {
+      "kind": "llm",
+      "idx": 37,
+      "planned_s": 45.71428530928732
+    },
+    {
+      "kind": "vlm",
+      "idx": 75,
+      "planned_s": 45.85457034804678
+    },
+    {
+      "kind": "vlm",
+      "idx": 76,
+      "planned_s": 46.472943618760105
+    },
+    {
+      "kind": "vlm",
+      "idx": 77,
+      "planned_s": 47.03060423174851
+    },
+    {
+      "kind": "vlm",
+      "idx": 78,
+      "planned_s": 47.062954171421666
+    },
+    {
+      "kind": "llm",
+      "idx": 38,
+      "planned_s": 47.45636916160771
+    },
+    {
+      "kind": "vlm",
+      "idx": 79,
+      "planned_s": 47.81158239788686
+    },
+    {
+      "kind": "vlm",
+      "idx": 80,
+      "planned_s": 47.91381958930868
+    },
+    {
+      "kind": "vlm",
+      "idx": 81,
+      "planned_s": 47.92761316280137
+    },
+    {
+      "kind": "llm",
+      "idx": 39,
+      "planned_s": 48.55945102766747
+    },
+    {
+      "kind": "llm",
+      "idx": 40,
+      "planned_s": 48.56059450049784
+    },
+    {
+      "kind": "vlm",
+      "idx": 82,
+      "planned_s": 48.66455876273503
+    },
+    {
+      "kind": "vlm",
+      "idx": 83,
+      "planned_s": 48.86990805176253
+    },
+    {
+      "kind": "vlm",
+      "idx": 84,
+      "planned_s": 48.94817077050366
+    },
+    {
+      "kind": "vlm",
+      "idx": 85,
+      "planned_s": 49.10877087222977
+    },
+    {
+      "kind": "llm",
+      "idx": 41,
+      "planned_s": 49.24097920199324
+    },
+    {
+      "kind": "vlm",
+      "idx": 86,
+      "planned_s": 49.66776656294503
+    },
+    {
+      "kind": "vlm",
+      "idx": 87,
+      "planned_s": 49.84263135267673
+    },
+    {
+      "kind": "vlm",
+      "idx": 88,
+      "planned_s": 50.31509113163132
+    },
+    {
+      "kind": "vlm",
+      "idx": 89,
+      "planned_s": 50.43140932700278
+    },
+    {
+      "kind": "llm",
+      "idx": 42,
+      "planned_s": 51.26292780062861
+    },
+    {
+      "kind": "llm",
+      "idx": 43,
+      "planned_s": 51.54252382266399
+    },
+    {
+      "kind": "vlm",
+      "idx": 90,
+      "planned_s": 51.80317119302365
+    },
+    {
+      "kind": "vlm",
+      "idx": 91,
+      "planned_s": 51.84282201306118
+    },
+    {
+      "kind": "llm",
+      "idx": 44,
+      "planned_s": 51.935869216240306
+    },
+    {
+      "kind": "vlm",
+      "idx": 92,
+      "planned_s": 52.19987708327048
+    },
+    {
+      "kind": "vlm",
+      "idx": 93,
+      "planned_s": 52.20214387820235
+    },
+    {
+      "kind": "vlm",
+      "idx": 94,
+      "planned_s": 52.69430929964994
+    },
+    {
+      "kind": "vlm",
+      "idx": 95,
+      "planned_s": 52.76630906966549
+    },
+    {
+      "kind": "llm",
+      "idx": 45,
+      "planned_s": 53.979721492874475
+    },
+    {
+      "kind": "llm",
+      "idx": 46,
+      "planned_s": 54.19176078963686
+    },
+    {
+      "kind": "vlm",
+      "idx": 96,
+      "planned_s": 54.406278475758896
+    },
+    {
+      "kind": "vlm",
+      "idx": 97,
+      "planned_s": 54.60738744072227
+    },
+    {
+      "kind": "llm",
+      "idx": 47,
+      "planned_s": 55.02995857636045
+    },
+    {
+      "kind": "vlm",
+      "idx": 98,
+      "planned_s": 55.22591829093577
+    },
+    {
+      "kind": "llm",
+      "idx": 48,
+      "planned_s": 55.302575931780105
+    },
+    {
+      "kind": "vlm",
+      "idx": 99,
+      "planned_s": 55.625657682076664
+    },
+    {
+      "kind": "vlm",
+      "idx": 100,
+      "planned_s": 57.46730389258407
+    },
+    {
+      "kind": "vlm",
+      "idx": 101,
+      "planned_s": 57.72072405673026
+    },
+    {
+      "kind": "vlm",
+      "idx": 102,
+      "planned_s": 57.76823841420175
+    },
+    {
+      "kind": "vlm",
+      "idx": 103,
+      "planned_s": 57.80280386819213
+    },
+    {
+      "kind": "vlm",
+      "idx": 104,
+      "planned_s": 57.98885721727667
+    },
+    {
+      "kind": "llm",
+      "idx": 49,
+      "planned_s": 58.73033035943083
+    },
+    {
+      "kind": "vlm",
+      "idx": 105,
+      "planned_s": 59.23640454072779
+    },
+    {
+      "kind": "vlm",
+      "idx": 106,
+      "planned_s": 60.286403396288286
+    },
+    {
+      "kind": "llm",
+      "idx": 50,
+      "planned_s": 60.355793336471166
+    },
+    {
+      "kind": "vlm",
+      "idx": 107,
+      "planned_s": 60.43029391330318
+    },
+    {
+      "kind": "vlm",
+      "idx": 108,
+      "planned_s": 60.43687606786656
+    },
+    {
+      "kind": "llm",
+      "idx": 51,
+      "planned_s": 60.94994544648457
+    },
+    {
+      "kind": "llm",
+      "idx": 52,
+      "planned_s": 61.033811758256256
+    },
+    {
+      "kind": "vlm",
+      "idx": 109,
+      "planned_s": 61.2063959962961
+    },
+    {
+      "kind": "llm",
+      "idx": 53,
+      "planned_s": 61.41955454328158
+    },
+    {
+      "kind": "vlm",
+      "idx": 110,
+      "planned_s": 61.69930901336595
+    },
+    {
+      "kind": "llm",
+      "idx": 54,
+      "planned_s": 62.128710467765075
+    },
+    {
+      "kind": "vlm",
+      "idx": 111,
+      "planned_s": 62.40424721397479
+    },
+    {
+      "kind": "vlm",
+      "idx": 112,
+      "planned_s": 62.74045899702372
+    },
+    {
+      "kind": "vlm",
+      "idx": 113,
+      "planned_s": 62.860205306451995
+    },
+    {
+      "kind": "vlm",
+      "idx": 114,
+      "planned_s": 63.3112912471373
+    },
+    {
+      "kind": "llm",
+      "idx": 55,
+      "planned_s": 64.82929596264448
+    },
+    {
+      "kind": "vlm",
+      "idx": 115,
+      "planned_s": 64.83922585495095
+    },
+    {
+      "kind": "llm",
+      "idx": 56,
+      "planned_s": 64.94477173874496
+    },
+    {
+      "kind": "vlm",
+      "idx": 116,
+      "planned_s": 65.60491837400384
+    },
+    {
+      "kind": "llm",
+      "idx": 57,
+      "planned_s": 65.74609951006268
+    },
+    {
+      "kind": "vlm",
+      "idx": 117,
+      "planned_s": 66.9490359239443
+    },
+    {
+      "kind": "llm",
+      "idx": 58,
+      "planned_s": 66.97218640460552
+    },
+    {
+      "kind": "vlm",
+      "idx": 118,
+      "planned_s": 67.0323760936796
+    },
+    {
+      "kind": "vlm",
+      "idx": 119,
+      "planned_s": 67.05322623250352
+    },
+    {
+      "kind": "llm",
+      "idx": 59,
+      "planned_s": 67.76502334627324
+    },
+    {
+      "kind": "vlm",
+      "idx": 120,
+      "planned_s": 68.44942759364766
+    },
+    {
+      "kind": "vlm",
+      "idx": 121,
+      "planned_s": 69.04024627267887
+    },
+    {
+      "kind": "llm",
+      "idx": 60,
+      "planned_s": 69.44954512461308
+    },
+    {
+      "kind": "vlm",
+      "idx": 122,
+      "planned_s": 69.80083327522395
+    },
+    {
+      "kind": "vlm",
+      "idx": 123,
+      "planned_s": 70.02722825695098
+    },
+    {
+      "kind": "llm",
+      "idx": 61,
+      "planned_s": 70.2266906411411
+    },
+    {
+      "kind": "vlm",
+      "idx": 124,
+      "planned_s": 70.54563062118567
+    },
+    {
+      "kind": "vlm",
+      "idx": 125,
+      "planned_s": 71.05311580526241
+    },
+    {
+      "kind": "vlm",
+      "idx": 126,
+      "planned_s": 72.10155335190932
+    },
+    {
+      "kind": "vlm",
+      "idx": 127,
+      "planned_s": 72.78845680699773
+    },
+    {
+      "kind": "vlm",
+      "idx": 128,
+      "planned_s": 72.86094686312863
+    },
+    {
+      "kind": "llm",
+      "idx": 62,
+      "planned_s": 73.54645217450619
+    },
+    {
+      "kind": "vlm",
+      "idx": 129,
+      "planned_s": 73.56068269540212
+    },
+    {
+      "kind": "vlm",
+      "idx": 130,
+      "planned_s": 73.74127180018189
+    },
+    {
+      "kind": "llm",
+      "idx": 63,
+      "planned_s": 74.47073885887815
+    }
+  ]
+}

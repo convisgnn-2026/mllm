@@ -1,0 +1,32 @@
+{
+  "limitation": "Primer includes preprocessing, HTTP and file transfer. Association is not GPU causality. Old pilot lacks chunk timestamps; only request-level association available.",
+  "cases": {
+    "prefill_guard": {
+      "llm_requests": 48,
+      "mean_primer_overlap_fraction": 0.30903578498351864,
+      "request_overlap_vs_chunk_gap_pearson": 0.8537517214432051,
+      "gap_overlapping_primer_p90_s": 0.02754197344183922,
+      "gap_outside_primer_p90_s": 0.012043759832158685,
+      "gaps_overlapping": 2893,
+      "gaps_outside": 9112
+    },
+    "reactive_gap": {
+      "llm_requests": 48,
+      "mean_primer_overlap_fraction": 0.3159014263578069,
+      "request_overlap_vs_chunk_gap_pearson": 0.8367618973536783,
+      "gap_overlapping_primer_p90_s": 0.027862743427976965,
+      "gap_outside_primer_p90_s": 0.012222093413583934,
+      "gaps_overlapping": 2847,
+      "gaps_outside": 9136
+    },
+    "serialized": {
+      "llm_requests": 48,
+      "mean_primer_overlap_fraction": 0.30431513595173365,
+      "request_overlap_vs_chunk_gap_pearson": 0.8118449388026635,
+      "gap_overlapping_primer_p90_s": 0.02744313282892108,
+      "gap_outside_primer_p90_s": 0.012305983481928707,
+      "gaps_overlapping": 2761,
+      "gaps_outside": 9235
+    }
+  }
+}
