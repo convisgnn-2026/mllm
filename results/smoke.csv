@@ -1,2 +1,0 @@
-tag,sm_count,gpu_mem_gib,width,height,frames,lat_f,lat_h,lat_w,tokens,latent_mib,text_ms,text_peak_gib,text_w_gib,step_ms_mean,step_ms_std,step_cv_pct,dit_peak_gib,dit_w_gib,vae_ms,vae_peak_gib,vae_w_gib,status
-full,148,267.7,480,272,17,5,34,60,10200,0.31,21.25,10.872,10.582,18.56,0.308,1.661,3.302,2.649,109.1,5.953,0.473,ok
