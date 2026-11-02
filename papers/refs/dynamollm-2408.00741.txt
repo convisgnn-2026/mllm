@@ -1,0 +1,1094 @@
+                                           DynamoLLM: Designing LLM Inference Clusters
+                                               for Performance and Energy Efficiency
+                                                           Jovan Stojkovic, Chaojie Zhang† , Íñigo Goiri† , Josep Torrellas, Esha Choukse†
+                                                                                                           †
+                                                        University of Illinois at Urbana-Champaign           Microsoft Azure Research - Systems
+
+
+                                           Abstract—The rapid evolution and widespread adoption of                cations [7], [17], [21], [31], [61], [80]. Specifically, we observe
+                                        generative large language models (LLMs) have made them a                  that heterogeneity in LLM inference compute properties and
+                                        pivotal workload in various applications. Today, LLM inference            fluctuations in LLM inference workloads create a dynamic en-
+                                        clusters receive a large number of queries with strict Service
+                                        Level Objectives (SLOs). To achieve the desired performance,              vironment with large variations. Such variations arise from: (1)
+arXiv:2408.00741v1 [cs.AI] 1 Aug 2024
+
+
+
+
+                                        these models execute on power-hungry GPUs causing the in-                 requests with varying input/output token lengths, (2) distinct
+                                        ference clusters to consume large amount of energy and, conse-            compute properties of different LLMs, and (3) different SLOs
+                                        quently, result in excessive carbon emissions. Fortunately, we find       required by the services using an LLM.
+                                        that there is a great opportunity to exploit the heterogeneity in
+                                        inference compute properties and fluctuations in inference work-             Requests with a large number of input tokens are compute
+                                        loads, to significantly improve energy-efficiency. However, such          intensive, thus, sensitive to GPU frequency. Conversely, re-
+                                        a diverse and dynamic environment creates a large search-space            quests with a few input tokens and many output tokens have
+                                        where different system configurations (e.g., number of instances,         low compute, but high memory requirements. Reducing their
+                                        model parallelism, and GPU frequency) translate into different
+                                        energy-performance trade-offs. To address these challenges, we            GPU frequency would save the energy without significantly
+                                        propose DynamoLLM, the first energy-management framework                  impacting the performance. Moreover, the number of model
+                                        for LLM inference environments. DynamoLLM automatically                   parameters also affects the LLM’s sensitivity to the number of
+                                        and dynamically reconfigures the inference cluster to optimize for        GPUs and GPU frequency. Finally, depending on the service
+                                        energy and cost of LLM serving under the service’s performance            currently using the LLM, the SLO requirements can be strict
+                                        SLOs. We show that at a service-level, DynamoLLM conserves
+                                        53% energy and 38% operational carbon emissions, and reduces              requiring high-performance configurations, or loose allowing
+                                        61% cost to the customer, while meeting the latency SLOs.                 for lower-performance but more energy-efficient configura-
+                                                                                                                  tions. Importantly, these characteristics rapidly change due to
+                                                               I. I NTRODUCTION                                   load fluctuations and dynamic distributions of requests. Such
+                                                                                                                  dynamic changes cause a system configuration that is energy-
+                                           The exponential growth in the adoption of generative large
+                                                                                                                  efficient at a given point, to quickly become sub-optimal. This
+                                        language models (LLMs) has positioned them at the core
+                                                                                                                  requires a dynamic approach to resource management.
+                                        of numerous technological advancements and applications.
+                                        Today, we see use-cases of LLMs in various domains, such                     To pave the way towards energy-efficient and sustainable
+                                        as healthcare [52], developer productivity [13], data analyt-             LLM inference clusters, this paper introduces DynamoLLM,
+                                        ics [68], education [5] and other. As the popularity of LLMs              the first energy-management framework for LLM inference
+                                        increases among users, the inference clusters receive millions            environments. DynamoLLM exploits the unique properties of
+                                        of queries per day [27] resulting in large infrastructures with           LLM inference workloads to reduce their energy consump-
+                                        sophisticated software and expensive hardware systems.                    tion while meeting the performance SLOs. The system uses
+                                           To meet these ever increasing computing demands, re-                   energy-performance profiles of models and their workloads
+                                        searchers proposed various software [9], [26], [35], [73], [81]           to automatically and dynamically select the energy-efficient
+                                        and hardware [4], [50], [78] techniques. Such techniques                  configuration. It leverages multiple knobs, including scaling
+                                        improve the performance efficiency of LLM inference clusters.             in/out the number of server instances, model parallelism across
+                                        However, one aspect that has been largely overlooked is the               GPUs, and GPU frequency scaling.
+                                        energy consumption of these environments [58], [60]. The                     To handle workload heterogeneity, DynamoLLM maintains
+                                        substantial energy requirements of serving LLMs running on                differently configured pools of LLM instances that are op-
+                                        power-hungry GPUs have emerged as a significant concern. As               timal for different types of incoming requests. For instance,
+                                        these models become integral to various services, minimizing              compared to a request with many input and output tokens,
+                                        their energy consumption and, consequently, carbon emissions              a request that processes and outputs fewer tokens runs more
+                                        while maintaining high performance is paramount.                          efficiently on a model parallelized across fewer GPUs running
+                                           To address this gap, this paper starts by characterizing the           at a lower frequency. As request distribution varies over
+                                        energy-efficiency properties of LLM inference workloads. Our              time, DynamoLLM dynamically sizes the pools. These pools
+                                        characterization underscores that such environments present               can be merged into fewer pools or divided into multiple
+                                        a distinct set of challenges, divergent from existing energy              pools over time, providing a balance between right-sizing
+                                        management schemes tailored for traditional datacenters appli-            and fragmentation of resources. To efficiently manage the
+
+
+
+                                                                                                              1
+resources, DynamoLLM uses a hierarchy of controllers that              communication. TP performs better for GPUs within the same
+reduces computation complexity and eliminates centralized              server, connected with high bandwidth interconnects (e.g.,
+bottlenecks. The controller at each level operates under the           NVLink [45]), while PP is preferred across servers. Since most
+conditions imposed by the upper level, computes its dedicated          open source models [34], [38], [67] fit on 8 GPUs in a single
+knob, and forwards further constraints to the controllers at a         server, we consider only TP in the rest of the paper; the ideas
+lower level. Finally, to enable frequent and smooth transition         can easily extend to PP. We denote tensor parallelism across
+across different configurations, DynamoLLM includes tech-              2, 4 and 8 GPUs as TP2, TP4 and TP8, respectively.
+niques to minimize or hide the reconfiguration overheads. As           Power and energy in datacenters A rich body of work
+a result, the system maintains high levels of efficiency and           explored power/energy efficiency in traditional datacenters [7],
+service quality under changing workload demands.                       [29], [31], [62]. However, the rapid growth of LLMs has posed
+   An evaluation of DynamoLLM with a large GPU cluster                 new challenges that have not yet been extensively studied.
+running production-level traces from a major cloud provider            LLM inference workloads comprise a swiftly increasing per-
+shows that DynamoLLM is very effective: it conserves 53%               centage of datacenter load [49]. This, coupled with the power-
+energy, 38% operational carbon emissions, and reduces 61%              dense hardware like DGX A100s and H100s being deployed
+cost to the customer, while meeting the latency SLOs.                  to serve these workloads makes them power, energy, and
+   The contributions of this paper are as follows:                     carbon-intensive [12], [49], [58]. To effectively address this
+• An analysis of the opportunities for energy-efficient LLM            challenge, it is important to have a comprehensive framework
+  serving, rooting in the heterogeneity and fluctuations within        for managing energy in these systems.
+  the inference workloads.
+• Design and implementation of DynamoLLM, a high perfor-                     III. O PPORTUNITIES FOR E NERGY E FFICIENCY
+  mance and energy-optimized framework for LLM inference.                 To understand the energy-efficiency properties of LLM
+• An evaluation of DynamoLLM on a large-scale platform                 inference environments, we characterize open-source mod-
+  using production-level traces.                                       els [33], [38], [39], [66] on an NVIDIA DGX H100 server [44]
+                                                                       using vLLM [26] inference engine. We analyze the energy
+                      II. BACKGROUND                                   properties of LLMs by varying the request lengths, request
+Computational phases of LLMs Generative LLMs [34], [38],               load, model, and service SLO. Additionally, we analyze how
+[56], [67], [80] are auto-regressive: they process the whole           the profiled variables change over time in a real-production
+input in parallel, and serially generate the output tokens. This       environment using the invocation traces of two LLM services
+property leads to two computationally distinct phases [49],            from Azure: Coding and Conversation. The traces include a
+[50]. First is the prefill phase, where the input tokens are           subset of invocations received by the profiled services during
+computed in parallel. This is a compute-intensive phase and            one week, and contain the timestamp of the invocation, along
+scales with the number of input tokens. Second is the decode           with the number of input and output tokens. These traces are a
+phase, where each output token is generated serially, based on         super-set of our open-source traces for the same services [50].
+all the tokens seen so far. This is a memory-intensive phase,
+and scales with the number of output tokens.                           A. Heterogeneous Energy-Performance Profiles
+Performance metrics for LLMs To evaluate the performance,              Request lengths The prefill and decode phases in an LLM
+we use: time to first token (TTFT), time between tokens                inference exhibit distinct execution behaviors (Section II),
+(TBT), and throughput [50], [63]. TTFT is the latency of               suggesting that requests of different input and output lengths
+generating the first output token; while TBT is the latency            possess different compute and energy characteristics. We cate-
+to generate each new output token. To quantify the energy              gorize the requests based on the number of input/output tokens
+efficiency, we measure the energy consumption in Watt-hours            into 9 buckets: SS (short input, short output), SM (short input,
+(Wh) while meeting certain latency SLOs. The SLOs vary                 medium output), SL (short input, long output), MS, MM,
+depending on their use cases for different tasks. For latency-         ML, LS, LM, and LL. Table IV shows the thresholds and
+sensitive tasks, both TTFT and TBT are important metrics               corresponding TTFT/TBT SLOs. We set the thresholds for
+with strict SLOs. We define SLOs for TTFT and TBT based                request lengths using the 33rd , 66th and 100th percentiles of
+on maximum achievable performance, described in Table IV.              the input/output lengths from a trace for a Conversation service
+LLM parallelism A single model can be divided across GPUs              from Azure. We set the SLOs to 5× the latency of a single
+to improve performance and allow larger memory footprints.             request running isolated on a system [30].
+LLM inference typically uses pipeline and tensor parallelism.             We use these categories to characterize the energy consump-
+Pipeline parallelism (PP) partitions the LLM layers among              tion of different request types running the Llama2-70B [33]
+GPUs, while keeping all the operators/tensors of a layer on            model with a medium system load of 2000 tokens per second
+the GPU. GPUs then communicate only in between two                     (TPS) under various GPU frequencies and model parallelisms.
+consecutive stages. Tensor parallelism (TP) allocates a slice          Table I shows our results in the form of a heat map. Since
+of each layer to each GPU. This requires aggregation across            shorter requests are not computationally intensive, they meet
+all the GPU for each layer, in turn needing high bandwidth             their SLOs with any tensor parallelism, and generally at lower
+
+
+
+                                                                   2
+              Tensor Parallelism                         TP2                                   TP4                                  TP8
+              GPU Frequency (GHz)         0.8      1.2         1.6     2.0     0.8       1.2         1.6    2.0     0.8      1.2          1.6      2.0
+               Input        Output
+               Short            Short              0.77     0.97       1.03    0.94     0.79     0.91       1.01    1.35    1.19         1.29     1.49
+               Short           Medium              2.78     3.45       3.68    3.39     2.82     3.37       3.81    4.55    4.15         4.43     4.74
+               Short            Long                                           4.84     4.17     4.97       5.52    6.37    5.62         5.59     6.95
+              Medium            Short                       1.02       1.09             1.08     1.07       1.20    1.51    1.29         1.34     1.73
+              Medium           Medium                                                   4.23     3.91       4.08    5.34    4.39         4.56     5.44
+              Medium            Long                                                    4.99     4.66       4.53    6.86    5.79         6.52     7.12
+               Long             Short                                                   1.51     1.64       1.76    2.55    2.53         2.83     2.94
+               Long            Medium                                                                                       7.71         8.81     9.17
+               Long             Long                                                                                        12.99        11.89    13.21
+
+TABLE I: Energy consumption in Watt×hours (Wh) for Llama2-70B varying request lengths, frequency, and model parallelism
+with medium system load (2K tokens per second). Configurations that violate the SLO are shown as empty gray boxes, while
+the acceptable configurations are colored as a heat map according to their energy consumption, per row.
+
+                    Tensor Parallelism                     TP2                                 TP4                                 TP8
+                   GPU Frequency (GHz)      0.8      1.2     1.6        2.0     0.8      1.2         1.6     2.0     0.8     1.2         1.6     2.0
+                        Low Load                               3.41    3.75    3.44      2.93        3.71   3.73    4.49    3.76      4.52       4.64
+                       Medium Load                                                       4.23        3.91   4.08    5.34    4.39      4.56       5.44
+                        High Load                                                                    4.22   4.13    5.86    5.24      5.42       6.62
+
+TABLE II: Energy consumption in Wh for LLama2-70B medium-sized input and output (MM) requests varying frequency and
+model parallelism under different system loads: low (650 TPS), medium (2K TPS) and high (4K TPS).
+
+                Tensor Parallelism                         TP2                                  TP4                                 TP8
+               GPU Frequency (GHz)         0.8       1.2         1.6    2.0     0.8       1.2         1.6    2.0     0.8     1.2       1.6        2.0
+                    Llama2-13B [32]        1.05     0.99       1.14     1.24    1.52     1.27        1.58    1.65    2.61    2.35        2.74     3.45
+                   Mixtral-8x7B [39]       1.03     0.98       1.21     1.32    1.39     1.51        2.09    2.31    2.57    3.06        3.71     4.66
+                    Llama2-70B [33]                                                      4.23        3.91    4.08    5.34    4.39        4.56     5.44
+                    Llama3-70B [34]                                                      4.32        4.28    4.57    6.11    5.18        5.42     6.45
+                   Mixtral-8x22B [38]                                                                                3.83    3.23        3.65     4.03
+                   Falcon-180B [66]                                                                                  9.56    7.94        8.57    10.34
+
+TABLE III: Energy consumption in Wh for medium-sized (MM) requests of different LLM architectures varying the frequency
+and model parallelism with medium system load (2K TPS).
+
+
+                       Input     Output   TTFT SLO          TBT SLO                   the output length is unknown. Thus, the system needs to
+      Short    S       <256       <100           250 ms          100 ms               predict the output length. DynamoLLM will rely on prior
+     Medium    M      <1024       <350           400 ms          100 ms               work that efficiently performs such operation with relatively
+      Long     L      ≤8192       ≥350          2000 ms          100 ms
+                                                                                      high precision [19], [55], [79], and will have a mechanism to
+TABLE IV: Thresholds for classifying the requests based on                            mitigate the impact of occasional mis-predictions.
+input/output lengths and corresponding TTFT/TBT SLOs.                                 Request loads In addition to the request length, the incoming
+                                                                                      load of the LLM inference server drives the compute require-
+frequencies compared to the rest. As an example, the least-                           ments. During periods of low load, the system has a larger
+energy configuration for SS requests is TP2 at 1.2 GHz. Con-                          SLO slack to exploit and can run the requests at low-frequency
+versely, LL requests can only run with TP8 without violating                          configurations to save energy. Conversely, during periods of
+the SLO. With TP8, the least-energy configuration for LL                              high load, the system does not have enough SLO slack, and
+requests is 1.6 GHz. Note that the lowest power configuration                         needs to run at high-frequency configurations.
+that meets SLOs (TP8 at 1.2 GHz), is not the energy-optimal                              Table II shows the energy consumed when running Llama2-
+one due to the increased execution time. Running all the                              70B medium-sized input and output (MM) requests while
+requests together would require the system to run with the                            varying the number of processed prompt tokens per second
+most constrained SLO configuration, in this case, as per the LL                       (TPS). The system can run low load with any TP at almost
+configuration. This would make the system energy inefficient.                         any frequency. Among all feasible configurations, the lowest-
+   To exploit this heterogeneity for energy-efficiency, the sys-                      energy configuration is TP4 with 1.2 GHz. TP8 requires more
+tem would need to separate requests based on their input/out-                         GPUs to operate in parallel and, thus, consumes more energy.
+put lengths, and process different request types with different                       TP2 uses fewer GPUs but increases the execution time and
+server configurations. However, on request arrival, the input                         forces individual GPUs to operate at high frequency to meet
+length is known, but, due to the auto-regressive LLM nature,                          SLOs, leading to high energy. Conversely, under high load,
+
+
+
+                                                                                3
+                         SS   SM      SL      MS     MM        ML      LS    LM         LL                                           Coding              Conversation
+
+
+
+
+                                                                                                 Normalized TPS
+                   100                               100                                                          1.00
+Distribution [%]
+
+
+                    75                                75                                                          0.75
+                    50                                50                                                          0.50
+                    25                                25                                                          0.25
+                     0                                 0                                                          0.00
+                                                                                                                         Mon   Tue     Wed       Thu       Fri   Sat    Sun
+                          on
+
+                            e
+                          ed
+
+                           u
+
+                                          i
+
+                                                 t
+                                                n
+
+
+
+                                                            on
+
+                                                              e
+                                                            ed
+
+                                                             u
+
+                                                                               i
+
+                                                                                       t
+                                                                                      n
+                                       Fr
+
+
+
+
+                                                                            Fr
+                                              Sa
+
+
+
+
+                                                                                   Sa
+                         Tu
+
+
+
+
+                                                           Tu
+                         Th
+
+
+
+
+                                              Su
+
+
+
+
+                                                           Th
+
+
+
+
+                                                                                    Su
+                                                                                                                                              Time [h]
+                         W
+
+
+
+
+                                                           W
+                         M
+
+
+
+
+                                                           M
+                                   Coding                           Conversation                 Fig. 2: Load over a week for Coding and Conversation LLM
+Fig. 1: Distribution of requests based on input and output                                       inference workloads.
+lengths categorized into three groups: short, medium, and long.
+                                                                                                 Coding shows the opposite trend. However, both services have
+the system cannot operate on TP2 and requires TP4 or TP8.                                        a significant fraction of each request type, and importantly, the
+The lowest energy configuration is TP4 with 2 GHz. Overall,                                      popularity of request types changes over time.
+to minimize the energy consumption while operating under                                            As observed earlier, different request types require different
+performance constraints, we need to consider the incoming                                        energy-optimal configurations. Thus, the system needs to split
+load to set the correct parallelism and GPU frequency.                                           its resources into per request-type pools, configure pools
+Requested model The diversity of the compute properties                                          individually, and dynamically adapt the pools’ configurations
+of an LLM directly translates into its energy profile. Ta-                                       based on the current request distribution. However, if the
+ble III shows the energy consumption of different LLMs                                           system classifies the requests into too few classes, it will not be
+when running medium-sized requests at medium system load.                                        able to fine-tune the system for best energy. On the other hand,
+Smaller models, such as Llama2-13B and Mixtral-8x7B, can                                         too many classes may lead to fragmentation and negatively
+run with any TP (even with a single GPU); their lowest-energy                                    impact energy efficiency. Thus, the system has to find the
+configuration is TP2 at 1.2 GHz. Mixtral-8x22B and Falcon-                                       right number of resource pools. In DynamoLLM, we will use
+180B are much larger and can only run with TP8. Their lowest-                                    historical data to set the number of pools such that requests
+energy configuration is TP8 at 1.2 GHz.                                                          with distinct SLO requirements (TTFT or TBT bound) and
+   Compute-bound models with large number of parameters                                          compute properties (compute or memory bound) have separate
+are more sensitive to the GPU frequency and model paral-                                         pools. Moreover, as the load of a given request type reduces,
+lelism. Hence, they often need to operate at high-frequency                                      DynamoLLM will avoid fragmentation by merging the pool
+and high-energy modes. Sparse models with relatively smaller                                     with the next available pool that serves longer requests.
+numbers of parameters tolerate lower frequencies and lower                                       Request load fluctuations LLM inference workloads, as user-
+model parallelism. Hence, they meet the performance require-                                     facing applications, exhibit a typical diurnal pattern with peaks
+ments even with lower-performance modes.                                                         during working hours and valleys at night and weekends.
+Service SLO Different services often use the same model                                          Figure 2 shows the load in tokens per second of the two
+with different SLO requirements [57]. As indicated before,                                       workloads over a week. The load is normalized to the peak
+we assume an SLO such that the P99 tail latency is within 5×                                     of the individual workloads. The Coding trace shows a clear
+of the execution time of a request on an unloaded system [30].                                   diurnal pattern, with peaks every day, lower load at night, and
+However, some services have more relaxed SLOs, at 10× or                                         much lower load during weekends. Conversation shows a less
+even 20× of a single request execution [10], [37]. For different                                 extreme, but still significant, diurnal pattern.
+SLO requirements, the system may need different energy-                                             The peak load of Conversation is 1.7× and 3.3× higher than
+optimal configurations. For example, Table I shows that, with                                    its average and valley loads, respectively. The peak load of
+strict SLO (5×), short-input long-output sized LLama2-70B                                        Coding is 2.8× and 34.6× higher than its average and valley
+requests at medium load have the optimal configuration at TP4                                    loads, respectively. This large slack indicates that the LLM
+and 1.2GHz. However, if with loose SLO (10×), the requests                                       inference servers can frequently operate in a less performant
+may even operate with TP2 at 1.6GHz.                                                             but energy-optimized configuration without violating the SLO.
+Insight #1 LLM workloads are highly heterogeneous in their                                       Once the load starts building up, the server needs to switch to
+energy-performance profiles. To achieve the optimal energy                                       a more performant mode of operation.
+under performance SLOs, different requests (sizes, models and                                    LLM service SLO and model diversity Finally, different
+SLOs) need to be processed separately and differently.                                           services may time-share the same LLM model instance [14].
+                                                                                                 They may have different SLOs, requiring the configuration
+B. Dynamic LLM Inference Workloads                                                               to be adapted based on the current service-user. On the other
+Changing request-length distribution We measure the distri-                                      hand, the same service may concurrently use multiple different
+bution of request types for Coding and Conversation services.                                    models [11]. This requires different execution plans for the
+Figure 1 shows the distribution of requests for each workload                                    optimal energy consumption of the individual queries. Thus,
+over a week. The distribution differs across services. Conver-                                   it is not trivial for service providers to operate in an energy-
+sation has typically longer outputs and shorter inputs, while                                    optimal setting while meeting the performance SLOs.
+
+
+
+                                                                                             4
+       Overhead source                                 Time                         10
+                                                                                                        ConstFreq   SwitchFreq
+
+
+
+
+                                                                      T-put [RPS]
+                                                                                     8
+       Create a new H100 VM [36]                      ∼1-2 min
+       Initialize distributed multi-GPU environment    ∼2 min                        6
+       Download model weights (Llama2-70B [67])        ∼3 min                        4
+       Set up the engine configuration                ∼18 sec                        2
+       Install weights and KV cache on GPUs           ∼15 sec                        0   SS   SM   SL   MS   MM     ML   LS      LM   LL   Avg
+       Total                                          ∼6-8 min
+                                                                       Fig. 3: Throughput for different request types with constant
+TABLE V: Measured overheads of creating a new 8×H100                   frequency (1980MHz) and with re-setting the frequency (to
+instance of an LLM inference server VM.                                1980MHz) on every iteration in the background.
+
+                                                                       around 50-80ms. In comparison, one decode iteration of the
+Insight #2 LLM workloads are highly dynamic and, thus, an              LLM inference process takes 20-30ms. Consequently, the time
+energy-optimal configuration can quickly become sub-optimal.           spent adjusting the GPU frequency can significantly impact
+However, the complexity of a large search space requires an            the overall performance, potentially doubling the latency of
+automatic and user-transparent configuration selection.                individual inference steps. Figure 3 shows the throughput for
+                                                                       different request types when constantly running at the highest
+C. Reconfiguration Overheads                                           frequency (1980 MHz) and when re-setting the frequency (to
+   To capture the fast changes in LLM inference workloads, we          1980 MHz) in the background on every LLM inference itera-
+need to quickly transition between configurations. However,            tion. Due to the software overheads, the throughput of LLM
+there are overheads to change (1) number of inference server           inference system significantly drops. Therefore, optimizing
+instances, (2) model parallelism, and (3) GPU frequency.               or minimizing frequency changes during LLM inference is
+Changing instance number To adjust to fluctuating load,                crucial for maintaining efficient and responsive performance.
+it is cost-beneficial to dynamically adjust the number of              Insight #3 Transitioning between LLM server configurations
+LLM instances to serve the requests (i.e., scale in and out).          incurs significant overheads. For energy-efficiency, such over-
+However, the overheads of adding a new inference server are            heads need to be minimized and considered when computing
+too large to be tolerable on the critical path of inference            the energy/performance trade-offs.
+loads. Table V shows the breakdown of the overheads to:
+(1) instantiate a new GPU VM in the cloud (such as H100                                  IV. DYNAMO LLM: A N E NERGY M ANAGEMENT
+VM [36]), (2) initialize the distributed multi-GPU environment                            F RAMEWORK FOR LLM I NFERENCE C LUSTERS
+(e.g., Ray, MPI), (3) download the model weights, (4) setup               We use the insights to design DynamoLLM, the first energy
+the inference engine, and (5) install the weights and key-             management framework for LLM inference environments. Dy-
+value cache on the GPUs. In total, these overheads can take            namoLLM seamlessly integrates with existing inference plat-
+even a few minutes. Hence, the conventional LLM inference              forms, enabling LLM workloads to operate energy-efficiently
+environments typically provision the static number of instances        and cost-effectively while meeting their performance SLOs.
+to handle their peak load resulting in heavy underutilization.         DynamoLLM has four key principles. First, it is energy-
+In DynamoLLM, we will propose techniques to efficiently                optimized and SLO-aware, leveraging model profiles to au-
+scale the number of instances (with the current load) while            tomatically select the most energy-efficient configuration for
+minimizing most of the scale-out overheads.                            specific LLMs and inference workloads within their SLO
+Changing model parallelism To modify the model paral-                  requirements. Second, DynamoLLM fine-tunes configurations
+lelism of an LLM inference server, we need to perform two              for heterogeneous LLM workloads by dividing cluster re-
+operations. First, we need to re-shard the model weights and           sources into instance pools tailored to specific request types.
+transfer them to the memory of the right GPUs. Second, the             Third, DynamoLLM accommodates fluctuating LLM infer-
+inference engine needs to synchronize the involved GPUs.               ence loads by dynamically reconfiguring the chosen organiza-
+Current systems stop the engine, unload the weights from               tion. Finally, to ensure frequent and smooth reconfiguration,
+GPUs, load the weights from the host to the new set of GPUs,           DynamoLLM minimizes reconfiguration overheads.
+and re-start the engine from the scratch. This adds intolerable        Architecture Figure 4 shows the DynamoLLM architecture.
+overheads (around 1-2 minutes) if performed on the critical            The system is organized hierarchically at the cluster, pool,
+path. In DynamoLLM, we will show how to minimize the re-               and instance levels. At each level, the controllers tune their
+sharding overheads by smartly mapping the logical to physical          assigned configuration knob, and communicate their decisions
+GPUs, exploiting inter-GPU direct NVLink connections and               with the controllers from the upper and lower levels. The
+moving the weights between GPUs in the background.                     controllers use energy-performance models generated in the
+Changing GPU frequency Setting the GPU frequency (e.g.,                profiling phase to determine the number of instances, model
+via nvidia-smi [46]) incurs non-negligible overheads. It               parallelization, and GPU frequency for an energy-optimized
+involves invoking the OS, communicating with the GPU                   operation given the current system state. (1) Cluster Manager
+driver via system calls, and performing hardware interactions          receives inference requests, predicts their type, and forwards
+via firmware. On average, setting the GPU frequency takes              them to the appropriate instance pool. Additionally, it peri-
+
+
+
+                                                                  5
+                                                       Cluster Manager
+
+  Cluster Model                          Inference       Throughput         Output-Length              Load
+                         Model
+  Storage Weights                        Requests        Profile             Prediction              Prediction
+                         Profile
+
+                     Pool Manager                                     Pool Manager                         Select Instance        Pool Manager
+                                                                           Perf-Energy                     Count
+                            Perf-Energy                                                                                                    Perf-Energy
+                            Profile                     …                  Profile                                        …                Profile
+
+                                                                                                                                                   Instance Manager
+  Select Model
+  Parallelization                  Instance                    Instance                          Instance                           Perf-Energy
+                                   Manager
+                                                                           …                                                        Profile
+                                                               Manager                           Manager
+
+                    Instance Pool (SS)               Instance Pool (MM)                                                       Select GPU           Instance Pool (LL)
+                                                                                                                              Frequency
+
+     Fig. 4: DynamoLLM architecture: a hierarchy of controllers with cluster resources split into per request-type pools.
+
+odically re-evaluates how many pools and how many model                                 The optimization target of the solver is to minimize the
+instances per pool are needed based on the system load. (2)                          total energy consumption (E), while the constraints are: 1)
+Pool Manager schedules the requests to model instances in a                          the total number of GPUs used by all instance types does
+manner that minimizes per-pool energy consumption. It also                           not exceed the assigned number of GPUs (N ); 2) the load
+periodically checks if its instances need to be re-sharded into                      assigned to individual instances sums up to the total expected
+a more energy-efficient parallelization. (3) Instance Manager                        load (L); and 3) the expected performance of all instances with
+schedules the requests to the inference engine and periodically                      the assigned load is within the requirements (SLO). Functions
+checks if the instance’s GPU frequency needs to be adjusted.                         Energy T Pi ,fi (LT Pi ) and P erf ormanceT Pi ,fi (LT Pi ) output
+                                                                                     the expected energy and performance, respectively, when run-
+A. Configuring Instances for Energy-Efficiency
+                                                                                     ning the load LT Pi with T Pi parallelism at fi GPU frequency.
+Generating LLM profiles When deploying their service to                              Then, the optimization task can be formulated as:
+DynamoLLM, users specify the LLM used by the service and                                                                                      !
+the expected performance SLOs. Then, the system character-                             min
+                                                                                                  X
+                                                                                                         (N T Pi × Energy T Pi ,fi (LT Pi ))       ∀i ∈ {2, 4, 8}
+izes the model and generates its energy-performance profile.                                         i
+DynamoLLM profiles the model by running loads of different                               s.t.
+                                                                                                X
+                                                                                                     i × N T Pi ≤ N
+request lengths at different model parallelisms (TP2, TP4 and                                    i                                                                    (1)
+                                                                                                X
+TP8) and GPU frequencies (800–1980MHz, with a step of                                                (N   T Pi
+                                                                                                                 ×LT Pi
+                                                                                                                          )≥L
+200MHz). The system profiles a few load levels, up to the                                        i
+
+maximum throughput, and then extrapolates the behavior for                                      P erf ormanceT Pi ,fi (LT Pi ) ≤ SLO
+the loads in between the measured ones. The profiling result is
+                                                                                        This approach guarantees the energy optimal configuration.
+a function that takes the load, request length, model parallelism
+                                                                                     However, it introduces non-negligible overheads (i.e., ∼100s
+and GPU frequency as inputs and outputs the expected energy
+                                                                                     of ms) due to the large search-space for the solver. Hence, it
+consumption and TTFT/TBT latencies.
+                                                                                     cannot be used to select the correct system configuration at
+   As many services may use the same model, DynamoLLM
+                                                                                     fine-grain intervals (e.g., every few seconds). Next we show
+can reuse the profiles across services, minimizing the profiling
+                                                                                     how to break the task into a hierarchy of subtasks and use an
+overheads. Such profiles are stored in a global DynamoLLM
+                                                                                     approximation heuristic to reduce the computation complexity.
+repository, and then cached in a cluster-local storage when a
+given service is deployed in the cluster.
+                                                                                     B. Hierarchical Control for Dynamic Load
+Selecting the energy-optimized configuration Given the
+current load and available resources, DynamoLLM uses the                                DynamoLLM simplifies computations by assigning spe-
+generated profiles to minimize energy consumption while                              cific optimization tasks to individual controllers. Instead of
+staying within performance constraints. The system formulates                        searching for a globally optimal configuration, controllers
+this task as an optimization problem for the mixed integer                           set locally optimal values for individual knobs under the
+linear programming (MILP) solver. The solver needs to output                         constraints imposed by the upper-level controllers and under
+how many instances of each tensor parallelism (N T P2 , N T P4                       the assumption that the lower-level controllers operate at the
+and N T P8 ) are needed, at which frequency they should run                          highest performance configuration. This allows the controllers
+(f T P2 , f T P4 and f T P8 ), and which load should be assigned                     to operate at varying time scales–from minutes for node ad-
+to each instance (LT P2 , LT P4 and LT P8 ). We assume that all                      justments down to seconds for frequency tuning. The different
+instances of a given parallelism run at the same frequency and                       scales are needed as each operational change involves distinct
+receive fair-share amount of work.                                                   overheads and energy-efficiency impacts.
+
+
+
+                                                                                6
+                                                                                                                                                   W2        W6
+                                                                                                                                                   W3        W7
+                                                               W0          W2        W4        W6        W1        W3        W5        W7
+                                                         TP8
+
+
+
+Scale-out/in At every epoch (e.g., 30 minutes), the cluster                     GPU0      GPU1      GPU2      GPU3      GPU4      GPU5      GPU6    GPU7
+manager computes the minimal number of nodes per pool that                      W0                  W4
+                                                                                W1                  W5
+can support the load of a given request type. The manager uses           TP2
+                                                                                W2                  W6
+a load predictor to forecast the incoming load, P L, for each                   W3                  W7
+request type based on its historic data (e.g., via lightweight
+load templates [62]). Moreover, the manager assumes that all                    W0        W2        W4        W6
+                                                                                W1        W3        W5        W7
+instances will run at the highest-performance configuration              TP4
+(i.e., TP8 at 1980 MHz). Then, if the predicted peak of a
+given request type is P L, and the maximum load that a node
+can          for this request type is M L, the manager assigns                  W0        W2        W4        W6        W1        W3        W5          W7
+ P Lsupport
+       
+         nodes to that pool. By consolidating the work into a            TP8
+  ML
+small number of nodes, the system tries to minimize the cost
+for the user and the idle energy of lightly-loaded GPUs.
+                                                                          Fig. 5: Example of re-sharding a TP4 model to TP2/TP8.
+   Handling fragmentation: Allocating resources to handle the
+peak loads can cause resource underutilization. If overprovi-
+                                                                         C. Reduced Overheads for Smooth Reconfiguration
+sioning accumulates across pools, the energy efficiency drops.
+To prevent such cases, DynamoLLM assigns one instance less                  To enable frequent reconfiguration, DynamoLLM proposes
+to a given instance pool and moves the leftover load to the              a set of techniques to minimize the overheads of (1) scaling-
+instance pool of the next larger request type. The cluster               in/out the number of LLM inference servers, (2) sharding-
+manager uses this information to forward a fraction of the               up/down the parallelism of a given instance, and (3) scaling-
+load for a given request type to the appropriate larger instance         up/down the GPU frequency of a given instance.
+pool during the next scheduling epoch (e.g., 30 minutes). In             Scaling in/out inference servers DynamoLLM reduces the
+this way, only the instance pool for the largest requests can be         overheads of creating a new server instance by implementing
+overprovisioned minimizing the cluster-level fragmentation.              several strategies. First, it keeps the model weights cached
+Shard-up/down At every epoch (e.g., every 5 minutes), the                locally within the cluster (shown in Figure 4) avoiding the need
+pool manager decides how to split the assigned N GPUs from               to fetch them from a global repository. Second, it starts VMs
+the cluster manager into correct model parallelism (how many             from a snapshot with the entire state of the inference engine
+instances to create in the pool) and tensor parallelism (how             already initialized, reducing the boot-up time. This snapshot
+many GPUs to use for each instance). The pool manager uses               includes pre-loaded libraries, GPU drivers and inference en-
+a simplified version of Equation (1) assuming that all instances         gine configurations. Third, it proactively creates new VMs in
+run at the highest GPU frequency (i.e., 1980 MHz). Thus,                 the background, outside of the critical path of active workload
+the goal is to minimize the energy, while operating with the             handling. Specifically, DynamoLLM predicts the peak load for
+fixed number of GPUs running at the highest frequency, and               the next scheduling epoch and starts the extra VMs before the
+controlling only the parallelism knob.                                   epoch starts. By having these VMs ready to go, DynamoLLM
+   Accounting for the overheads: DynamoLLM stores the tran-              can seamlessly offload a fraction of the load to new instances
+sitioning overheads (scale-out/in, shard-up/down) in an Over-            without any noticeable latency impact.
+head Table. This table is integrated with the controllers, so that       Sharding up/down an instance To reduce the re-sharding
+when they calculate the energy benefits of new configurations,           overheads, DynamoLLM optimizes the distribution of weights
+they can take into account the costs of reconfiguration. The             across GPUs. We propose two techniques to minimize the
+controllers evaluate whether the energy savings gained from              data transfers and latency of individual transfers. First, the
+re-configuring justify the associated overheads and downtime.            system develops a graph matching algorithm that maximizes
+   Reducing downtime: The reconfiguration cannot occur si-               the amount of weights that remain stationary in their current
+multaneously on all instances due to the risk of long downtime.          GPUs. The algorithm takes current weight distribution and
+Instead, DynamoLLM employs a staggered reconfiguration                   desired tensor parallelism as inputs, and outputs the source
+approach, where a subset of instances is reconfigured (e.g.,             and destination GPUs and fraction of weights to be transferred
+re-sharded) at a time. This ensures that while some instances            between each source-destination pair. Specifically, the algo-
+are undergoing reconfiguration, others remain operational to             rithm constructs a bipartite graph where nodes represent GPUs
+handle ongoing workloads. The system first reconfigures the              in the current and next configurations. Edges between nodes
+instances that have higher potential energy savings.                     represent potential transfers, weighted by the amount of data
+Scale-up/down Finally, at every epoch (e.g., 5s), the instance           to be transferred. Then, it applies a maximum weight matching
+manager fine tunes the GPU frequency for further energy                  algorithm to find the optimal transfer plan that minimizes the
+savings given the assigned model parallelism. The instance               total weight of the edges (i.e., minimizes the amount of data
+manager uses the performance profile to first filter-out fre-            transferred). Second, to reduce the transfer latency, the system
+quencies that violate the SLO under the current load. Then,              uses inter-GPU direct transfers via NVLink, allowing them
+it uses the energy profile to pick an acceptable frequency that          to send fractions of their weights in parallel to other GPUs
+minimizes the energy consumption.                                        without any host intervention.
+
+
+
+                                                                     7
+   Figure 5 shows an example of re-sharding from TP4 to                       Src/Dst   TP2    4TP2   TP4    TP2+TP4    2TP4    TP8
+TP2 and TP8. Consider first the case when going from a
+                                                                               TP2        0     4T     2T       2T       2T      T
+lower to a higher-level parallelism (TP4→TP8). In the initial                 4TP2        0      0      0        0        0      0
+state (TP4), GPUs 0-3 hold a quarter of the model weights                      TP4       2T     2T      0       2T       2T      T
+each. In the final state (TP8), all GPUs need to hold an                     TP2+TP4      0     2T      0        0       T       T
+                                                                              2TP4       T      T       0        T        0      0
+eight of the model weight. Thus, the first four GPUs already                   TP8       T      T       T        T       T       0
+have their required state, and they only need to send half of
+their weights to the remaining four GPUs. The four transfers            TABLE VI: Overhead of transferring model weights on a re-
+(e.g., GPU0→GPU4, GPU1→GPU5,. . . ) happen in parallel.                 sharding. T is the time unit to move 1/8 of the model (e.g., with
+Therefore, the re-sharding requires the time to send 1/8 of the         300GB/s NVLink bandwidth on NVIDIA DGX H100 [44] and
+model weights via NVLink (around 50ms in our setup).                    Llama2-70B model [67], T = 50ms).
+   Consider now the case when going from a higher to a lower
+parallelism (TP4→TP2). In the final state (TP2), two GPUs               Scaling up/down the frequency The overheads of changing
+need to hold a half of the weights each. As each GPU initially          the GPU frequency are minimized by keeping the NVIDIA
+holds a quarter of the weights, we merge the weights from               System Management Interface (nvidia-smi) monitor pro-
+two GPUs to a single one: GPU1 sends weights W2/W3 to                   gram directly loaded into memory. This eliminates the need
+GPU0, and GPU3 sends weights W6/W7 to GPU2. As these                    to reload the program every time a frequency adjustment is
+two transfers happen in parallel, the total re-sharding time is         required. Moreover, by running the controller in privileged
+the time to send 1/4 of the model weights (around 100ms                 mode, DynamoLLM avoids the overhead associated with OS-
+in our setup). Table VI shows the re-sharding overheads with            user interactions, allowing for rapid frequency adjustments.
+different source/destination pairs with our optimized approach.
+Some configurations quickly switch to other configurations              D. Predictive Scheduling for Request Heterogeneity
+(transition time 0), other changes incur larger overheads (tran-           To map the heterogeneity of requests to the heterogeneous
+sition time 4T, where T is the time to send 1/8 of the weights).        instance pools, the cluster controller in DynamoLLM uses an
+   Moreover, on some transitions, the instance continues serv-          output-length predictor to anticipate the request type and steer
+ing the requests with the same throughput. This is the case             requests to the correct instance pool. The predictor acts as a
+when scaling from a smaller to a larger tensor parallelism              proxy model that takes input prompt and classifies the output
+(e.g., TP4→TP8). The old instance sends a fraction of the               as short, medium or long. Based on the predicted output length
+weights to the new instance, without increasing its memory              and known input length, the cluster manager forwards the
+footprint. During other transitions, the current instance needs         request to the pool manager being in charge for a given request
+to operate under lower throughput. This is the case when the            type. If the instance pool is currently overloaded, the cluster
+instance scales from a larger to a smaller tensor parallelism           manager forwards the request to the next available pool for
+(e.g., TP8→TP4). Some GPUs used by the old instance accept              a larger request type. Once the request arrives to the correct
+extra weights, reducing their memory capacity to serve new              pool, the pool manager needs to pick an instance from the
+requests. In general, whenever the GPU memory required to               pool. Specifically, the manager uses the generated models from
+hold model weights increases, the throughput decreases due              the profiling step to predict energy and response times of each
+to the lower memory capacity for the incoming requests.                 instance after potentially adding a new request to that instance.
+   Finally, after the weights are sent to the correct memories,         Then, it chooses the instance that minimizes total energy while
+the inference engine needs to synchronize the GPUs that run             staying within per-instance throughput determined by the SLO.
+the new instance. State-of-the-art engines, such as vLLM [26],          Handling mis-predictions If the system over-estimates a
+perform this operation in a few 100s of milliseconds to a few           request length, the request gets routed to a higher-performance
+seconds. During this period the instance cannot receive any             pool. Hence, it runs with sub-optimal energy, but its latency
+load, causing noticeable downtime. To reduce the downtime,              remains unaffected. Conversely, if a request length is under-
+DynamoLLM allows the old instance to process the requests               estimated, the request is placed to a lower-performance pool,
+while the new instance is going through the synchronization             potentially missing its SLOs. Similarly, load mis-predictions
+process. Only when the new instance comes online, the old               can result in insufficient resources for a given pool during
+instance is removed. This is possible only when the sum of              request bursts. In both cases, due to some mis-predictions, the
+the memory from the old and new instances is below the                  system needs to react to the created emergency event.
+GPU’s memory capacity. When the sum exceeds the memory                     When an instance manager detects that its queue is building
+capacity (e.g., TP2 and TP4 with 70B parameters), the old               up, indicating that the rate of request processing is lower than
+instance needs to be shutdown before the new instance is                the rate of request arrival, it triggers an emergency event.
+created. Overall, different transitions incur different overheads       First, the instance manager tries to re-order the requests in its
+and instance downtime requiring a fraction of the load to               queue and prioritizes those requests that are about to miss their
+be shifted to another instance. DynamoLLM minimizes the                 deadline. Second, if some requests will miss their deadlines
+overheads, and considers their impact on the overall efficiency         even after the reordering, the instance manager ramps up the
+when deciding whether to re-configure an instance.                      frequency of its GPUs to the maximum value. Third, if the
+
+
+
+                                                                    8
+     SS     SM     SL    MS      MM     ML      LS        LM    LL                                        SinglePool         ScaleInst                   ScaleFreq
+                                                                                                          MultiPool          ScaleShard                  DynamoLLM
+  SinglePool
+   MultiPool                                                                                  0.6                                            60
+
+
+
+
+                                                                         TTFT [ms]
+
+
+
+
+                                                                                                                                  TBT [ms]
+   ScaleInst                                                                                  0.4                                            40
+ ScaleShard
+                                                                                              0.2                                            20
+  ScaleFreq
+DynamoLLM                                                                                     0.0                                             0
+                                                                                                    P50     P90        P99                         P50    P90    P99
+            0     5     10    15    20   25          30    35
+                               Energy [kWh]                                Fig. 7: Summary of the latencies for each of the systems
+Fig. 6: Energy consumption with the six evaluated systems                  running open-source Llama2-70B model [67] with 1-hour
+running open-source Llama2-70B model [67] with 1-hour                      open-source production traces [50].
+open-source production traces [50].
+                                                                                                          SinglePool         ScaleInst                   ScaleFreq
+                                                                                                          MultiPool          ScaleShard                  DynamoLLM
+
+
+
+
+                                                                         Cluster Power [kW]
+backlog persists or worsens, the instance manager re-steers
+
+
+
+
+                                                                                                                             GPU Power [W]
+                                                                                              60                                             800
+some requests that have not started their execution. A subset                                                                                600
+                                                                                              40
+of requests is moved to another instance within the pool via the                                                                             400
+pool manager. Finally, if all the attempts are insufficient, the                              20
+                                                                                                                                             200
+instance manager resorts to more drastic measures. One such
+                                                                                               0                                               0
+measure involves squashing requests that have been waiting for                                      P50    P90         P99                         P50    P90    P99
+
+processing beyond a specified threshold. This action signals               Fig. 8: Summary of the power for each of the systems running
+users to retry their requests, allowing the frontend system to             open-source Llama2-70B model [67] with 1-hour open-source
+redirect these requests to alternative instance pools or retry             production traces [50].
+them later when system load has stabilized.
+                                                                           scale the number of instances in the pool, model parallelism,
+E. DynamoLLM Implementation                                                or GPU frequency according to the current load, respectively.
+   We build DynamoLLM on top of vLLM [26], a state-                        B. Cluster-Level Experiments
+of-the-art LLM inference platform. However, DynamoLLM’s
+modularity allows it to be integrated with other platforms, e.g.,             We first evaluate the system on a cluster of GPU servers
+TensorRT-LLM [47], without modifications. We implement                     using the 1h open source production traces for the Conver-
+controllers as lightweight gRPC servers with low memory and                sation service [50]. We provision the baselines with 12 H100
+compute requirements. Cluster and pool managers are hosted                 servers to handle the peak load, while DynamoLLM scales the
+in a dedicated VM for robust management. Instance managers                 number of servers according to the current load.
+are co-located with the LLM inference engine instances for                 Energy Figure 6 shows the energy consumption of the
+low communication overheads. For output length prediction,                 cluster for the experiment. MultiPool increases the energy
+we leverage a BERT-based proxy model [55], which provides                  consumption by 20% over SinglePool, because it allocates
+accurate and efficient classification of incoming requests. For            a larger number of resources while always operating at
+load prediction, we use a template-based approach that uses                the highest-performance configuration. Meanwhile, ScaleInst,
+historical data to model load patterns over a week [62]. The               ScaleShard, ScaleFreq and DynamoLLM reduce the energy
+pool manager employs Python’s PuLP library [53] for solving                consumption by 4.1%, 7%, 19% and 35%, respectively. Scale-
+MILP. DynamoLLM models energy and performance using                        Inst/Shard/Freq reduce the energy by configuring one knob
+the interp1d function from the SciPy [54] Python library.                  but leave substantial space for further savings. Finally, Dy-
+                                                                           namoLLM synchronously scales multiple knobs to achieve the
+                        V. E VALUATION                                     lowest energy consumption. We further breakdown the total
+                                                                           energy per request type. Figure 6 shows that longer requests
+A. Evaluation Setup                                                        (e.g., LL) and highly-popular requests (e.g., ML) consume dis-
+   We run our experiments on servers with 8 H100 GPUs [44].                proportionally more energy than the other types.
+We show the results for Llama2-70B [67], but other models                  Latency Figure 7 shows the TTFT/TBT latencies for each sys-
+(i.e., Mixtral [38], Falcon [66], BLOOM [59]) follow the                   tem. By separating request types into different resource pools,
+same trends. We set the load using production-level traces:                MultiPool removes the head-of-line blocking effect and re-
+1 hour open-source traces [50] and 1-day and 1-week traces                 duces the latencies over SinglePool. Similarly, ScaleShard and
+for Coding and Conversation from our fleet. We compare Dy-                 ScaleFreq, and DynamoLLM reduce the tail latency. However,
+namoLLM to five systems. SinglePool (a state-of-the-practice               these systems slightly increase the P50 latency by operating in
+baseline) schedules all the requests to the common pool of                 lower-performance modes when there is available SLO slack.
+instances running with TP8 at the highest GPU frequency.                   On the other hand, ScaleInst increases the tail latency due
+MultiPool separates LLM instances in multiple per-request-                 to the large overheads of creating a new inference server on
+type pools. ScaleInst, ScaleShard, and ScaleFreq additionally              the critical path of users’ load. Overall, DynamoLLM reduces
+
+
+
+                                                                     9
+                                                Total             SL              LL                                                    SinglePool    Dyn-90%            Dyn-60%
+                   2.0                                                                                                                  Dyn-100%      Dyn-80%            Dyn-50%
+ Avg Freq. [GHz]
+
+
+                   1.5                                                                                                           40                                0.6
+
+
+
+
+                                                                                                                  Energy [kWh]
+
+
+
+
+                                                                                                                                                        TTFT [s]
+                   1.0                                                                                                           30
+                                                                                                                                                                   0.4
+                   0.5                                                                                                           20
+                                                                                                                                                                   0.2
+                                                                                                                                 10
+                   0.0
+                         0    5   10      15    20      25   30    35        40        45   50   55       60                      0                                0.0
+                                                        Time [min]                                                                       Energy                          Performance
+
+ Fig. 9: GPU Frequency over one hour for DynamoLLM                                                                    Fig. 11: Energy and performance with different accuracy
+ running open-source Llama2-70B model [67] with 1-hour                                                                running open-source Llama2-70B model [67] with 1-hour
+ open-source production traces [50].                                                                                  open-source production traces [50].
+
+                                                                                                                                       SinglePool    ScaleInst           ScaleFreq
+                                               TP2          TP4        TP8                                                             MultiPool     ScaleShard          DynamoLLM
+                                  Total                                      SL Pool
+                                                                                                                                 25
+
+
+
+
+                                                                                                                  Energy [kWh]
+                   100                                  85    8                                       4
+Num. GPUs
+
+
+
+
+                    80                                  75                                                                       20
+                                                              6                                       3
+                                                                                                                                 15
+
+
+
+
+                                                                                                      kTPS
+                    60                                  65
+                                                              4                                       2                          10
+                    40                                  55
+                    20                                  45    2                                       1                           5
+                     0 0                                35    0 0                                     0                           0
+                             10 20 30 40 50                            10 20 30 40 50                                                 Low Load       Medium Load            High Load
+                                 ML Pool                                   LL Pool
+                    30                                  12 40                                         40              Fig. 12: Energy with different levels of load running open-
+       Num. GPUs
+
+
+
+
+                    20                                  8
+                                                             30                                       30              source Llama2-70B model [67].
+                                                             20                                       20  kTPS
+                    10                                  4
+                                                             10                                       10
+                                                                                                                      efficiency. We introduce bounded errors for the output length
+                     0 0     10 20 30 40 50             0     0 0      10 20 30 40 50                 0
+                               Time [min]                                Time [min]
+                                                                                                                      misclassification and measure the energy consumption with
+                                                                                                                      medium load. Figure 11 shows that the impact of the predictor
+ Fig. 10: Number of GPUs used for each sharding configuration                                                         accuracy is modest for both energy and performance. Com-
+ (TP2, TP4 or TP8) over time running open-source Llama2-70B                                                           pared to an environment with no error, an environment with
+ model [67] with 1-hour open-source production traces [50].                                                           an 40% error increases the energy consumption by 13% and
+                                                                                                                      TTFT by 7.3%. The reason for robustness to prediction errors
+ the P99 TTFT and TBT latencies by 5.3% and 11.1% over                                                                is that DynamoLLM can promptly detect mis-predictions and
+ SinglePool, respectively, while it increases the P50 TTFT and                                                        re-configures the knobs accordingly.
+ TBT latencies by 11.4% and 7.6%, respectively.                                                                       Sensitivity to load We evaluate DynamoLLM with different
+ Power Figure 8 shows the power consumption across the                                                                system loads. We generate Low, Medium, and High loads with
+ systems for the cluster (right figure) and on average per-                                                           a Poisson distribution for request inter-arrival times. Figure 12
+ GPU (left figure). Due to operating in energy-efficient modes,                                                       shows the energy consumption of the five evaluated systems
+ DynamoLLM effectively reduces both cluster and per-GPU                                                               with different load levels. With Low, Medium, and High load,
+ power. DynamoLLM reduces the P50 and P99 power con-                                                                  DynamoLLM reduces the energy of SinglePool baseline by
+ sumption over the baseline by 43% and 9%, respectively.                                                              51%, 40%, and 23.4%, respectively. As the load increases, the
+ Frequency changes Figure 9 shows the average GPU fre-                                                                energy savings of DynamoLLM reduce, because the system
+ quency over time for (1) the whole cluster, (2) the pool                                                             more frequently needs to operate at higher frequencies with
+ serving short requests, and (3) the pool serving long requests.                                                      higher levels of model parallelism.
+ Average frequency is always significantly lower than the                                                             Sensitivity to number of pools Figure 13 shows the energy
+ maximum allowed frequency (1980 MHz) that is used by                                                                 consumption and performance (TTFT) of DynamoLLM with
+ the baseline. DynamoLLM effectively accommodates different                                                           different number of request pools. Recall that our chosen
+ request types by operating their pools at different frequencies.                                                     design has 9 pools. By adding too many pools (12 or 16),
+ Sharding changes Figure 10 shows the number of GPUs                                                                  the system gets fragmented, and the idle energy of GPUs
+ used for different model parallelisms (TP2, TP4 and TP8)                                                             results in the overall energy increase. Reducing the number
+ for the whole cluster and for the individual pools (SL, ML                                                           of pools (2 or 4) prevents the system from fine tuning
+ and LL). The figure also shows the load over time that a                                                             the frequency and the model parallelism for specific request
+ given pool experiences. Different pools operate with different                                                       types. The performance improves by adding moderately more
+ model parallelisms and DynamoLLM efficiently changes the                                                             pools because it helps remove head of the line blocking and
+ parallelism as the load changes.                                                                                     introduces more resources for execution.
+
+ C. Sensitivity Studies                                                                                               D. Long Cluster-Level Experiments
+ Sensitivity to predictor accuracy We analyze how the ac-                                                               We run longer experiments by running the 1-day traces for
+ curacy of the prediction models affects the overall system                                                           the Conversation service. The trace covers all invocations for
+
+
+
+                                                                                                                 10
+                                         2Pool                 6Pool           12Pool                                                      SinglePool         ScaleInst            ScaleFreq
+                                         4Pool                 9Pool           16Pool                                                      MultiPool          ScaleShard           DynamoLLM
+Energy [kWh]
+
+
+
+
+                                                                                                        Norm. Energy
+                40                                                 0.6                                                         1.0
+
+
+
+
+                                                        TTFT [s]
+                30                                                                                                             0.8
+                                                                   0.4
+                                                                                                                               0.6
+                20
+                                                                   0.2                                                         0.4
+                10                                                                                                             0.2
+                 0                                                 0.0                                                         0.0
+                                Energy                                         Performance                                                  Conversation                            Coding
+
+ Fig. 13: Energy and performance with different number of                                                 Fig. 14: Normalized energy consumption for the six evaluated
+ pools (or request types) running open-source Llama2-70B                                                  systems with the week-long production traces running open-
+ model [67] with 1-hour open-source production traces [50].                                               source Llama2-70B model [67].
+
+                                             Baseline              DynamoLLM                                                                            Baseline      DynamoLLM
+
+
+
+
+                                                                                                        CO2 Emissions [kg/h]
+                5                                                                                                              50
+ Energy [kWh]
+
+
+
+
+                4                                                                                                              40
+                3                                                                                                              30
+                2                                                                                                              20
+                1                                                                                                              10
+                0                                                                                                               0
+                    0   2   4     6      8     10     12   14            16    18   20   22   24                                     Mon      Tue       Wed          Thu     Fri        Sat    Sun
+                                                    Time [h]                                                                                                       Time
+
+ Fig. 15: Energy consumption of SinglePool and DynamoLLM                                                  Fig. 16: Carbon emissions over time for the week-long con-
+ with 1-day production traces running open-source Llama2-70B                                              versation traces with DynamoLLM and SinglePool baseline
+ model [67].                                                                                              running open-source Llama2-70B model [67].
+
+ a subset of the service’s instances during a typical work day.                                         56%. As energy costs [28] are currently substantially lower
+ We run the experiment for 24-hours on 11 H100 servers with                                             than GPU costs, this translates to only $4.4/hour savings.
+ SinglePool and scale the number of instances based on the load                                         Carbon emissions The energy consumption translates into the
+ in DynamoLLM. Figure 15 shows the energy consumption                                                   amount of operational CO2 emissions. We use the traces of
+ over 5-minute intervals for the two systems. DynamoLLM                                                 carbon intensity [2] for a week-long period from multiple grids
+ reduces the energy consumption over the baseline during peak                                           and map the carbon intensity to the energy consumption over
+ hours (when dynamic power dominates), and during the low                                               time for the SinglePool baseline and DynamoLLM. Figure 16
+ utilization times (when idle power dominates). Over the whole                                          shows the operational carbon emissions over time for the
+ day, DynamoLLM reduces the energy consumption by 42%.                                                  two systems for CAISO [1]. SinglePool and DynamoLLM
+                                                                                                        consume 5t and 3.1t/week of CO2 . These substantial savings
+ E. Large-Scale Simulations                                                                             (38%) make a step towards sustainable LLM environments.
+    To generalize our insights to large-scale, we develop a
+ discrete-time simulator that simulates the energy consumption                                                                                      VI. R ELATED W ORK
+ of different systems using production traces. Figure 14 shows                                          Cluster resource and power management A rich body of
+ the normalized energy consumption for the five evaluated                                               work seeks to improve resource efficiency under the SLO
+ systems using 1-week traces for Conversation and Coding                                                constraints through resource management for a wide range
+ services. DynamoLLM significantly reduces the energy con-                                              of latency sensitive workloads, such as microservices [76]
+ sumption for both types of services. DynamoLLM operates                                                and DL workloads, through effective resource sharing [6],
+ in higher energy-efficient modes for the Conversation service                                          [43], [51], dynamic allocation [71], and hardware reconfigura-
+ due to its typically shorter input lengths (ML dominant request                                        tion [24]. Others focus on approaches that enable safe power
+ type). On the other hand, the Coding service has deep valleys                                          management and oversubscription [16], [29], [49] leveraging
+ during the night and weekends. Thus, DynamoLLM exploits                                                workload characteristics [25], [75] and system state [62].
+ the periods of low load to save energy. DynamoLLM reduces                                              Energy-efficient workloads Prior works focused on energy-
+ the energy consumption over the baseline by 47% and 56%                                                efficiency for CPU workloads [15], [31], [43], [61], and
+ for the Conversation and Coding services, respectively.                                                researchers started exploring unique energy properties of GPU
+                                                                                                        workloads [58], [65], [74]. Recent schemes build on top and
+ F. Cost and Carbon Emission
+                                                                                                        manage energy and power consumption for DNN inference
+ User cost DynamoLLM reduces the operational cost for users                                             and training [69], [70], [72] through frequency scaling [20],
+ by minimizing the number of GPUs and optimizing their                                                  [23], [40], [41], [64], [77], [82], autoscaling [22], and re-
+ energy efficiency. The number of GPU servers for the week-                                             source partitioning and mapping [18], [64]. We show that
+ long experiments reduces from 40 to 24.6 on average (38.5%                                             improving energy efficiency for LLM inference necessitates
+ cost reduction). Using the current GPU VM pricing [8], this                                            a comprehensive view of all available knobs. DynamoLLM is
+ saves $1362.7/hour. By reducing the energy consumption,                                                holistic framework that dynamically reconfigures all the knobs
+ DynamoLLM reduces the associated energy costs by up to                                                 considering the diversity and dynamism of requests and loads.
+
+
+
+                                                                                                   11
+Efficient LLM inference serving Recent works propose                                 [16] C.-H. Hsu, Q. Deng, J. Mars, and L. Tang, “SmoothOperator: Reducing
+approaches to improve LLM inference efficiency through het-                               Power Fragmentation and Improving Power Utilization in Large-Scale
+                                                                                          Datacenters,” in Proceedings of the 23rd International Conference
+erogeneous resources [4] and platforms [35], memory and key-                              on Architectural Support for Programming Languages and Operating
+value cache management [9], [26], and node- and cluster-level                             Systems (ASPLOS ’18), 2018.
+scheduling [3], [30], [42], [48], [50], [73], [81]. While these                      [17] C.-H. Hsu, Y. Zhang, M. A. Laurenzano, D. Meisner, T. Wenisch,
+                                                                                          J. Mars, L. Tang, and R. G. Dreslinski, “Adrenaline: Pinpointing and
+studies focus on improving throughput or latency, we show                                 reining in tail queries with quick voltage boosting,” in Proceedings of
+that optimizing energy efficiency for LLM inference exhibits                              the IEEE 21st International Symposium on High Performance Computer
+distinct trade-offs between performance, energy consumption,                              Architecture (HPCA ’15), 2015.
+                                                                                     [18] A. Jahanshahi, M. Rezvani, and D. Wong, “WattWiser: Power and
+and overheads and thus requires a comprehensive framework.                                Resource-Efficient Scheduling for Multi-Model Multi-GPU Inference
+                      VII. C ONCLUSION                                                    Servers,” in Proceedings of the 14th International Green and Sustainable
+                                                                                          Computing Conference (IGSC ’23), 2023.
+   We present DynamoLLM, the first energy-management                                 [19] Y. Jin, C.-F. Wu, D. Brooks, and G.-Y. Wei, “ S 3 : Increasing GPU
+framework for LLM inference clusters. DynamoLLM exploits                                  utilization during generative inference for higher throughput,” in Pro-
+                                                                                          ceedings of the Advances in Neural Information Processing Systems
+heterogeneity in inference compute properties and fluctuations                            (NeurIPS ’23), 2023.
+in inference workloads to save energy. The system automat-                           [20] A. K. Kakolyris, D. Masouros, S. Xydis, and D. Soudris, “SLO-
+ically and dynamically configures the energy-optimal organi-                              aware GPU DVFS for Energy-efficient LLM Inference Serving,” IEEE
+                                                                                          Computer Architecture Letters, 2024.
+zation of the cluster (number of instances, model parallelism                        [21] H. Kasture, D. B. Bartolini, N. Beckmann, and D. Sanchez, “Rubik:
+and GPU frequency) while performing under performance                                     Fast analytical power management for latency-critical systems,” in
+guarantees. DynamoLLM reduces energy, carbon emissions                                    Proceedings of the 48th Annual IEEE/ACM International Symposium
+                                                                                          on Microarchitecture (MICRO ’15), 2015.
+and cost to the customer by 53%, 38% and 61%, respectively.
+                                                                                     [22] Y. G. Kim and C.-J. Wu, “AutoScale: Energy Efficiency Optimization
+                             R EFERENCES                                                  for Stochastic Edge Inference Using Reinforcement Learning,” in Pro-
+                                                                                          ceedings of the 53rd Annual IEEE/ACM International Symposium on
+ [1] “CAISO         carbon     emission,”     https://www.caiso.com/todays-               Microarchitecture (MICRO ’20), 2020.
+     outlook/emissions, 2024.                                                        [23] T. Komoda, S. Hayashi, T. Nakada, S. Miwa, and H. Nakamura, “Power
+ [2] “WattTime,” https://watttime.org, 2024.                                              capping of cpu-gpu heterogeneous systems through coordinating dvfs
+ [3] A. Agrawal, A. Panwar, J. Mohan, N. Kwatra, B. S. Gulavani, and                      and task mapping,” in Proceedings of the IEEE 31st International
+     R. Ramjee, “SARATHI: Efficient LLM Inference by Piggybacking                         Conference on Computer Design (ICCD ’13), 2013.
+     Decodes with Chunked Prefills,” 2023.                                           [24] N. Kulkarni, G. Gonzalez-Pumariega, A. Khurana, C. A. Shoemaker,
+ [4] K. Alizadeh, I. Mirzadeh, D. Belenko, K. Khatamifard, M. Cho, C. C. D.               C. Delimitrou, and D. H. Albonesi, “CuttleSys: Data-Driven Resource
+     Mundo, M. Rastegari, and M. Farajtabar, “LLM in a flash: Efficient                   Management for Interactive Services on Reconfigurable Multicores,” in
+     Large Language Model Inference with Limited Memory,” 2024.                           Proceedings of the 53rd Annual IEEE/ACM International Symposium on
+ [5] J. Bowne, “Using large language models in learning and teaching,”                    Microarchitecture (MICRO ’20), 2020.
+     https://biomedicalsciences.unimelb.edu.au/study/dlh/assets/documents/           [25] A. G. Kumbhare, R. Azimi, I. Manousakis, A. Bonde, F. Frujeri,
+     large-language-models-in-education/llms-in-education, 2024.                          N. Mahalingam, P. A. Misra, S. A. Javadi, B. Schroeder, M. Fontoura,
+ [6] S. Chen, C. Delimitrou, and J. F. Martı́nez, “PARTIES: QoS-Aware                     and R. Bianchini, “Prediction-Based Power Oversubscription in Cloud
+     Resource Partitioning for Multiple Interactive Services,” in Proceedings             Platforms,” in Proceedings of the USENIX Annual Technical Conference
+     of the Twenty-Fourth International Conference on Architectural Support               (USENIX ATC ’21), 2021.
+     for Programming Languages and Operating Systems (ASPLOS ’19),                   [26] W. Kwon, Z. Li, S. Zhuang, Y. Sheng, L. Zheng, C. H. Yu, J. E.
+     2019.                                                                                Gonzalez, H. Zhang, and I. Stoica, “Efficient Memory Management for
+ [7] S. Chen, A. Jin, C. Delimitrou, and J. F. Martı́nez, “ReTail: Opting for             Large Language Model Serving with PagedAttention,” in Proceedings
+     Learning Simplicity to Enable QoS-Aware Power Management in the                      of the 29th Symposium on Operating Systems Principles (SOSP ’23),
+     Cloud,” in Proceedings of the IEEE International Symposium on High-                  2023.
+     Performance Computer Architecture (HPCA ’22), 2022.
+                                                                                     [27] M. Lammertyn, “60+ ChatGPT Statistics And Facts You Need to Know
+ [8] Cloud Price, “Standard ND96is H100 v5,” https://cloudprice.net/vm/
+                                                                                          in 2024,” https://blog.invgate.com/chatgpt-statistics, 2024.
+     Standard ND96is H100 v5, 2024.
+ [9] T. Dao, D. Y. Fu, S. Ermon, A. Rudra, and C. Ré, “FlashAttention: Fast         [28] LCG Consulting, “Energy Online: ERCOT Real Time Price,”
+                                                                                          https://energyonline.com/Data/GenericData.aspx?DataId=4&ERCOT
+     and Memory-Efficient Exact Attention with IO-Awareness,” 2022.
+[10] C. Delimitrou and C. Kozyrakis, “Amdahl’s Law for Tail Latency,”                      Real-time Price, 2024.
+     Commun. ACM, vol. 61, no. 8, jul 2018.                                          [29] S. Li, X. Wang, X. Zhang, V. Kontorinis, S. Kodakara, D. Lo,
+[11] D. Ding, A. Mallick, C. Wang, R. Sim, S. Mukherjee, V. Ruehle,                       and P. Ranganathan, “Thunderbolt: Throughput-Optimized, Quality-of-
+     L. V. S. Lakshmanan, and A. Awadallah, “Hybrid LLM: Cost-Efficient                   Service-Aware Power Capping at Scale,” in Proceedings of the 14th
+     and Quality-Aware Query Routing,” in Proceedings of the International                USENIX Symposium on Operating Systems Design and Implementation
+     Conference on Learning Representations (ICLR ’24), 2024.                             (OSDI ’20), 2020.
+[12] A. Faiz, S. Kaneda, R. Wang, R. Osi, P. Sharma, F. Chen, and L. Jiang,          [30] Z. Li, L. Zheng, Y. Zhong, V. Liu, Y. Sheng, X. Jin, Y. Huang,
+     “LLMCarbon: Modeling the end-to-end Carbon Footprint of Large                        Z. Chen, H. Zhang, J. E. Gonzalez, and I. Stoica, “AlpaServe: Statistical
+     Language Models,” arXiv preprint arXiv:2309.14393, 2024.                             Multiplexing with Model Parallelism for Deep Learning Serving,” in
+[13] GitHub, “The world’s most widely adopted ai developer tool,” https:                  Proceedings of the 17th USENIX Symposium on Operating Systems
+     //github.com/features/copilot, 2024.                                                 Design and Implementation (OSDI ’23), 2023.
+[14] M. Halpern, B. Boroujerdian, T. Mummert, E. Duesterwald, and                    [31] D. Lo, L. Cheng, R. Govindaraju, L. A. Barroso, and C. Kozyrakis,
+     V. Janapa Reddi, “One Size Does Not Fit All: Quantifying and Exposing                “Towards energy proportionality for large-scale latency-critical work-
+     the Accuracy-Latency Trade-Off in Machine Learning Cloud Service                     loads,” in Proceedings of the ACM/IEEE 41st International Symposium
+     APIs via Tolerance Tiers,” in Proceedings of the IEEE International                  on Computer Architecture (ISCA ’14), 2014.
+     Symposium on Performance Analysis of Systems and Software (ISPASS               [32] Meta, “Llama2-13B,” https://huggingface.co/meta-llama/Llama-2-13b,
+     ’19), 2019.                                                                          2024.
+[15] M. E. Haque, Y. He, S. Elnikety, T. D. Nguyen, R. Bianchini, and                [33] Meta, “Llama2-70B,” https://huggingface.co/meta-llama/Llama-2-70b,
+     K. S. McKinley, “Exploiting Heterogeneity for Tail Latency and Energy                2024.
+     Efficiency,” in Proceedings of the 50th Annual IEEE/ACM International           [34] Meta, “Llama3-70B,” https://huggingface.co/meta-llama/Meta-Llama-3-
+     Symposium on Microarchitecture (MICRO ’17), 2017.                                    70B-Instruct, 2024.
+
+
+
+
+                                                                                12
+[35] X. Miao, C. Shi, J. Duan, X. Xi, D. Lin, B. Cui, and Z. Jia, “SpotServe:        [58] S. Samsi, D. Zhao, J. McDonald, B. Li, A. Michaleas, M. Jones,
+     Serving Generative Large Language Models on Preemptible Instances,”                  W. Bergeron, J. Kepner, D. Tiwari, and V. Gadepally, “From words
+     in Proceedings of the 29th ACM International Conference on Archi-                    to watts: Benchmarking the energy costs of large language model infer-
+     tectural Support for Programming Languages and Operating Systems                     ence,” in 2023 IEEE High Performance Extreme Computing Conference
+     (ASPLOS ’24), 2024.                                                                  (HPEC). IEEE, 2023, pp. 1–9.
+[36] Microsoft Azure, “ND H100 v5-series,” https://learn.microsoft.com/en-           [59] T. L. Scao, A. Fan, C. Akiki, E. Pavlick, S. Ilić, D. Hesslow,
+     us/azure/virtual-machines/nd-h100-v5-series, 2024.                                   R. Castagné, A. S. Luccioni, F. Yvon, M. Gallé et al., “BLOOM:
+[37] A. Mirhosseini and T. Wenisch, “µSteal: A Theory-Backed Framework                    A 176b-parameter open-access multilingual language model,” arXiv
+     for Preemptive Work and Resource Stealing in Mixed-Criticality Mi-                   preprint arXiv:2211.05100, 2022.
+     croservices,” in Proceedings of the ACM International Conference on             [60] J. Stojkovic, E. Choukse, C. Zhang, I. Goiri, and J. Torrellas, “Towards
+     Supercomputing (ICS ’21), 2021.                                                      Greener LLMs: Bringing Energy-Efficiency to the Forefront of LLM
+[38] Mistral AI, “The Mixtral-8x22B Large Language Model,” https://                       Inference,” arXiv e-prints, p. arXiv:2403.20306, Mar. 2024.
+     huggingface.co/mistralai/Mixtral-8x22B-Instruct-v0.1, 2024.                     [61] J. Stojkovic, N. Iliakopoulou, T. Xu, H. Franke, and J. Torrellas,
+[39] Mistral AI, “The Mixtral-8x7B Large Language Model,” https://                        “EcoFaaS: Rethinking the Design of Serverless Environments for Energy
+     huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1, 2024.                           Efficiency,” in Proceedings of the 51st Annual International Symposium
+[40] S. M. Nabavinejad, S. Reda, and M. Ebrahimi, “BatchSizer: Power-                     on Computer Architecture (ISCA ’24), 2024.
+     Performance Trade-off for DNN Inference,” in Proceedings of the 26th            [62] J. Stojkovic, P. Misra, I. Goiri, S. Whitlock, E. Choukse, M. Das,
+     Asia and South Pacific Design Automation Conference (ASP-DAC ’21),                   C. Bansal, J. Lee, Z. Sun, H. Qiu, R. Zimmermann, S. Samal, B. Warrier,
+     2021.                                                                                A. Raniwala, and R. Bianchini, “SmartOClock: Workload- and Risk-
+[41] S. M. Nabavinejad, S. Reda, and M. Ebrahimi, “Coordinated batching                   Aware Overclocking in the Cloud,” in Proceedings of the 51st Annual
+     and dvfs for dnn inference on gpu accelerators,” IEEE Transactions on                International Symposium on Computer Architecture (ISCA ’24), 2024.
+     Parallel and Distributed Systems, vol. 33, no. 10, 2022.                        [63] K. Talamadupula, “A Guide to LLM Inference Performance
+[42] K. K. W. Ng, H. M. Demoulin, and V. Liu, “Paella: Low-latency Model                  Monitoring,” https://symbl.ai/developers/blog/a-guide-to-llm-inference-
+     Serving with Software-defined GPU Scheduling,” in Proceedings of the                 performance-monitoring/, 2024.
+     29th Symposium on Operating Systems Principles (SOSP ’23), 2023.                [64] T. Tambe, C. Hooper, L. Pentecost, T. Jia, E.-Y. Yang, M. Donato,
+[43] R. Nishtala, V. Petrucci, P. Carpenter, and M. Sjalander, “Twig: Multi-              V. Sanh, P. Whatmough, A. M. Rush, D. Brooks, and G.-Y. Wei, “Edge-
+     Agent Task Management for Colocated Latency-Critical Cloud Ser-                      BERT: Sentence-Level Energy Optimizations for Latency-Aware Multi-
+     vices,” in Proceedings of the IEEE International Symposium on High                   Task NLP Inference,” in Proceedings of the 54th Annual IEEE/ACM
+     Performance Computer Architecture (HPCA ’20), 2020.                                  International Symposium on Microarchitecture (MICRO ’21), 2021.
+[44] NVIDIA, “DGX H100: AI for Enterprise,” https://www.nvidia.com/en-               [65] Z. Tang, Y. Wang, Q. Wang, and X. Chu, “The Impact of GPU DVFS
+     us/data-center/dgx-h100/, 2024.                                                      on the Energy and Performance of Deep Learning: an Empirical Study,”
+[45] NVIDIA, “NVLink and NVLink Switch,” https://www.nvidia.com/en-                       in Proceedings of the Tenth ACM International Conference on Future
+     us/data-center/nvlink/, 2024.                                                        Energy Systems (e-Energy ’19), 2019.
+[46] NVIDIA, “System Management Interface SMI,” https://developer.nvidia.            [66] Technology Innovation Institute (TII), “Falcon-180B,” 2024.
+     com/system-management-interface, 2024.                                          [67] H. Touvron, L. Martin, K. Stone, P. Albert, A. Almahairi, Y. Babaei,
+[47] NVIDIA, “TensorRT-LLM’s Documentation,” https://nvidia.github.io/                    N. Bashlykov, S. Batra, P. Bhargava, S. Bhosale et al., “Llama
+     TensorRT-LLM/, 2024.                                                                 2: Open foundation and fine-tuned chat models,” arXiv preprint
+[48] H. Oh, K. Kim, J. Kim, S. Kim, J. Lee, D.-s. Chang, and J. Seo, “Ex-                 arXiv:2307.09288, 2023.
+     eGPT: Constraint-Aware Resource Scheduling for LLM Inference,” in               [68] T. Varshney, “Build an llm-powered data agent for data analysis,”
+     Proceedings of the 29th ACM International Conference on Architectural                https://developer.nvidia.com/blog/build-an-llm-powered-data-agent-for-
+     Support for Programming Languages and Operating Systems (ASPLOS                      data-analysis/, 2024.
+     ’24), 2024.                                                                     [69] C. Wan, M. Santriaji, E. Rogers, H. Hoffmann, M. Maire, and S. Lu,
+[49] P. Patel, E. Choukse, C. Zhang, I. Goiri, B. Warrier, N. Mahalingam,                 “ALERT: Accurate learning for energy and timeliness,” in Proceedings
+     and R. Bianchini, “Characterizing Power Management Opportunities for                 of the USENIX Annual Technical Conference (USENIX ATC ’20), 2020.
+     LLMs in the Cloud,” in Proceedings of the 29th ACM International                [70] F. Wang, W. Zhang, S. Lai, M. Hao, and Z. Wang, “Dynamic GPU
+     Conference on Architectural Support for Programming Languages and                    Energy Optimization for Machine Learning Training Workloads,” IEEE
+     Operating Systems (ASPLOS ’24), 2024.                                                Transactions on Parallel and Distributed Systems, 2022.
+[50] P. Patel, E. Choukse, C. Zhang, A. Shah, I. Goiri, S. Maleki, and               [71] W. Xiao, S. Ren, Y. Li, Y. Zhang, P. Hou, Z. Li, Y. Feng, W. Lin, and
+     R. Bianchini, “Splitwise: Efficient generative LLM inference using phase             Y. Jia, “AntMan: Dynamic scaling on GPU clusters for deep learning,”
+     splitting,” in Proceedings of the 51st Annual International Symposium                in Proceedings of the 14th USENIX Symposium on Operating Systems
+     on Computer Architecture (ISCA ’24), 2024.                                           Design and Implementation (OSDI ’20), 2020.
+[51] T. Patel and D. Tiwari, “CLITE: Efficient and QoS-Aware Co-Location             [72] J. You, J.-W. Chung, and M. Chowdhury, “Zeus: Understanding and
+     of Multiple Latency-Critical Jobs for Warehouse Scale Computers,” in                 optimizing GPU energy consumption of DNN training,” in Proceedings
+     Proceedings of the IEEE International Symposium on High Performance                  of the 20th USENIX Symposium on Networked Systems Design and
+     Computer Architecture (HPCA ’20), 2020.                                              Implementation (NSDI ’23), 2023.
+[52] C. Peng, X. Yang, A. Chen, K. Smith, N. PourNejatian, A. Costa,                 [73] G.-I. Yu, J. S. Jeong, G.-W. Kim, S. Kim, and B.-G. Chun, “Orca: A
+     C. Martin, M. Flores, Y. Zhang, T. Magoc, G. Lipori, M. Duane,                       Distributed Serving System for Transformer-Based Generative Models,”
+     N. Ospina, M. Ahmed, W. Hogan, E. Shenkman, Y. Guo, J. Bian, and                     in Proceedings of the 16th USENIX Symposium on Operating Systems
+     Y. Wu, “A study of generative large language model for medical research              Design and Implementation (OSDI ’22), 2022.
+     and healthcare,” npj Digital Medicine, 2023.                                    [74] J. Yu, J. Kim, and E. Seo, “Know Your Enemy To Save Cloud Energy:
+[53] Python PuLP, “Optimization with PuLP,” https://coin-or.github.io/pulp/,              Energy-Performance Characterization of Machine Learning Serving,” in
+     2024.                                                                                2023 IEEE International Symposium on High-Performance Computer
+[54] Python SciPy, “SciPy Library,” https://scipy.org/, 2024.                             Architecture (HPCA), 2023.
+[55] H. Qiu, W. Mao, A. Patke, S. Cui, S. Jha, C. Wang, H. Franke,                   [75] C. Zhang, A. G. Kumbhare, I. Manousakis, D. Zhang, P. A. Misra,
+     Z. T. Kalbarczyk, T. Başar, and R. K. Iyer, “Efficient Interactive LLM              R. Assis, K. Woolcock, N. Mahalingam, B. Warrier, D. Gauthier,
+     Serving with Proxy Model-based Sequence Length Prediction,” in The                   L. Kunnath, S. Solomon, O. Morales, M. Fontoura, and R. Bianchini,
+     5th International Workshop on Cloud Intelligence / AIOps at ASPLOS                   “Flex: High-Availability Datacenters with Zero Reserved Power,” in
+     2024, 2024.                                                                          Proceedings of the 48th Annual International Symposium on Computer
+[56] A. Radford, J. Wu, R. Child, D. Luan, D. Amodei, I. Sutskever et al.,                Architecture (ISCA ’21), 2021.
+     “Language models are unsupervised multitask learners,” OpenAI blog,             [76] Y. Zhang, W. Hua, Z. Zhou, G. E. Suh, and C. Delimitrou, “Sinan: ML-
+     vol. 1, no. 8, p. 9, 2019.                                                           Based and QoS-Aware Resource Management for Cloud Microservices,”
+[57] F. Romero, Q. Li, N. J. Yadwadkar, and C. Kozyrakis, “INFaaS: Au-                    in Proceedings of the 26th ACM International Conference on Archi-
+     tomated Model-less Inference Serving,” in Proceedings of the USENIX                  tectural Support for Programming Languages and Operating Systems
+     Annual Technical Conference (USENIX ATC ’21), 2021.                                  (ASPLOS ’21), 2021.
+
+
+
+
+                                                                                13
+[77] Y. Zhang, Q. Wang, Z. Lin, P. Xu, and B. Wang, “Improving gpu energy          [80] L. Zhou, L. N. Bhuyan, and K. K. Ramakrishnan, “Gemini: Learning
+     efficiency through an application-transparent frequency scaling policy             to Manage CPU Power for Latency-Critical Search Engines,” in Pro-
+     with performance assurance,” in Proceedings of the Nineteenth European             ceedings of the 53rd Annual IEEE/ACM International Symposium on
+     Conference on Computer Systems (EuroSys ’24), 2024.                                Microarchitecture (MICRO ’20), 2020.
+[78] Y. Z. Zhao, D. W. Wu, and J. Wang, “ALISA: Accelerating Large Lan-
+                                                                                   [81] Z. Zhou, X. Wei, J. Zhang, and G. Sun, “PetS: A unified framework for
+     guage Model Inference via Sparsity-Aware KV Caching,” in Proceedings
+                                                                                        Parameter-Efficient transformers serving,” in Proceedings of the USENIX
+     of the 51st Annual International Symposium on Computer Architecture
+                                                                                        Annual Technical Conference (USENIX ATC ’22), 2022.
+     (ISCA ’24), 2024.
+[79] Z. Zheng, X. Ren, F. Xue, Y. Luo, X. Jiang, and Y. You, “Response             [82] P. Zou, A. Li, K. Barker, and R. Ge, “Indicator-Directed Dynamic Power
+     Length Perception and Sequence Scheduling: An LLM-Empowered                        Management for Iterative Workloads on GPU-Accelerated Systems,” in
+     LLM Inference Pipeline,” in Proceedings of the Advances in Neural                  Proceedings of the 20th IEEE/ACM International Symposium on Cluster,
+     Information Processing Systems (NeurIPS ’23), 2023.                                Cloud and Internet Computing (CCGRID ’20), 2020.
+
+
+
+
+                                                                              14
+

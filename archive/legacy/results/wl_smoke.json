@@ -1,0 +1,61 @@
+{
+ "config": {
+  "num": 8,
+  "rate": 0.3,
+  "cv": 1.0,
+  "shape_dist": "evenly",
+  "seed": 42,
+  "out": "results/wl_smoke.json",
+  "stats": false
+ },
+ "requests": [
+  {
+   "id": 0,
+   "tpl": "1280x720x49",
+   "arrival_s": 0.0,
+   "seq": 46800
+  },
+  {
+   "id": 1,
+   "tpl": "832x480x33",
+   "arrival_s": 3.4885,
+   "seq": 14040
+  },
+  {
+   "id": 2,
+   "tpl": "1280x720x49",
+   "arrival_s": 3.7233,
+   "seq": 46800
+  },
+  {
+   "id": 3,
+   "tpl": "832x480x49",
+   "arrival_s": 7.3534,
+   "seq": 20280
+  },
+  {
+   "id": 4,
+   "tpl": "480x272x33",
+   "arrival_s": 13.1245,
+   "seq": 4590
+  },
+  {
+   "id": 5,
+   "tpl": "1280x720x49",
+   "arrival_s": 14.4141,
+   "seq": 46800
+  },
+  {
+   "id": 6,
+   "tpl": "1280x720x49",
+   "arrival_s": 18.5194,
+   "seq": 46800
+  },
+  {
+   "id": 7,
+   "tpl": "1280x720x49",
+   "arrival_s": 19.032,
+   "seq": 46800
+  }
+ ]
+}

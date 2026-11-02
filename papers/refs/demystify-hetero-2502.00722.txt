@@ -1,0 +1,1405 @@
+                                              Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+
+                                         Youhe Jiang * 1 2 Fangcheng Fu * 3 Xiaozhe Yao * 4 Guoliang He * 1 Xupeng Miao 5 Ana Klimovic 4 Bin Cui 3
+                                                                                Binhang Yuan 2 Eiko Yoneki 1
+
+
+                                                                 Abstract                                                                Short In, Short Out         Long In, Short Out
+                                                                                                                                         Short In, Long Out          Long In, Long Out
+                                                                                                                                       1-Month Traces                       6-Hour Traces
+                                                                                                                                 100                           100
+
+
+
+
+                                                                                                                Req. Ratio (%)
+                                              Recent advancements in Large Language Models
+                                                                                                                                  75                            75
+arXiv:2502.00722v2 [cs.DC] 5 Jun 2025
+
+
+
+
+                                              (LLMs) have led to increasingly diverse requests,
+                                              accompanied with varying resource (compute and
+                                                                                                                                  50                            50
+                                                                                                                                  25                            25
+                                              memory) demands to serve them. However, this                                         0                             0
+                                              in turn degrades the cost-efficiency of LLM serv-                                          Time Slots                           Time Slots
+                                              ing as common practices primarily rely on ho-
+                                              mogeneous GPU resources. In response to this                     Figure 1: The real-world workload traces from the Swiss
+                                              problem, this work conducts a thorough study                     AI Center comprise over 500,000 traces collected over one
+                                              about serving LLMs over heterogeneous GPU re-                    month. We categorize the workload types based on input
+                                              sources on cloud platforms. The rationale is that                and output token lengths (longer than 512 and 128 are char-
+                                              different GPU types exhibit distinct compute and                 acterized as long).
+                                              memory characteristics, aligning well with the
+                                              divergent resource demands of diverse requests.
+                                              Particularly, through comprehensive benchmark-                   1. Introduction
+                                              ing, we discover that the cost-efficiency of LLM
+                                              serving can be substantially optimized by metic-                 Large Language Models (LLMs), including GPT-4 (Ope-
+                                              ulously determining GPU composition, deploy-                     nAI, 2024), Gemini (Reid et al., 2024), Llama3 (Dubey
+                                              ment configurations, and workload assignments.                   et al., 2024), Claude (Anthropic, 2024), Mixtral (Jiang et al.,
+                                              Subsequently, we design a scheduling algorithm                   2024), and DeepSeek-V3 (Liu et al., 2024a), have demon-
+                                              via mixed-integer linear programming, aiming at                  strated unprecedented performance across a wide range of
+                                              deducing the most cost-efficient serving plan un-                real-world applications (GitHub, 2024; Jeon & Lee, 2023;
+                                              der the constraints of price budget and real-time                Peng et al., 2023), such as chatbots, education, and health-
+                                              GPU availability. Remarkably, our approach ef-                   care, profoundly impacting human lives. In this context,
+                                              fectively outperforms homogeneous and heteroge-                  enhancing the cost-efficiency of LLM serving is crucial for
+                                              neous baselines under a wide array of scenarios,                 democratizing access to these cutting-edge technologies.
+                                              covering diverse workload traces, varying GPU
+                                                                                                               Currently, predominant practices utilize homogeneous GPU
+                                              availablilities, and multi-model serving. This
+                                                                                                               resources to deploy LLMs and serve the incoming re-
+                                              casts new light on more accessible and efficient
+                                                                                                               quests (Li et al., 2023; Kwon et al., 2023; Agrawal et al.,
+                                              LLM serving over heterogeneous cloud resources.
+                                                                                                               2024b). However, with the broadening application domains,
+                                                                                                               serving LLMs is facing progressively varying request pat-
+                                          *                                                                    terns, driving the serving workloads dynamic and diverse—
+                                            Equal contribution 1 Department of Computer Science, Univer-
+                                        sity of Cambridge, Cambridgeshire, UK 2 Department of Computer         a phenomenon referred to as workload heterogeneity (Sun
+                                        Science and Engineering, The Hong Kong University of Science           et al., 2024; Zhao et al., 2024b). This contradiction makes
+                                        and Technology, Hong Kong, China 3 Department of Computer              the use of homogeneous GPU resources unsuitable.
+                                        Science, Peking University, Beijing, China 4 Department of Com-
+                                        puter Science, ETH Zurich, Zürich, Switzerland 5 Department of        To be specific, the requests to be served have varying input
+                                        Computer Science, Purdue University, West Lafayette, Indiana,          and output token lengths, as exemplified by the real-world
+                                        US. Correspondence to: Binhang Yuan <biyuan@ust.hk>, Eiko              LLM serving traces at the Swiss AI Center shown in Fig-
+                                        Yoneki <eiko.yoneki@cl.cam.ac.uk>.                                     ure 1. Such differences can exhibit significantly divergent
+                                        Proceedings of the 42 st International Conference on Machine           resource (compute and memory) demands across different
+                                        Learning, Vancouver, Canada. PMLR 267, 2025. Copyright 2025            types of workloads, owing to the distinct characteristics of
+                                        by the author(s).                                                      the two phases of inference— the prefill phase is compute-
+
+                                                                                                           1
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+         Table 1: GPU Specifications and Pricing
+                                                                                      30                                     4090
+
+
+
+
+                                                                       Num. of GPUs
+ GPU          Peak      Memory Access    Memory       Price                                                                  A40
+ Type     FP16 FLOPS     Bandwidth        Limit    (per GPU)                          20                                     A6000
+                                                                                                                             L40
+ A6000
+ A40
+           91 TFLOPS
+          150 TFLOPS
+                           960 GB/s
+                           696 GB/s
+                                          48 GB
+                                          48 GB
+                                                    0.83 $/h
+                                                    0.55 $/h
+                                                                                      10                                     A100
+ L40      181 TFLOPS       864 GB/s       48 GB     0.83 $/h
+                                                                                       0                                     H100
+ A100     312 TFLOPS      1555 GB/s       80 GB     1.75 $/h
+ H100     1979 TFLOPS     3.35 TB/s       80 GB     2.99 $/h                               24-Hour Period
+ 4090      83 TFLOPS      1008 GB/s       24 GB     0.53 $/h
+
+                                                                      Figure 2: The number of different types of GPUs on Vast.ai
+                                                                      during a 24-hour period.
+bounded as it processes input prompts in a single step, while
+the decoding phase is memory-bounded as it generates sub-
+sequent tokens step by step (Zhong et al., 2024; Patel et al.,
+2024). Therefore, when using homogeneous GPU resources,                  parallelisms) and different workloads have their preferable
+it is hard to fit the varying resource demands well.                     resource needs. As a result, to improve resource utiliza-
+On the contrary, the heterogeneity in resource demands                   tion, it necessitates assigning requests to more suitable
+presents a unique opportunity to enhance the overall serving             replicas while balancing the burden across all replicas.
+efficiency by leveraging different GPU types. As shown                The second contribution is to design a brand new LLM serv-
+in Table 1, various GPU types offer diverse compute and               ing framework following the benchmarking, which aims at
+memory capabilities, making them well-suited for process-             maximizing the cost-efficiency of LLM serving over hetero-
+ing different types of workloads. Motivated as such, we               geneous GPU resources in cloud platforms.
+try to explore two questions: Can serving LLMs over het-
+erogeneous GPU resources achieve better cost-efficiency               Given the three factors above, a straightforward approach
+than homogeneous GPU resources? If yes, how can we                    is to rent the most suitable GPUs for each workload type
+enhance the cost-efficiency? To this end, this work makes             and assign requests accordingly. Nevertheless, this is im-
+two technical contributions correspondingly.                          practical for two reasons. For one thing, due to the high
+                                                                      demand for cloud GPUs, although cloud platforms (e.g.,
+The first contribution is a comprehensive benchmarking of             Vast.ai, RunPod, and AWS) offer a variety of GPU types,
+LLM serving over various GPU types, which offers a de-                they usually have limited quantities of each type. We present
+tailed understanding of cost-efficiency with heterogeneous            the availability of different GPU types on Vast.ai over a 24-
+GPU resources. Based on the benchmarking results, we                  hour period in Figure 2. For another, the user-defined price
+reveal three key factors that are vital to the cost-efficiency:       budget is often constrained, making it impractical to always
+• GPU composition (i.e., the number and types of GPUs                 allocate sufficient GPUs for each workload demand.
+  that make up a heterogeneous cluster) is essential for opti-        Consequently, we formulate a scheduling algorithm based
+  mizing the cost-efficiency of LLM serving. Different GPU            on mixed-integer linear programming (MILP), which takes
+  types exhibit varying characteristics (e.g., computational          account of both real-time GPU availability on cloud
+  capabilities, memory bandwidths, and memory capaci-                 platforms and the user-defined price budget, while co-
+  ties), making them more suitable for distinct workloads             optimizing how to rent GPUs from the available pool (GPU
+  and model types. Given the varying types of incoming                composition), how to deploy the models over the rent GPUs
+  workloads, we need to strategically optimize GPU com-               (deployment configuration), and how to dispatch the work-
+  position to improve resource utilization, reduce latency,           loads among the model replicas (workload assignment). We
+  and enhance overall serving performance.                            further incorporate practical heuristics and a binary search
+• Deployment configurations (i.e., how many model repli-              mechanism, as well as extend our approach to the multi-
+  cas to deploy and the parallelism strategy for each) are            model scenario, improving scalability and solving efficiency
+  necessary for maximizing overall system performance.                for large-scale clusters.
+  The optimal configurations is influenced by the model,
+                                                                      We empirically evaluate our framework by comparing it
+  workload, and GPU type, so using a unique deployment
+                                                                      with both homogeneous and heterogeneous baselines across
+  configuration for all replicas is impractical. Therefore, we
+                                                                      a variety of scenarios, covering diverse workload traces,
+  should adaptively optimize the deployment configurations
+                                                                      varying GPU availabilities, and multi-model serving. The
+  so that the system efficiency can be improved.
+                                                                      results demonstrate that, within the same price budget, our
+• Workload assignment (i.e., allocating incoming work-                approach can achieve up to 41% and on average 20% higher
+  loads to GPUs) becomes crucial as different replicas are            throughput, or reduce the serving latency by up to 54% and
+  deployed with varying configurations (i.e., resources and           on average 20%.
+
+                                                                  2
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+2. Background                                                        node optimizations by refining request ordering; SarathiS-
+                                                                     erve (Agrawal et al., 2024b) optimizes batching through
+LLM inference phase. The inference process in LLMs                   prefill chunking to mitigate interference between the pre-
+consists of two main phases: the prefill phase and the de-           fill and decoding stages; and Vidur (Agrawal et al., 2024a)
+coding phase. During the prefill phase, the model processes          develops an accurate simulator for deployment tuning. In
+the input prompt to compute the key-value (KV) cache and             contrast, our method is dedicated to achieving heteroge-
+generates the first token in a single step. In contrast, the         neous, cost-efficient serving in cloud environments.
+decoding phase uses the last generated token and the KV
+cache as inputs to generate subsequent tokens in a token-by-
+token manner. Generally, the prefill phase is compute-bound,         3. Observation and Opportunity
+while the decoding phase is memory-bound.                            Given a user with a specified budget estimation (in $/h) rent-
+Workload heterogeneity. LLMs are designed to support                 ing GPUs from the cloud for serving certain workload traces,
+a diverse range of applications, and the inference work-             our objective is to deliver a comprehensive serving plan that
+loads associated with these applications often exhibit het-          maximizes the cost-efficiency of the user’s serving system.
+erogeneity in input and output token lengths, which is               In this section, we first benchmark the cost-efficiency per-
+called workload heterogeneity. Different workload types ex-          formance of various workload types across different GPU
+hibit varying characteristics in terms of compute and mem-           types, model types, and deployment configurations. Then,
+ory demands. For example, requests from the WildGPT                  we present our key observations and opportunities.
+dataset (Zhao et al.), with average input and output token           Benchmark settings. We subsample nine workload
+lengths of 496 and 510 respectively (classified as short input       types from the ShareGPT (Zheng et al.), WildGPT (Zhao
+and long output), typically require more memory resources            et al.), and Azure-Trace datasets (Patel et al., 2024).
+to handle the memory-bound decoding phase. Conversely,               These workloads are characterized by average input token
+requests from the Azure-Trace dataset (Patel et al., 2024;           lengths of {2455, 824, 496} and output token lengths of
+Azure, 2024), with average input and output token lengths            {510, 253, 18}. Each combination reflects distinct work-
+of 2455 and 18 respectively (classified as long input and            load characteristics. For example, {2455, 18} (long input,
+short output), generally demand more compute resources to            short output) represents compute-intensive workloads, while
+manage the compute-bound prefill phase. Therefore, appro-            {496, 510} (short input, long output) represents memory-
+priately allocating resources based on workload demands is           intensive workloads. Based on these workload types, we
+critical for optimal performance.                                    evaluate two models, Llama3-8B and Llama3-70B, on six
+Heterogeneous LLM serving. Recent research has ex-                   commonly used cloud GPUs (A6000, A40, L40, A100,
+plored various approaches for deploying LLM serving in               H100, and 4090) with different deployment configurations.
+heterogeneous GPU environments to achieve cost-efficient             The benchmarking metrics include request throughput per
+solutions (JIANG et al.; Miao et al., 2024; Griggs et al.,           unit cost (i.e., throughput divided by GPU cost) and the total
+2024; Zhao et al., 2024a; Mei et al., 2024; Borzunov et al.,         cost associated with various latency percentiles (e.g., p5,
+2023; Yan et al., 2024). HexGen introduces asymmetric                p10, p15, . . . , p95, p100). The total cost for each latency
+partitioning and advanced scheduling techniques to deploy            percentile is calculated by multiplying the latency time by
+generative inference in decentralized and heterogeneous set-         the GPU cost. These metrics serve as indicators of cost
+tings. Me’lange frames GPU allocation as a cost-aware                efficiency. The GPU costs are demonstrated in Table 1.
+bin-packing problem, optimizing cost efficiency for LLM              Observation-1: Heterogeneous GPUs are well-suited for
+services by effectively leveraging heterogeneous GPU types.          managing model and workload diversity in LLM serving.
+Helix formulates the problem of heterogeneous GPU and                Figure 3 and Figure 11 present the benchmark results for the
+network connection optimization as a max-flow problem,               Llama3-70B and Llama3-8B models across various GPU
+utilizing mixed-integer linear programming to determine              types and workload types. The observations can be summa-
+the optimal model deployment. However, existing works                rized as follows: (i) The H100 and A100 GPUs (data center
+typically optimize performance within a predefined hetero-           GPUs) perform well on compute-intensive workloads with
+geneous cluster, and fail to consider GPU availability and           the Llama3-70B model, as both GPUs have high computa-
+user-defined budget constraints on cloud platforms. In ad-           tional power to handle intense computational tasks. (ii) The
+dition, they are generally unaware of the workload hetero-           A40, A6000, and L40 GPUs (workstation GPUs) excel in
+geneity, and only consider uniform workload assignment.              memory-intensive workloads with the Llama3-70B model.
+LLM serving optimization. There are several related                  Workstation GPUs offer on average 1.2× higher memory
+works focusing on the optimization of LLM serving (Li                bandwidth and 1.8× greater memory capacity per unit price
+et al., 2023; Yu et al., 2022; Kwon et al., 2023). QLM (Patke        than data center GPUs, making them more cost-efficient for
+et al., 2024) focuses on SLO-aware serving and multi-                memory-intensive workloads that often underutilize H100
+
+                                                                 3
+                                                                                  Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                                                                                   4090                 A40             A6000             L40            A100                  H100
+                                                Avg In: 2455, Out: 18             Avg In: 2455, Out: 253                Avg In: 2455, Out: 510            Avg In: 2455, Out: 18                Avg In: 2455, Out: 253           Avg In: 2455, Out: 510
+                                       4E-01                              2E-01                                 1E-01                             1E-01                                2E-01                            4E-01
+                                       3E-01                              2E-01                                 1E-01                             8E-02                                2E-01                            3E-01
+                                       2E-01                              1E-01                                 6E-02                             5E-02                                1E-01                            2E-01
+       Throughput Per Dollar (req/s)
+
+
+
+
+                                       1E-01                              5E-02                                 3E-02                             3E-02                                7E-02                            1E-01
+                                       0E+00                              0E+00                                 0E+00                             7E-03                                2E-02                            3E-02
+                                                Avg In: 496, Out: 18                  Avg In: 496, Out: 253              Avg In: 496, Out: 510             Avg In: 496, Out: 18                Avg In: 496, Out: 253            Avg In: 496, Out: 510
+                                       2E+00                              8E-01                                 4E-01                             2E-02                                6E-02                            1E-01
+
+
+
+
+                                                                                                                                                                                                                                                         Total Price ($)
+                                       2E+00                              6E-01                                 3E-01                             2E-02                                5E-02                            9E-02
+                                       1E+00                              4E-01                                 2E-01                             1E-02                                4E-02                            7E-02
+                                       5E-01                              2E-01                                 1E-01                             9E-03                                3E-02                            5E-02
+                                       0E+00                              0E+00                                 0E+00                             5E-03                                2E-02                            3E-02
+                                                Avg In: 824, Out: 18                  Avg In: 824, Out: 253              Avg In: 824, Out: 510             Avg In: 824, Out: 18                Avg In: 824, Out: 253            Avg In: 824, Out: 510
+                                       1E+00                              5E-01                                 3E-01                             3E-02                                9E-02                            2E-01
+                                       9E-01                              4E-01                                 2E-01                             3E-02                                7E-02                            1E-01
+                                       6E-01                              3E-01                                 2E-01                             2E-02                                5E-02                            1E-01
+                                       3E-01                              1E-01                                 8E-02                             1E-02                                4E-02                            6E-02
+                                       0E+00                              0E+00                                 0E+00                             6E-03                                2E-02                            3E-02
+                                               Different GPU Types                Different GPU Types                   Different GPU Types                P5-100 Latencies                     P5-100 Latencies                 P5-100 Latencies
+
+
+  Figure 3: Benchmarked results for Llama3-70B model with different GPU types on different workload types. The left
+  three columns represent the throughput results, x-axis represents different GPU types, y-axis represents throughput per unit
+  price (i.e., throughput divided by GPU cost). The right three columns represent the latency results, x-axis represents the
+  P5-100 latency results (P5-P100 Latencies means from left to right, the x sticks represent P5 Latency, P10 Latency, P15
+  Latency . . . ), y-axis represents total price (i.e., each latency time multiplied by GPU cost). Results for Llama3-8B model are
+  demonstrated in Appendix A.
+
+                                                                                                         4090-(1,8,1)            4090-(1,2,4)             4090-(1,4,2)            4090-(1,1,8)
+                                       4E-01                 2E-01                      9E-02                   2E+00                   5E-01                  2E-01                   1E+00                    3E-01               2E-01
+                                       3E-01                 1E-01                      7E-02                   1E+00                   3E-01                  2E-01                   8E-01                    2E-01               1E-01
+                                       2E-01                 8E-02                      5E-02                   9E-01                   2E-01                  1E-01                   5E-01                    2E-01               9E-02
+                                       9E-02                 4E-02                      2E-02                   4E-01                   1E-01                  6E-02                   3E-01                    8E-02               4E-02
+Throughput Per Dollar (req/s)
+
+
+
+
+                                       0E+00                 0E+00                      0E+00                   0E+00                   0E+00                  0E+00                   0E+00                 0E+00                 0E+00
+                                                                        L40-(1,8,1)               L40-(1,2,4)             L40-(1,4,2)            L40-(1,1,8)             L40-(2,1,4)              L40-(2,4,1)           L40-(2,2,2)
+                                       5E-01                 2E-01                      1E-01                   2E+00                   7E-01                  4E-01                   1E+00                    4E-01               2E-01
+                                       3E-01                 2E-01                      1E-01                   1E+00                   5E-01                  3E-01                   9E-01                    3E-01               2E-01
+                                       2E-01                 1E-01                      6E-02                   9E-01                   3E-01                  2E-01                   6E-01                    2E-01               1E-01
+                                       1E-01                 5E-02                      3E-02                   5E-01                   2E-01                  9E-02                   3E-01                    1E-01               6E-02
+                                       0E+00                 0E+00                      0E+00                   0E+00                   0E+00                  0E+00                   0E+00                 0E+00                 0E+00
+                                                                                                H100-(1,4,1)             H100-(1,2,2)            H100-(1,1,4)             H100-(2,1,2)               H100-(2,2,1)
+                                       4E-01                 2E-01                      1E-01                   2E+00                   6E-01                  4E-01                   1E+00                    4E-01               3E-01
+                                       3E-01                 1E-01                      1E-01                   2E+00                   4E-01                  3E-01                   9E-01                    3E-01               2E-01
+                                       2E-01                 9E-02                      7E-02                   1E+00                   3E-01                  2E-01                   6E-01                    2E-01               2E-01
+                                       1E-01                 4E-02                      4E-02                   5E-01                   1E-01                  1E-01                   3E-01                    1E-01               8E-02
+                                       0E+00                 0E+00                      0E+00                   0E+00                   0E+00                  0E+00                   0E+00                 0E+00                 0E+00
+                                            Different Configs   Different Configs    Different Configs   Different Configs   Different Configs   Different Configs  Different Configs   Different Configs   Different Configs
+                                           Avg In:2455, Out:18 Avg In:2455, Out:253 Avg In:2455, Out:510 Avg In:496, Out:18 Avg In:496, Out:253 Avg In:496, Out:510 Avg In:824, Out:18 Avg In:824, Out:253 Avg In:824, Out:510
+
+  Figure 4: Throughput results for Llama3-70B model with different deployment configurations on different workloads. The
+  three-element array represents the DP, TP, and PP degrees. Full benchmarking results are listed in Appendix B.
+
+
+  and A100 GPUs due to memory constraints. (iii) The 4090                                                                                            workloads, and GPU types. Figure 4 presents the bench-
+  GPUs (consumer GPUs) deliver excellent performance with                                                                                            mark results of various deployment configurations across
+  the Llama3-8B model. As smaller models require signifi-                                                                                            different models, workloads, and GPU types. The obser-
+  cantly less compute and memory, and the consumer GPUs                                                                                              vations can be summarized as follows: (i) Optimal con-
+  offer superior memory bandwidth per unit price, approxi-                                                                                           figurations vary by workload type for a given GPU type.
+  mately 1.9× higher than that of the A100 and H100 GPUs.                                                                                            For instance, on H100 GPUs serving Llama3-70B, ten-
+  Overall, our experimental results demonstrate that select-                                                                                         sor parallelism (TP) (Shoeybi et al., 2019) is most effec-
+  ing the most appropriate GPU type for specific workloads                                                                                           tive for compute- and memory-intensive workloads (e.g.,
+  and models can enhance the cost-efficiency performance of                                                                                          {2455, 510}), while higher degree of data parallelism (DP,
+  LLM serving by up to 2.27×. These findings underscore the                                                                                          i.e., model replication) performs better for less demanding
+  necessity of aligning GPU types with model and workload                                                                                            workloads (e.g., {496, 18}). (ii) Optimal configurations
+  demands to maximize both performance and cost-efficiency.                                                                                          vary by GPU type for a given workload type. For instance,
+                                                                                                                                                     in compute-intensive workloads (e.g., {2455, 18}), the L40
+  Observation-2: Optimal deployment configurations are
+                                                                                                                                                     GPUs achieve the best performance using pure pipeline par-
+  crucial for maximizing cost-efficiency across models,
+
+
+                                                                                                                                                 4
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+allelism (PP) (Huang et al., 2019), while the H100 GPUs              ployment for cost-efficient LLM serving. Existing sys-
+excel with a combination of DP and TP. (iii) Optimal con-            tems typically assume a homogeneous GPU cluster for
+figurations also depend on model type. For instance, with            LLM serving or focus on optimizing performance within a
+Llama3-8B models, DP consistently outperforms model                  predefined heterogeneous cluster. However, adjusting the
+parallelism (i.e., TP and PP). Since the Llama3-8B model             heterogeneous GPU composition within the serving clus-
+has lower memory requirements and can run on a single                ter to align with specific workload demands offers a more
+GPU without model parallelism, increasing the number of              cost-efficient alternative. Based on prior observations, we
+model replicas (i.e., raising the DP degree) enhances the sys-       propose optimizing LLM serving by customizing the de-
+tem’s parallel processing capability, thereby improving cost         ployment of heterogeneous GPU types to meet workload
+efficiency. Overall, our experimental results demonstrate            requirements. This includes determining the optimal hetero-
+that selecting the most effective deployment configurations          geneous GPU composition (observation-1), selecting the
+can improve system performance by up to 2.61×. These                 most effective deployment configurations (observation-2),
+findings highlight the need for optimized deployment con-            and implementing the most appropriate workload assign-
+figurations to maximize cost-efficiency in LLM serving.              ment (observation-3). Ultimately, our aim is to deliver a
+                                                                     comprehensive LLM serving plan that meets user require-
+Observation-3: The workload assignment should be co-
+                                                                     ments, adapts to cloud environment constraints, and maxi-
+optimized with the heterogeneous GPU composition and
+                                                                     mizes cost-efficiency (constraints).
+deployment configurations. Effective workload assign-
+ment is critical for managing workload heterogeneity and
+achieving optimal performance. It serves two key objectives:         4. Scheduling Algorithm
+(i) Directing requests to GPU types and deployment config-
+                                                                     4.1. Problem Formulation
+urations that best match their resource demands to enhance
+serving efficiency. As noted in observation-1 and -2, even           Given the LLMs to be served, a set of heterogeneous work-
+with an optimal GPU composition and deployment setup,                loads, a user-defined budget, and GPU availability on the
+performance may degrade if workloads are assigned to un-             cloud, we seek a cost-efficient serving plan comprising:
+suitable GPUs or configurations. This misalignment can               (1) GPU composition, i.e., selecting the type and num-
+lead to inefficiencies and reduced overall performance. (ii)         ber of GPUs to rent from the cloud while meeting budget
+Balancing workloads across GPUs to prevent overloading               and resource requirements; (2) deployment configurations,
+or underutilization, thereby maximizing resource utiliza-            i.e., organizing the rented GPUs into serving groups, each
+tion. Workload balancing is essential for cost-efficient GPU         responsible for serving one model replica, and determin-
+utilization. In some cases, achieving full GPU capacity              ing their parallelism strategies; and (3) workload assign-
+requires assigning workloads to suboptimal GPUs or config-           ment, i.e., determining the allocation of incoming work-
+urations. While this may not be ideal for individual requests,       loads across model replicas. Our objective is to minimize
+it ultimately improves overall system performance.                   the overall makespan for processing all incoming workloads.
+                                                                     The resulting plan must ensure that the user obtains the most
+Constraints: Appropriate resource scheduling is crucial
+                                                                     cost-efficient LLM serving solution under the specified bud-
+under limited resources and budget constraints. Allo-
+                                                                     getary and resource constraints.
+cating workloads to the most suitable GPUs is a straight-
+forward strategy for cost-efficient LLM serving. However,
+real-world deployments often face resource availability and          4.2. Simple Example
+budget limitations: (i) On cloud service platforms, GPU              Experiment setup. We begin by assuming three GPU types,
+availability fluctuates, leading to shortages during peak pe-        {t1 , t2 , t3 }, each with two units available. The hourly rental
+riods. For instance, A40 availability on RunPod and Vast.ai          prices for these types are 4, 2, and 2 $/h, respectively. We
+can range from 3 to 16 and 0 to 32, depending on the time.           consider two workload types {w1 , w2 }, which arrive simul-
+(ii) Budget constraints may prevent users from selecting             taneously with 80 total requests for w1 (λ1 = 80) and 20
+the optimal GPU for each workload, necessitating compro-             total requests for w2 (λ2 = 20). We denote by Ct,w the
+mises in resource allocation. These constraints often force          throughput (in requests per second) of GPU type t on work-
+workload assignments to suboptimal GPUs, reducing per-               load w. If each GPU serves one model replica, the through-
+formance and efficiency. To mitigate these challenges, an            puts are C1,1 = 1.0, C1,2 = 1.2, C2,1 = 0.9, C2,2 = 0.9,
+effective scheduling algorithm is essential. It should ac-           C3,1 = 0.3, and C3,2 = 0.5. Note that C∼,1 and C∼,2
+count for the user’s budget constraints and real-time GPU            vary with model parallelism. In Cases 1 and 2, we assume
+availability, enabling efficient and adaptive LLM serving            the workload is assigned to each GPU in proportion to its
+even under constrained conditions.                                   processing rate, so the system-wide throughput for each
+Opportunities: Optimization of heterogeneous GPU de-                 workload is the sum of individual-GPU rates. In Case 3, we
+                                                                     allow workload-aware assignment for further optimization.
+
+                                                                 5
+                            Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+Case 1: GPU composition. We compare two compositions                                  Table 2: Symbols used in MILP.
+under the same budget of 8 $/h, where each GPU serves one
+model replica. Composition 1 consists of 1 × t1 , 1 × t2 ,                Symbol      Description
+and 1 × t3 , achieving a total throughput of (2.2, 2.6) rps on            N           number of GPU types
+(w1 , w2 ), with a processing time of 44.05 s. Composition                W           number of workload types
+2 consists of 1 × t1 and 2 × t2 , achieving throughputs of                C           set of feasible configs
+(2.8, 3.0) rps on (w1 , w2 ), with a processing time of 35.24 s.          dn          type n GPUs allocated
+                                                                          an          maximum available type n GPUs
+Thus, modifying the GPU composition within the same                       pn          rental price of type n GPUs
+budget results in a 20% speedup.                                          mn          memory limit of type n GPUs
+                                                                          B           user-defined total price budget
+Case 2: Deployment configuration. Focusing on composi-                    vc          GPU composition of config c
+tion 2, we compare two ways to organize these three GPUs.                 sc          parallelism strategy of config c
+Configuration 1 assigns each GPU to serve a single model                  oc          price cost of config c
+replica, resulting in a processing time of 35.24 s. Config-               hc,w        throughput of config c on workload w
+uration 2 applies TP to the two t2 GPUs, changing their                   xc,w        assignment of workload w to config c
+                                                                          yc          whether config c is used
+combined throughput to 2.4 rps on w1 and 1.5 rps on w2 ,                  T           makespan of processing all workloads
+reducing the overall processing time to 30.94 s. Thus, modi-              fw          total requests of workload w
+fying the deployment configuration improves the processing
+time by approximately 14%.
+Case 3: Workload assignment. Finally, we retain the                    (i) A vector vc = {dn (c)}N      n=1 indicating exactly how many
+same composition and TP-based configuration but optimize               GPUs of each type n are used in configuration c. (ii) An
+workload assignment. Specifically, we assign 15% of w1                 array sc = {t1 , t2 , . . . , tS } indicating the parallelism strat-
+and 100% of w2 to the replica with t1 , and 85% of w1 to the           egy used in configuration c. The array length S repre-
+replica with TP on 2 × t2 . With this assignment, the overall          sents the total number of pipeline stages, and the element
+completion time is reduced to 28.67 s. Thus, adjusting the             ts represents the TP degree of the s-th stage. The sum-
+workload assignment results in an additional 8% reduction              mation of all ts should P       be equal to P the total GPU count
+                                                                                                          S             N
+in processing time.                                                    of configuration c, i.e., s=1 ts =               n=1 dn (c). (iii) A
+                                                                                    PN
+                                                                       cost oc =      n=1 n (d    (c)   ×  pn ) indicating  the total price
+This step-by-step example demonstrates the joint optimiza-
+                                                                       required for configuration c. (iv) A throughput hc,w indi-
+tion of GPU composition, deployment configuration, and
+                                                                       cating the rate at which configuration c process workload
+workload assignment for optimal performance. A detailed
+                                                                       type w, which is obtained through a one-time profiling 1 .
+processing time calculation for each case is in Appendix C.
+                                                                       By optimizing the configurations, we can obtain the GPU
+                                                                       composition and deployment configurations mentioned in
+4.3. MILP Formulation                                                  §4.1.
+In this section, we introduce a mixed-integer linear program-          Workloads and assignment. Let there be W workload
+ming (MILP) formulation to find a serving plan, i.e., GPU              types, indexed by w ∈ {1, 2, . . . , W }. Each workload
+composition, deployment configurations and workload as-                w must be fully served (i.e., 100% coverage). We allow
+signment, that minimizes the overall processing time. An               fractional assignment: a fraction xc,w ∈ [0, 1] of work-
+overview of the symbols is shown in Table 2.
+                                                                       P w may be processed by configuration c. Concretely,
+                                                                       load
+Let there be N types of GPUs, indexed by n ∈                              c∈C xc,w = 1, ∀ w = 1, 2, . . . , W . We also introduce an
+{1, 2, . . . , N }. We denote the decision on how many GPUs            integer variable yc ∈ {0, 1, 2, . . . } indicating how many
+of each type to use (i.e., GPU composition) by a vector                copies of configuration c are chosen (activated). If yc = 0,
+D = [ d1 , d2 , . . . , dN ] where each dn ≥ 0 represents              then xc,w must be zero for all w. By co-optimizing the
+the number of GPUs of the n-th type. These variables                   workload assignment (the fractions xc,w ) with the activated
+are subject to availability constraints encoded by a vector            configurations (yc ), we determine the final workload as-
+A = [ a1 , a2 , . . . , aN ], such that 0 ≤ dn ≤ an , ∀n =             signment as described in §4.1.
+1, 2, . . . , N . Each GPU type n has price pn (e.g., 1.75 $/h         Budget and GPU constraints. A valid configuration set C
+for A100, 2.99 $/h for H100), and memory limit mn (e.g.,               must also satisfy the following constraints: (i) the allocated
+48 GB for L40, 80 GB for H100).                                        number of GPUs for   P each type must not exceed the available
+Configurations. We consider a set C of feasible configu-               number, i.e., 0 ≤ c∈C (dn (c)×yc ) ≤ an , ∀ n = 1, . . . , N ;
+rations (i.e., deployment configurations). Each config-                (ii) the total cost of all chosen configurations must be within
+uration c ∈ C represents the serving plan for a single                     1
+                                                                             The detailed procedure of the one-time profiling is demon-
+model replica, which is characterized by (vc , sc , oc , hc,w ):       strated in Appendix L.
+
+                                                                   6
+                                Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+                                     P
+the user-defined budget B, i.e.,       c∈C (oc   × yc ) ≤ B.             layer partitioning based on memory allocation. See Ap-
+                                                                         pendix D for details.
+Optimization objective. We define a makespan variable
+T ≥ 0 to represent the overall completion time. For a con-               Binary search. To address the long computation times
+figuration c, if it is instantiated yc times and processes frac-         associated with the MILP solver for large-scale problems,
+tions xc,w of workload w, each replica provides a through-               we introduce a binary-search-on-T method to accelerate
+put of hc,w . Let fw be the total number of requests for                 the search process. Rather than directly minimizing the
+workload w. Consequently, the total effective throughput                 makespan T , we iteratively check whether a valid serving
+for c is yc × hc,w , and the time required on c is given by              plan exists for different candidate values of T̂ , based on
+       PW x ·fw
+Tc = w=1 yc,w            . Since all chosen configurations run           reasonable lower and upper bounds. For a full explanation,
+                 c ·hc,w
+in parallel, the system completes once the slowest configu-              refer to Appendix F, and we evaluate the effectiveness of
+ration finishes. Thus, we have Tc ≤ T for all c ∈ C. Our                 this binary search method in §5.2.
+optimization objective is to minimize T .                                Extension to multiple LLM serving. Our MILP formula-
+MILP formulation. The problem can be summarized as                       tion can be easily adapted to scenarios involving multiple
+the following Mixed-Integer Linear Program (MILP):                       LLMs, such as simultaneously serving both Llama3-8B and
+                                                                         Llama3-70B models. To accommodate this, we introduce
+ arg min T                                                     (1)
+         X                                                               a model-type dimension to the decision variables and con-
+    s.t.         xc,w = 1, ∀ w, (Assignment Constraint)        (2)       straints. This ensures that workload assignments, memory
+             c∈C
+         X         xc,w ·fw                                              requirements, and other constraints are optimized for each
+                              ≤ T, ∀ c, (Makespan)             (3)       model type. The objective remains to minimize the overall
+             w∈W yc · hc,w
+
+         xc,w ≤ yc , ∀ c, w, (Activation Coupling)             (4)       makespan T , while also taking into account GPU avail-
+         X                                                              ability, budget constraints, and other constraints across all
+                  oc × yc ≤ B, (Budget Constraint)             (5)
+         Xc∈C
+                                                                         model types. For a detailed explanation of the formulation,
+                                                                         please refer to Appendix E. We demonstrate the evaluation
+                              
+                  dn (c) × yc ≤ an , ∀ n, (GPU Avail.)         (6)
+              c∈C
+                                                                         of our method for multiple model serving in §5.2.
+          yc ∈ {0, 1, 2, . . . }.                              (7)
+
+ This formulation determines which configurations are used               5. Experiments
+(yc ) and how the workload fractions (xc,w ) are distributed,
+subject to memory limit, price budget, and GPU availability              5.1. Experimental Setup
+constraints, in order to minimize the makespan T . Note                  Environments. Our experiments are conducted using two
+that dn (c) is an integer; we enumerate all feasible integer             types of data center servers H100 and A100, three types
+combinations {dn (c)}N   n=1 in a precomputation step. In                of work station servers A40, RTX A6000 and L40, and
+contrast, xc,w is a continuous variable, and the solver relies           one type of consumer server RTX 4090. In data center
+on branch-and-bound to systematically narrow the feasible                servers, GPUs are linked by NVLink (300 GB/s), while in
+region and converge to an optimal fractional assignment.                 workstation/consumer servers, GPUs are linked by PCIe
+Complexity analysis. The number of binary activation vari-               (60 GB/s). Servers with inter-connection are connected via
+ables yc grows combinatorially with the number of feasible               Ethernet with a bandwidth of 5 Gb/s. All experiments are
+configurations |C|. In this worst case |C| can be on the order           conducted with vLLM (Kwon et al., 2023).
+   QN
+of n=1 (an + 1). Since MILP solvers (e.g., branch-and-                   Baselines. We compare our method, which uses heteroge-
+bound) have worst-case running time exponential in the                   neous cloud resources, against various homogeneous setups:
+number of binary variables, the theoretical worst-case    time           • Heterogeneous setups: We rent GPUs from Vast.ai, a
+complexity scales as O poly(|C|, W, N ) × 2 |C| , where the
+                                                  
+                                                                           cloud provider offering a range of GPU types. The rentals
+polynomial factor accounts for the overhead of processing                  are based on real-time GPU availability on the cloud.
+each node in the search tree (e.g., solving continuous relax-              For our experiments, we randomly selected four different
+ations of the MILP). As a result, the solution time escalates              GPU availabilities (shown in Table 4 in Appendix H)
+rapidly with the number of candidate configurations.                       under varying price budgets of 15, 30, and 60 $/h.
+Other constraints and heuristics. We introduce additional                • Homogeneous setups: We rent H100 GPUs (representa-
+constraints and heuristics to reduce the search space. Con-                tive data center GPUs), RTX A6000 GPUs (workstation
+cretely, we enforce a memory constraint to eliminate config-               GPUs), and RTX 4090 GPUs (consumer GPUs) under
+urations with insufficient GPU memory, and a connectivity                  different price budgets, with each GPU type representing
+constraint to exclude those involving disconnected GPUs.                   a homogeneous baseline. For example, a budget of 60 $/h
+Additionally, we refine the configuration search by restrict-              can rent up to 20 H100 GPUs. Note that we fine-tune the
+ing TP to single machines and enabling non-uniform PP                      deployment configurations and workload assignments us-
+
+                                                                     7
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                                                                                    Ours (Avail 1)           Ours (Avail 4)               RTX A6000 (Homo)
+  ing our scheduling algorithm to optimize the performance                                          Ours (Avail 2)           RTX 4090 (Homo)              H100 (Homo)
+  of each homogeneous baseline.                                                                     Ours (Avail 3)
+                                                                                         32                            16                            8
+Models and traces. Our evaluation is conducted on Llama3-
+
+
+
+
+                                                                                                                                        17%
+                                                                                         24                            12                            6
+
+
+
+
+                                                                                                                                                                     23%
+                                                                                                                                        21%
+                                                                                                            19%
+                                                                                                            19%
+
+
+
+
+                                                                                                                                                                    27%
+                                                                                                                                                                    28%
+                                                                                                                                       27%
+                                                                                                           25%
+8B and Llama3-70B models. And we follow prior work to                                    16                             8                            4
+generate workload traces based on real-world data. Our test-                              8                             4                            2
+                                                                                          0                             0                            0
+ing traces are subsampled from three sources: real workload                                    Trace 1, Budget 60$/h        Trace 1, Budget 30$/h        Trace 1, Budget 15$/h
+
+
+
+
+                                                                      Throughput (req/s)
+traces collected over one month from the Swiss AI Center,                                32                            16                            8
+
+
+
+
+                                                                                                                                                                     21%
+                                                                                                                                        20%
+                                                                                                            18%
+
+
+
+
+                                                                                                                                                                    26%
+                                                                                                                                       25%
+                                                                                                           23%
+
+
+
+
+                                                                                                                                                                    30%
+                                                                                                                                       29%
+                                                                                                           27%
+                                                                                         24                            12                            6
+the WildChat dataset, and the production traces Azure-Trace.                             16                             8                            4
+Each trace comprises multiple workload types, with their                                  8                             4                            2
+ratios shown in Table 5 in Appendix I.                                                    0                             0                            0
+                                                                                               Trace 2, Budget 60$/h        Trace 2, Budget 30$/h        Trace 2, Budget 15$/h
+                                                                                         32                            16                            8
+
+
+
+
+                                                                                                                                                                      14%
+                                                                                                                                         10%
+Evaluation metrics. We focus on the overall system
+
+
+
+
+                                                                                                             5%
+                                                                                         24                            12                            6
+
+
+
+
+                                                                                                                                                                    37%
+                                                                                                                                       34%
+                                                                                                           31%
+
+
+
+
+                                                                                                                                                                    41%
+                                                                                                                                       38%
+                                                                                                           35%
+throughput and vairous percentile latencies (i.e., p10, . . . ,                          16                             8                            4
+p90, p100). P90 latency represents the maximum response                                   8                             4                            2
+                                                                                          0                             0                            0
+time within which 90% of all requests are completed.                                           Trace 3, Budget 60$/h        Trace 3, Budget 30$/h        Trace 3, Budget 15$/h
+
+5.2. Experimental Results                                                 Figure 5: End-to-end throughput results on Llama3-70B
+End-to-end system performance. We evaluated our                           model with different setups. We further demonstrate the
+method across various traces, cloud GPU availability scenar-              Llama3-8B results in Appendix J.
+ios, price budgets, model types, and homogeneous baselines.
+Experimental results in Figure 5 and Figure 6 show that our                                      Ours (Avail 4)             RTX 4090             RTX A6000               H100
+method improves system throughput by up to 41% (25% on                                   60                            55                           72
+                                                                      Latency (s)
+
+
+average) while reducing percentile latencies by up to 54%                                45                            40                           52
+(20% on average). In traces 1 and 2, H100 (Homo) achieves                                30                            25                           32
+the best performance among all baselines. In our plan, the                               15                            10                           12
+GPU composition depends on the budget. With a high bud-                                         P10:100 Latencies            P10:100 Latencies            P10:100 Latencies
+                                                                                                     Trace 1                      Trace 2                      Trace 3
+get (60 $/h), data center GPUs are preferred, making up
+approximately 51% of our rented resources for request pro-
+cessing. In contrast, with a low budget (15 $/h), workstation             Figure 6: End-to-end latency results on Llama3-70B model
+GPUs are favored due to their lower cost. In trace 3, A6000               with different setups.
+(Homo) demonstrates the highest performance among all
+baselines. In this scenario, our plan primarily relies on work-                                HexGen                HexGen (Optimal Composition)        Ours (Avail 4)
+station GPUs, which constitute approximately 93% of the                                    16                         16                       16
+rented resources for request processing. Additionally, as                                  12 26% 18%                 12 25% 14%               12 35% 9%
+                                                                                            8                          8                         8
+                                                                          Throughput (req/s)
+
+
+
+
+shown in Figure 15 in Appendix J, the 4090 (Homo) delivers                                  4                          4                         4
+the best performance among all baselines for the Llama3-8B                                  0    Trace 1, 30$/h        0      Trace 2, 30$/h     0   Trace 3, 30$/h
+                                                                                            8                          8           9%            8
+model. In this case, our plan prefers consumer GPUs, which                                  6 30% 16%                  6 27%                     6 33% 17%
+form the majority of our rented resources and handle 53%                                    4                          4                         4
+                                                                                            2                          2                         2
+of overall request processing.                                                              0    Trace 1, 15$/h        0      Trace 2, 15$/h     0   Trace 3, 15$/h
+Comparison with HexGen. We also compare our method
+with the state-of-the-art heterogeneous serving framework,                Figure 7: Ours vs. HexGen. The first and second bars in
+HexGen (JIANG et al.). Since HexGen schedules workloads                   each picture represent HexGen using a uniform and optimal
+based on a fixed GPU composition, we evaluate it using two                GPU composition.
+setups: (i) a uniform composition, where six GPU types
+are evenly allocated within the budget, and (ii) the optimal
+composition used by our method. As shown in Figure 7,                     comparing our system with Helix (Mei et al., 2024). Specifi-
+HexGen with a uniform composition suffers up to 35% and                   cally, we compare our method against Helix’s single-cluster
+on average 29% performance degradation due to suboptimal                  case (the optimal case reported in their paper) under a price
+GPU allocation. Even with the optimal composition, our                    budget of $15 per hour on the AzureTrace dataset (i.e., trace
+method outperforms HexGen by up to 18% and on average                     2). While Helix optimizes heterogeneous LLM serving us-
+14%, benefiting from workload-aware scheduling.                           ing max-flow and MILP scheduling, our method explicitly
+Compare with Helix. We conduct additional experiments                     considers workload heterogeneity and GPU composition op-
+                                                                          timization, resulting in greater cost efficiency. Experimental
+
+                                                                  8
+                                                         Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                             Uniform GPU Composition                Uniform Deployment Configuration                                              MILP                                        MILP
+                             Rule-based Request Assignment          Ours (Avail 4)                                                                Binary Search                               Binary Search
+                     16                    8                   16                  8
+Throughput (req/s)
+
+
+
+
+                                                                                                           Search Time (s)
+                                                                                                                           115
+
+
+
+
+                                                                       15%
+                                                                                                                                                                                   18
+
+
+
+
+                                                                                       21%
+
+
+
+
+                                                                                                                                                                        Makespan (s)
+                                                                     27%
+
+
+
+
+                                                                                      30%
+                            16%
+
+
+
+
+                                                                                      32%
+                     12                    6                   12                  6
+
+
+
+
+                                                                    33%
+                                               25%
+                                               27%
+
+                                              34%
+                          32%
+                          32%
+
+                      8                    4                    8                  4                                        80                                                     15
+                      4                    2                    4                  2
+                      0                    0                    0                  0                                        45                                                     12
+                             Trace 1
+                           Budget 30$/h
+                                                   Trace 1
+                                                Budget 15$/h
+                                                                      Trace 2
+                                                                    Budget 30$/h
+                                                                                           Trace 2
+                                                                                        Budget 15$/h                        10                                                      9
+                                                                                                                                           4 8 16 24 32 48                              0 40 80 120 160
+                                                                                                                                             Num. of GPUs                                 Search Time (s)
+Figure 8: Ablation study of Llama3-70B on traces 1 and 2.
+                                                                                                                                        Figure 9: Algorithm scalability and efficiency.
+results show that our system outperforms Helix by 25–35%.
+                                                                                                                                        Ours (Avail 1)         RTX 4090                   RTX A6000             H100
+
+
+
+
+                                                                                                                  Throughput (req/s)
+Table 3: Performance comparison of Helix and our method.                                                                           96                                            48
+
+
+
+
+                                                                                                                                                                                                              16%
+                                                                                                                                                         17%
+
+
+
+
+                                                                                                                                                                                             23%
+                                                                                                                                                                  20%
+                                                                                                                                                   26%
+
+
+
+
+                                                                                                                                                                                                      35%
+                                                                                                                                   72                                            36
+                                        Llama-30B                       Llama3-70B                                                 48                                            24
+                          Helix          8.49 req/s                       5.72 req/s                                               24                                            12
+                          Ours       11.43 req/s (35%↑)               7.13 req/s (25%↑)                                             0                                             0
+                                                                                                                                             Trace 1, Budget 60$/h                       Trace 1, Budget 30$/h
+Ablation studies. We assess the impact of each optimiza-
+tion target in our scheduling algorithm by systematically                                                   Figure 10: End-to-end experiments on multiple model types
+disabling them. Three baselines are considered: (i) Uniform                                                 (Llama3-8B and Llama3-70B) with different setups.
+GPU composition: GPUs are rented uniformly across six
+types within the given budget. This evaluates the perfor-
+mance gains from optimized heterogeneous GPU compo-                                                         8B model, while the remaining 20% are assigned to the
+sition. (ii) Uniform deployment configuration: Instead of                                                   Llama3-70B model. As shown in Figure 10, our method
+optimizing deployment per model replica, TP is uniformly                                                    outperforms homogeneous baselines, achieving up to a 35%
+applied across all replicas. This measures the impact of                                                    (average: 23%) performance gain. In the 60 $/h case, our
+deployment configuration optimization. (iii) Rule-based                                                     scheduling algorithm allocates 70% of computing resources
+request assignment: Requests are assigned using a Round-                                                    to Llama3-70B and 30% to Llama3-8B. In the 30 $/h case,
+Robin strategy based on real trace arrivals, assessing the                                                  the allocation shifts to 77% and 23%. Our algorithm bal-
+benefit of heterogeneous-aware workload assignment. As                                                      ances resource allocation based on model demands, enabling
+shown in Figure 8, disabling heterogeneous GPU compo-                                                       efficient multi-model serving in heterogeneous clusters.
+sition reduces throughput by up to 27% (average: 20%),
+                                                                                                            System performance vs. price budget. We compare our
+deployment optimization by up to 34% (average: 33%), and
+                                                                                                            system with homogeneous baselines under different price
+workload assignment by up to 32% (average: 29%). These
+                                                                                                            budgets. The performance gap narrows as the budget in-
+results highlight the necessity of each optimization for high-
+                                                                                                            creases due to cloud resource limits, which is reasonable
+performance LLM serving in heterogeneous environments.
+                                                                                                            since we assume an unlimited number of GPUs for our
+Algorithm efficiency. We evaluate two strategy search                                                       homogeneous baselines. See Appendix K for details.
+methods from §4: (i) MILP and (ii) binary search. As shown
+                                                                                                            Additional discussion and experiments. We provide fur-
+in Figure 9, the left plot illustrates their scalability, while the
+                                                                                                            ther discussion and experiments on online scheduling for
+right plot depicts algorithm performance during the search
+                                                                                                            dynamic workloads, as well as on the trade-offs between
+process. Compared to MILP, which exhaustively explores
+                                                                                                            cost-efficiency and request latency, in Appendix M.
+all combinations of heterogeneous GPU compositions, de-
+ployment configurations, and workload assignments, the
+binary search method, enhanced with feasibility checks us-                                                  6. Conclusion
+ing knapsack approximation, achieves approximately a 4×
+                                                                                                            This paper aims to address the questions of why and how
+reduction in search time. This improvement comes with
+                                                                                                            heterogeneous cloud resources can be utilized for cost-
+only marginal differences in algorithm performance, with
+                                                                                                            efficient LLM serving. Specifically, we benchmark the
+deviations of less than 1%.
+                                                                                                            cost-efficiency of LLM serving over heterogeneous GPUs,
+Multi-model extension. We further evaluate our system                                                       following which, a novel scheduling algorithm is developed.
+in a multi-model serving scenario (discussed in §4.3), as-                                                  Experimental results demonstrate that our approach outper-
+suming that 80% of the requests are assigned to the Llama3-                                                 forms existing works substantially.
+
+                                                                                                       9
+                          Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+Impact Statement                                                   He, G. and Yoneki, E. Cuasmrl: Optimizing gpu sass
+                                                                     schedules via deep reinforcement learning. In Proceed-
+This paper presents work whose goal is to advance the field          ings of the 23rd ACM/IEEE International Symposium
+of Machine Learning. There are many potential societal               on Code Generation and Optimization, CGO ’25, pp.
+consequences of our work, none which we feel must be                 493–506, New York, NY, USA, 2025. Association for
+specifically highlighted here.                                       Computing Machinery. ISBN 9798400712753. doi:
+                                                                    10.1145/3696443.3708943. URL https://doi.
+Acknowledgment                                                       org/10.1145/3696443.3708943.
+This work is supported by the HKUST startup grant R9895            Hendrycks, D., Burns, C., Basart, S., Zou, A., Mazeika, M.,
+from CSE; RGC-ECS project 26218024; RGC-NSFC                         Song, D., and Steinhardt, J. Measuring massive multitask
+project CRS HKUST601/24. This work was supported as                  language understanding. In International Conference on
+part of the Swiss AI Initiative by a grant from the Swiss            Learning Representations.
+National Supercomputing Centre (CSCS) on Alps.
+                                                                   Hu, C., Huang, H., Xu, L., Chen, X., Xu, J., Chen, S., Feng,
+References                                                           H., Wang, C., Wang, S., Bao, Y., et al. Inference without
+                                                                     interference: Disaggregate llm inference for mixed down-
+Agrawal, A., Kedia, N., Mohan, J., Panwar, A., Kwatra, N.,           stream workloads. arXiv preprint arXiv:2401.11181,
+  Gulavani, B. S., Ramjee, R., and Tumanov, A. Vidur:                2024.
+ A large-scale simulation framework for llm inference.
+  Proceedings of Machine Learning and Systems, 6:351–              Huang, Y., Cheng, Y., Bapna, A., Firat, O., Chen, D., Chen,
+  366, 2024a.                                                        M., Lee, H., Ngiam, J., Le, Q. V., Wu, Y., et al. Gpipe:
+                                                                     Efficient training of giant neural networks using pipeline
+Agrawal, A., Kedia, N., Panwar, A., Mohan, J., Kwatra,               parallelism. Advances in neural information processing
+  N., Gulavani, B., Tumanov, A., and Ramjee, R. Taming               systems, 32, 2019.
+  {Throughput-Latency} tradeoff in {LLM} inference with
+  {Sarathi-Serve}. In 18th USENIX Symposium on Operat-             Jeon, J. and Lee, S. Large language models in education:
+  ing Systems Design and Implementation (OSDI 24), pp.               A focus on the complementary relationship between hu-
+ 117–134, 2024b.                                                     man teachers and chatgpt. Education and Information
+Anthropic. The claude 3 model family: Opus, sonnet, haiku,           Technologies, 28(12):15873–15892, 2023.
+  2024. URL https://www-cdn.anthropic.com
+                                                                   Jiang, A. Q., Sablayrolles, A., Roux, A., Mensch, A., Savary,
+ /de8ba9b01c9ab7cbabf5c33b80b7bbc6188
+                                                                      B., Bamford, C., Chaplot, D. S., Casas, D. d. l., Hanna,
+  57627/Model_Card_Claude_3.pdf.
+                                                                      E. B., Bressand, F., et al. Mixtral of experts. arXiv
+Azure. Azure public dataset, 2024. URL https://gith                   preprint arXiv:2401.04088, 2024.
+  ub.com/Azure/AzurePublicDataset.
+                                                                   JIANG, Y., Yan, R., Yao, X., Zhou, Y., Chen, B., and Yuan,
+Borzunov, A., Baranchuk, D., Dettmers, T., Riabinin, M.,             B. Hexgen: Generative inference of large language model
+  Belkada, Y., Chumachenko, A., Samygin, P., and Raffel,             over heterogeneous environment. In Forty-first Interna-
+  C. Petals: Collaborative inference and fine-tuning of              tional Conference on Machine Learning.
+  large models. In Proceedings of the 61st Annual Meeting
+  of the Association for Computational Linguistics (Volume         Jiang, Y., Fu, F., Yao, X., Wang, T., Cui, B., Klimovic, A.,
+  3: System Demonstrations), pp. 558–568, 2023.                       and Yoneki, E. Thunderserve: High-performance and
+                                                                      cost-efficient llm serving in cloud environments. arXiv
+Dubey, A., Jauhri, A., Pandey, A., Kadian, A., Al-Dahle,
+                                                                      preprint arXiv:2502.09334, 2025a.
+ A., Letman, A., Mathur, A., Schelten, A., Yang, A., Fan,
+ A., et al. The llama 3 herd of models. arXiv preprint             Jiang, Y., Yan, R., and Yuan, B. Hexgen-2: Disaggregated
+  arXiv:2407.21783, 2024.                                             generative inference of llms in heterogeneous environ-
+GitHub. The world’s most widely adopted ai developer tool,            ment. arXiv preprint arXiv:2502.07903, 2025b.
+  2024. URL https://github.com/features/
+                                                                   Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu,
+  copilot.
+                                                                    C. H., Gonzalez, J., Zhang, H., and Stoica, I. Efficient
+Griggs, T., Liu, X., Yu, J., Kim, D., Chiang, W.-L., Che-           memory management for large language model serving
+  ung, A., and Stoica, I. M\’elange: Cost efficient large           with pagedattention. In Proceedings of the 29th Sym-
+  language model serving by exploiting gpu heterogeneity.           posium on Operating Systems Principles, pp. 611–626,
+  arXiv preprint arXiv:2404.14527, 2024.                            2023.
+
+                                                              10
+                            Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+Li, H., Fu, F., Ge, H., Lin, S., Wang, X., Niu, J., Miao,               Patke, A., Reddy, D., Jha, S., Qiu, H., Pinto, C.,
+  X., and Cui, B. Hetu v2: A general and scalable deep                    Narayanaswami, C., Kalbarczyk, Z., and Iyer, R. Queue
+  learning system with hierarchical and heterogeneous sin-                management for slo-oriented large language model serv-
+  gle program multiple data annotations. arXiv preprint                   ing. In Proceedings of the 2024 ACM Symposium on
+  arXiv:2504.20490, 2025.                                                 Cloud Computing, pp. 18–35, 2024.
+
+Li, Z., Zheng, L., Zhong, Y., Liu, V., Sheng, Y., Jin, X.,              Peng, C., Yang, X., Chen, A., Smith, K. E., PourNejatian,
+  Huang, Y., Chen, Z., Zhang, H., Gonzalez, J. E., et al.                 N., Costa, A. B., Martin, C., Flores, M. G., Zhang, Y.,
+  {AlpaServe}: Statistical multiplexing with model paral-                 Magoc, T., et al. A study of generative large language
+  lelism for deep learning serving. In 17th USENIX Sympo-                 model for medical research and healthcare. NPJ digital
+  sium on Operating Systems Design and Implementation                     medicine, 6(1):210, 2023.
+  (OSDI 23), pp. 663–679, 2023.
+                                                                        Peng, Y., Jiang, Y., Wang, C., and Yuan, B. Hexgen-text2sql:
+Liu, A., Feng, B., Xue, B., Wang, B., Wu, B., Lu, C., Zhao,               Optimizing llm inference request scheduling for agentic
+  C., Deng, C., Zhang, C., Ruan, C., et al. Deepseek-                     text-to-sql workflow. arXiv preprint arXiv:2505.05286,
+  v3 technical report. arXiv preprint arXiv:2412.19437,                   2025.
+  2024a.
+                                                                        Qiao, Y., Anzai, S., Yu, S., Ma, H., Wang, Y., Kim, M.,
+Liu, Y., He, H., Han, T., Zhang, X., Liu, M., Tian, J., Zhang,            and Xu, H. Conserve: Harvesting gpus for low-latency
+  Y., Wang, J., Gao, X., Zhong, T., et al. Understanding                  and high-throughput large language model serving. arXiv
+  llms: A comprehensive overview from training to infer-                  preprint arXiv:2410.01228, 2024.
+  ence. arXiv preprint arXiv:2401.02038, 2024b.
+                                                                        Qin, R., Li, Z., He, W., Zhang, M., Wu, Y., Zheng, W., and
+Liu, Z., Wang, J., Dao, T., Zhou, T., Yuan, B., Song, Z.,                 Xu, X. Mooncake: Kimi’s kvcache-centric architecture
+  Shrivastava, A., Zhang, C., Tian, Y., Re, C., et al. Deja               for llm serving. arXiv preprint arXiv:2407.00079, 2024.
+  vu: Contextual sparsity for efficient llms at inference time.         Reid, M., Savinov, N., Teplyashin, D., Lepikhin, D., Lilli-
+  In International Conference on Machine Learning, pp.                    crap, T., Alayrac, J.-b., Soricut, R., Lazaridou, A., Firat,
+  22137–22176. PMLR, 2023.                                                O., Schrittwieser, J., et al. Gemini 1.5: Unlocking multi-
+Mei, Y., Zhuang, Y., Miao, X., Yang, J., Jia, Z., and Vinayak,            modal understanding across millions of tokens of context.
+ R. Helix: Distributed serving of large language models                   arXiv preprint arXiv:2403.05530, 2024.
+ via max-flow on heterogeneous gpus. arXiv preprint                     Shoeybi, M., Patwary, M., Puri, R., LeGresley, P., Casper,
+ arXiv:2406.01566, 2024.                                                  J., and Catanzaro, B. Megatron-lm: Training multi-
+                                                                          billion parameter language models using model paral-
+Miao, X., Shi, C., Duan, J., Xi, X., Lin, D., Cui, B., and Jia,
+                                                                          lelism. arXiv preprint arXiv:1909.08053, 2019.
+ Z. Spotserve: Serving generative large language models
+ on preemptible instances. In Proceedings of the 29th ACM               Stojkovic, J., Zhang, C., Goiri, Í., Torrellas, J., and Choukse,
+ International Conference on Architectural Support for                    E. Dynamollm: Designing llm inference clusters for
+ Programming Languages and Operating Systems, Volume                      performance and energy efficiency. arXiv preprint
+ 2, pp. 1112–1127, 2024.                                                  arXiv:2408.00741, 2024.
+Oh, H., Kim, K., Kim, J., Kim, S., Lee, J., Chang, D.-s.,               Sun, B., Huang, Z., Zhao, H., Xiao, W., Zhang, X., Li, Y.,
+  and Seo, J. Exegpt: Constraint-aware resource schedul-                  and Lin, W. Llumnix: Dynamic scheduling for large
+  ing for llm inference. In Proceedings of the 29th ACM                   language model serving. In 18th USENIX Symposium
+ International Conference on Architectural Support for                    on Operating Systems Design and Implementation (OSDI
+ Programming Languages and Operating Systems, Vol-                        24), pp. 173–191, 2024.
+  ume 2, pp. 369–384, 2024.
+                                                                        Wang, Y., Chen, Y., Li, Z., Kang, X., Tang, Z., He, X., Guo,
+OpenAI. Openai gpt-4o, 2024. URL https://platfo                          R., Wang, X., Wang, Q., Zhou, A. C., et al. Burstgpt:
+  rm.openai.com/docs/models/gpt-4o.                                      A real-world workload dataset to optimize llm serving
+                                                                         systems. arXiv preprint arXiv:2401.17644, 2024a.
+Patel, P., Choukse, E., Zhang, C., Shah, A., Goiri, Í., Maleki,
+  S., and Bianchini, R. Splitwise: Efficient generative llm             Wang, Y., Chen, Y., Li, Z., Tang, Z., Guo, R., Wang, X.,
+  inference using phase splitting. In 2024 ACM/IEEE 51st                 Wang, Q., Zhou, A. C., and Chu, X. Towards efficient
+  Annual International Symposium on Computer Architec-                   and reliable llm serving: A real-world workload study.
+  ture (ISCA), pp. 118–132. IEEE, 2024.                                  arXiv preprint arXiv:2401.17644, 2024b.
+
+                                                                   11
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+Wu, B., Zhong, Y., Zhang, Z., Huang, G., Liu, X., and Jin,             Zheng, L., Chiang, W.-L., Sheng, Y., Li, T., Zhuang, S., Wu,
+ X. Fast distributed inference serving for large language                Z., Zhuang, Y., Li, Z., Lin, Z., Xing, E., et al. Lmsys-chat-
+ models. arXiv preprint arXiv:2305.05920, 2023.                          1m: A large-scale real-world llm conversation dataset.
+                                                                         In The Twelfth International Conference on Learning
+Yan, R., Jiang, Y., Tao, W., Nie, X., Cui, B., and Yuan,                 Representations.
+  B. Flashflex: Accommodating large language model
+  training over heterogeneous environment. arXiv preprint              Zhong, Y., Liu, S., Chen, J., Hu, J., Zhu, Y., Liu, X., Jin, X.,
+  arXiv:2409.01143, 2024.                                                and Zhang, H. {DistServe}: Disaggregating prefill and
+                                                                         decoding for goodput-optimized large language model
+Yu, G.-I., Jeong, J. S., Kim, G.-W., Kim, S., and Chun, B.-              serving. In 18th USENIX Symposium on Operating Sys-
+  G. Orca: A distributed serving system for {Transformer-                tems Design and Implementation (OSDI 24), pp. 193–210,
+  Based} generative models. In 16th USENIX Symposium                     2024.
+  on Operating Systems Design and Implementation (OSDI
+  22), pp. 521–538, 2022.                                              Zhou, Z., Wei, X., Zhang, J., and Sun, G. {PetS}: A
+                                                                         unified framework for {Parameter-Efficient} transformers
+Zhang, J., Huang, H., Zhang, P., Wei, J., Zhu, J., and Chen, J.          serving. In 2022 USENIX Annual Technical Conference
+  Sageattention2: Efficient attention with thorough outlier              (USENIX ATC 22), pp. 489–504, 2022.
+  smoothing and per-thread int4 quantization. In Interna-
+  tional Conference on Machine Learning (ICML), 2025a.
+
+Zhang, J., Wei, J., Zhang, P., Xu, X., Huang, H., Wang, H.,
+  Jiang, K., Zhu, J., and Chen, J. Sageattention3: Microscal-
+  ing fp4 attention for inference and an exploration of 8-bit
+  training. arXiv preprint arXiv:2505.11594, 2025b.
+
+Zhang, J., Wei, J., Zhang, P., Zhu, J., and Chen, J. Sageatten-
+  tion: Accurate 8-bit attention for plug-and-play inference
+  acceleration. In International Conference on Learning
+  Representations (ICLR), 2025c.
+
+Zhang, J., Xiang, C., Huang, H., Wei, J., Xi, H., Zhu, J., and
+  Chen, J. Spargeattn: Accurate sparse attention accelerat-
+  ing any model inference. In International Conference on
+  Machine Learning (ICML), 2025d.
+
+Zhang, J., Xu, X., Wei, J., Huang, H., Zhang, P., Xiang,
+  C., Zhu, J., and Chen, J. Sageattention2++: A more
+  efficient implementation of sageattention2. arXiv preprint
+  arXiv:2505.21136, 2025e.
+
+Zhao, J., Wan, B., Peng, Y., Lin, H., and Wu, C. Llm-pq:
+  Serving llm on heterogeneous clusters with phase-aware
+  partition and adaptive quantization. the 29th ACM SIG-
+  PLAN Annual Sympo-sium Principles and Practice of Par-
+  allel Programming (PPoPP’24)(02/03/2024-06/03/2024,
+  Edinburgh), 2024a.
+
+Zhao, W., Ren, X., Hessel, J., Cardie, C., Choi, Y., and Deng,
+  Y. Wildchat: 1m chatgpt interaction logs in the wild.
+  In The Twelfth International Conference on Learning
+  Representations.
+
+Zhao, Y., Yang, S., Zhu, K., Zheng, L., Kasikci, B., Zhou,
+  Y., Xing, J., and Stoica, I. Blendserve: Optimizing offline
+  inference for auto-regressive large models with resource-
+  aware batching. arXiv preprint arXiv:2411.16102, 2024b.
+
+                                                                  12
+                                                                         Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                                                                          4090            A40             A6000             L40            A100             H100
+                                         Avg In: 2455, Out: 18           Avg In: 2455, Out: 253           Avg In: 2455, Out: 510            Avg In: 2455, Out: 18           Avg In: 2455, Out: 253           Avg In: 2455, Out: 510
+                                6E+00                            2E+00                            2E+00                             2E-02                           3E-02                            4E-02
+                                4E+00                            2E+00                            1E+00                             1E-02                           2E-02                            3E-02
+                                3E+00                            1E+00                            8E-01                             9E-03                           1E-02                            2E-02
+Throughput Per Dollar (req/s)
+
+
+
+
+                                1E+00                            6E-01                            4E-01                             5E-03                           8E-03                            1E-02
+                                0E+00                            0E+00                            0E+00                             6E-04                           1E-03                            2E-03
+                                         Avg In: 496, Out: 18             Avg In: 496, Out: 253            Avg In: 496, Out: 510            Avg In: 496, Out: 18            Avg In: 496, Out: 253            Avg In: 496, Out: 510
+                                3E+01                            9E+00                            5E+00                             4E-03                           8E-03                            1E-02
+
+
+
+
+                                                                                                                                                                                                                                      Total Price ($)
+                                2E+01                            7E+00                            4E+00                             3E-03                           7E-03                            1E-02
+                                1E+01                            5E+00                            3E+00                             2E-03                           5E-03                            8E-03
+                                7E+00                            2E+00                            1E+00                             1E-03                           3E-03                            5E-03
+                                0E+00                            0E+00                            0E+00                             5E-04                           2E-03                            3E-03
+                                         Avg In: 824, Out: 18             Avg In: 824, Out: 253            Avg In: 824, Out: 510            Avg In: 824, Out: 18            Avg In: 824, Out: 253            Avg In: 824, Out: 510
+                                2E+01                            6E+00                            3E+00                             6E-03                           1E-02                            2E-02
+                                1E+01                            4E+00                            2E+00                             5E-03                           9E-03                            1E-02
+                                9E+00                            3E+00                            2E+00                             3E-03                           6E-03                            1E-02
+                                5E+00                            1E+00                            8E-01                             2E-03                           4E-03                            6E-03
+                                0E+00                            0E+00                            0E+00                             5E-04                           2E-03                            3E-03
+                                        Different GPU Types              Different GPU Types              Different GPU Types               P5-100 Latencies                 P5-100 Latencies                 P5-100 Latencies
+
+
+                                        Figure 11: Benchmarked results for Llama3-8B model with different GPU types on different workload types.
+
+
+A. Benchmarking Results for Llama3-8B
+We demonstrate the benchmark results for Llama3-8B model in Figure 11.
+
+B. Benchmarking Results of Different Deployment Configurations for Remaining GPUs
+We demonstrate the benchmark results for different deployment configurations in Figure 12 and Figure 13.
+
+C. Simple Example
+Experiment setup. We begin by assuming three GPU types, {t1 , t2 , t3 }, each with two units available. The hourly
+rental prices for these types are 4, 2, and 2 $/h, respectively. We consider two workload types {w1 , w2 }, which arrive
+simultaneously with 80 total requests for w1 (λ1 = 80) and 20 total requests for w2 (λ2 = 20). We denote by Ct,w the
+throughput (in requests per second) of GPU type t on workload w. If each GPU serves one model replica, the throughputs
+are C1,1 = 1.0, C1,2 = 1.2, C2,1 = 0.9, C2,2 = 0.9, C3,1 = 0.3, and C3,2 = 0.5. Note that C∼,1 and C∼,2 vary with
+model parallelism. In Cases 1 and 2, we assume the workload is assigned to each GPU in proportion to its processing rate,
+so the system-wide throughput for each workload is the sum of individual-GPU rates. In Case 3, we allow workload-aware
+assignment for further optimization.
+Case 1: GPU composition. We compare two compositions under the same budget of 8 $/h, where each GPU is responsible
+for serving one model replica. Composition 1 uses 1 × t1 , 1 × t2 , and 1 × t3 . This setup achieves a total throughput of
+(1.0+0.9+0.3) =2.2 rps on w1 and (1.2+0.9+0.5) = 2.6 rps on w2 , giving a processing time of λ1 /C∼,1 +λ2 /C∼,2 =
+ 80/2.2 + 20/2.6 ≈ 44.05 s. Composition 2 uses 1 × t1 and  2 × t2 , for throughputs of (1.0 + 0.9 + 0.9) = 2.8 rps on w1
+and (1.2 + 0.9 + 0.9) = 3.0 rps on w2 , so 80/2.8 + 20/3.0 ≈ 35.24 s. In this case, changing the GPU composition under
+the same price budget results in a 20% speedup.
+Case 2: Deployment configuration. Focusing on composition 2, we compare two ways to organize these three GPUs.
+Configuration 1 keeps all GPUs in a purely DP style (i.e., each GPU is responsible for serving one model replica),
+summing up to 2.8 rps on w1 and 3.0 rps on w2 , matching the 35.24 s above. Configuration 2 applies TP to the two t2
+GPUs, which changes their combined rate, e.g., to 2.4 rps on w1 and 1.5 rps on w2 . Together with the single t1 GPU
+(1.0 rps on w1 and 1.2 rps on w2 ), the total throughput becomes (3.4, 2.7) rps for (w1 , w2 ). The corresponding time
+ 80/3.4 + 20/2.7 ≈ 30.94 s. In this case, changing the deployment configuration results in an improvement in the overall
+processing time of roughly 14%.
+Case 3: Workload assignment. Finally, we keep the same composition and TP-based configuration but allow workload-
+aware assignment. Concretely, we assign:
+
+                                                                                                  Replica (t1 ): 15% of w1 , 100% of w2 ,
+                                                                                                  Replica (TP on 2 × t2 ): 85% of w1 .
+
+                                                                                                                                   13
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+
+
+
+Figure 12: Throughput and latency results for Llama3-70B model with different deployment configurations on different
+workloads.
+
+
+
+Under these fractions, t1 processes 12 requests of w1 at 1.0 rps and 20 requests of w2 at 1.2 rps, while the TP-based
+replica handles 68 requests of w1 at 2.4 rps. By balancing the load and routing the workload to the preferable replica, i.e.,
+the one with relatively higher throughput for a specific workload, we reduce the overall completion time from 30.94 s
+to max(0.85λ1 /C2,1 , 0.15λ1 /C1,1 + λ2 /C1,1 ) = max(68/2.4, 12/1 + 20/1.2) = 28.67 s. In this case, changing the
+workload assignment results in an additional improvement in the overall processing time of approximately 8%.
+This step-by-step example (also illustrated in Figure 14) shows how all three factors—GPU composition, deployment
+configuration, and workload assignment—must be jointly optimized to achieve the best performance.
+
+D. Other Constraints and Heuristics
+We enforce two additional constraints to minimize the overall search space and speed up the search process: (i) We perform
+an early memory check on  PNeach configuration, which ensures that the sum of GPU memories in configuration c is sufficient
+for a model replica, i.e., n=1 (dn (c) × mn ) ≥ Mr , where Mr represents the least memory required for serving one model
+replica (e.g., 140 GB for Llama3-70B model). Configurations that violate this constraint will be eliminated from further
+evaluation; (ii) we enforce a connectivity constraint within each configuration. If certain GPUs lack interconnection (e.g.,
+they are located in different data centers), those combinations do not appear in each configuration c. Additionally, we use
+two heuristic methods to facilitate the deployment configuration search: (i) we only adopt TP within a single machine
+containing multiple GPUs, as TP typically requires high intra-machine communication bandwidth (e.g., PCIe, NVLink) for
+efficient deployment; (ii) we support non-uniform pipeline layer partitioning for PP, and determine the partition based on the
+total memory allocated for each stage. For instance, if there are a total of 24 layers and the GPU memory allocated for each
+stage is 1:2, then we allocate 8 and 16 layers to the first and second stages.
+
+                                                             14
+                         Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+
+
+
+Figure 13: Throughput and latency results for Llama3-70B model with different deployment configurations on different
+workloads.
+
+
+E. Extend to Multiple LLM serving
+The previous MILP formulation assumes a single LLM serving with multiple model replicas. However, cloud services
+typically involve multiple LLM serving with varying sizes, e.g., Llama3-8B and Llama3-70B models. To integrate multiple
+LLM serving plan search into our MILP, we introduce the following extended MILP formulation.
+Let there be M model types, indexed by m ∈ {1, 2, . . . , M }, each type has its own memory requirement. The MILP
+formulation can be extended to:
+
+                               arg min T                                                                            (8)
+                                              P
+                                                       xc,w,m = 1, ∀ w ∈ Wm ,
+                                              Pc∈Cm
+                                              
+                                              
+                                                         xc,w,m ·fw,m
+                                  s.t.   ∀m :      w∈Wm yc,m ·hc,w,m ≤ T, ∀ c ∈ Cm ,                                (9)
+                                              
+                                              
+                                                xc,w,m ≤ yc,m , ∀ c ∈ Cm , ∀ w ∈ Wm ,
+                                              
+                                         XM X                          
+                                                          oc,m × yc,m ≤ B,                                         (10)
+                                            m=1     c∈Cm
+                                         XM X                              
+                                                          dn (c, m) × yc,m ≤ an , ∀ n,                             (11)
+                                             m=1       c∈Cm
+                                         yc,m ∈ {0, 1, 2, . . . }.                                                 (12)
+
+In this extended MILP formulation, we introduce an additional model-type dimension to every relevant variable and
+constraint. Consequently, the problem now accommodates multiple model types (each with its own workload set, throughput
+profiles, memory requirements, etc.) within a unified optimization framework. The objective remains the same—minimizing
+
+                                                               15
+                            Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                           Workload Type 1         Workload Type 2        Tensor Parallelism
+                                            GPU Type 1           GPU Type 2        GPU Type 3
+
+                                  45%                    36%                   30%                     15%
+                                    46%           R1       40%           R1      44%            R1      100%         R1
+
+
+                                  40%                    32%
+                                    35%           R2       30%           R2
+                                                                               70%                     85%
+                                                                                 56%            R2       0%          R2
+                                  15%                    32%
+                                    19%           R3       30%           R3
+
+                                             Naïve                Optimize               Optimize               Optimize
+                                          Serving Plan           Composition           Configuration           Assignment
+                                                                   (Case 1)              (Case 2)               (Case 3)
+
+
+                                              Figure 14: Illustration of a simple example.
+
+Algorithm 1 Binary Search on T
+  Input: T , T {initial bounds}
+  Input: τ {tolerance}
+  Output: Approximate minimal feasible makespan
+  while (T − T ) > τ do
+    T̂ ← T +T
+            2
+    if F EASIBILITY C HECK(T̂ ) is true then
+       T ← T̂ {If feasible, try smaller T̂ }
+    else
+       T ← T̂ {If infeasible, increase T̂ }
+    end if
+  end while
+  return T
+
+
+the overall makespan T —while jointly enforcing GPU availability, budget, and other constraints across all model types.
+This ensures that the chosen configuration set and workload assignments meet the demands of every model type while
+adhering to the total GPU and budget limits.
+
+F. Binary Search
+For large numbers of model, workload and GPU types, it might take hours for the MILP solver to provide a relatively
+good solution. To expedite the search process, we incorporate the binary-search-on-T approach into our existing MILP
+formulation. Specifically, we transform the previous “minimize T ” problem into a sequence of feasibility checks: for a
+given candidate T̂ , we ask whether a valid serving plan exists that completes all workloads in at most T̂ , subject to budget
+and GPU constraints. If yes, we can try smaller T̂ ; if no, we must increase T̂ .
+Binary search. The lower bound of the makespan, T , is identified as the best possible time if infinite GPUs were available
+with no budget limit (e.g., using the fastest configuration for each workload type). The upper bound, T , is the worst-case
+scenario (e.g., using the slowest feasible configuration to serve all workloads). During the binary search loop, if the
+difference between the lower and upper bounds exceeds a certain tolerance τ (e.g., one second), i.e., T − T ≥ τ , we calculate
+T̂ = T +T
+        2  and check its feasibility. If a pair (xc,w , yc ) or (xc,w,m , yc,m ) (in the extended case) satisfies all constraints in
+                   P        x             P         x
+§4.3 or §4.3, with w∈W hc,w   c,w
+                                  ≤ T̂ or w∈Wm hc,w,m c,w,m
+                                                              ≤ T̂ , ∀c ∈ Cm , we update T ← T̂ . Otherwise, we update T ← T̂ .
+When the loop concludes, the value of T (or T ) represents the minimal feasible makespan within the specified tolerance.
+Note that the feasibility check can be further approximated using a knapsack approximation, which makes the binary search
+approach more efficient for handling large-scale MILP problems. We outline the binary search process in Algorithm 1.
+Other optimizations for speeding up MILP. For extremely large-scale MILP problems (e.g., dozens of model and workload
+types with hundreds of GPUs), we introduce several optimizations, such as pruning configurations, providing a good starting
+point, and early stopping based on the lower bound, as detailed in Appendix G. The experimental results presented in §5
+
+                                                                              16
+                          Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                                          Ours (Avail 2)          RTX 4090 (Homo)             H100 (Homo)
+                                                          Ours (Avail 4)          RTX A6000 (Homo)
+                                                   200                                       100
+
+
+
+
+                                                                      13%
+                                                   150                                        75
+
+
+
+
+                                                                                                           7%
+
+
+                                                                                                                      26%
+                                                                                  30%
+
+
+
+
+                                                                                                                39%
+                                                                            42%
+                                                   100                                        50
+
+
+
+
+                              Throughput (req/s)
+                                                    50                                        25
+                                                     0                                         0
+                                                            Trace 1, Budget 30$/h                  Trace 1, Budget 15$/h
+                                                   200                                       100
+
+
+
+
+                                                                      14%
+
+
+
+
+                                                                                                           8%
+
+
+                                                                                                                      25%
+                                                                                  25%
+                                                   150                                        75
+
+
+
+
+                                                                                                                37%
+                                                                            40%
+                                                   100                                        50
+                                                    50                                        25
+                                                     0                                         0
+                                                            Trace 2, Budget 30$/h                  Trace 2, Budget 15$/h
+
+                         Figure 15: End-to-end experiments on Llama3-8B model with different setups.
+
+
+                                                                       Ours (Avail 1)                 RTX 6000 (Homo)
+                                                                       RTX 4090 (Homo)                H100 (Homo)
+                                                    750
+                                        Makespan (s)
+
+
+
+
+                                                    600
+                                                    450
+                                                    300
+                                                    150
+                                                      0
+                                                              5 10 15 20 25 30 35 40 45 50 55 60
+                                                                        Price Budgets ($/h)
+
+                                                         Figure 16: System performance v.s. price budget.
+
+
+
+demonstrate the efficiency, effectiveness, and scalability of our scheduling algorithm.
+
+G. Other Optimizations for Speeding up MILP
+For large numbers of GPUs and model types, it might take hours for the MILP solver to provide a relatively good solution.
+To expedite the search process, we introduce three optimizations to minimize the search space without sacrificing the
+effectiveness of our scheduling results: (i) for each model type, we prune configurations that are clearly dominated. For
+example, configurations with high degrees of model parallelism are retained for Llama3-70B, which requires substantial
+memory for model serving, but are pruned for Llama3-8B to prevent excessive communication overhead; (ii) we pre-estimate
+the resource requirements for each model type based on incoming workloads and their memory demands, and proportionally
+allocate resources to provide a good starting point for the MILP solver, thereby expediting the search process; (iii) we
+establish a theoretical lower bound for the makespan by analyzing the minimum possible processing time across all feasible
+configurations, which enables the implementation of early stopping criteria during optimization, i.e., the search process
+stops when it finds a solution that is very close to this lower bound. The minimum possible makespan occurs when all
+workloads are assigned to the most efficient configuration without considering resource constraints.
+
+H. Real Time GPU Availabilities
+We randomly selected four real-time GPU availabilities on the cloud, as shown in Table 4.
+
+I. Workload Type Ratios for Each Trace
+We demonstrate the workload type ratios for the three traces in Table 5.
+
+                                                                                        17
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+                                  Table 4: Real time GPU availabilities on cloud platform.
+
+                               GPU Avails     4090     A40    A6000      L40       A100     H100
+                               Avail 1         16       12      8         12        6         8
+                               Avail 2         32        8     16         16        7        12
+                               Avail 3         32       16      8          8        32        8
+                               Avail 4         24       24     24         16         4        8
+
+Table 5: Workload type ratios for subsampled traces from the Swiss AI Center (Trace 1), Azure-Trace (Trace 2), and
+WildGPT dataset (Trace 3). Workloads 1–9 correspond to the nine workload types shown in Figure 4 from left to right.
+
+                                Workloads        1    2   3    4     5     6     7      8     9
+                                Trace 1 (%)     33    7   8    7    27    6      6      3     3
+                                Trace 2 (%)     22    5   5   21     5     5    19      6    12
+                                Trace 3 (%)      4    1   4    3    20    27     1     25    15
+
+
+J. End-to-end Experiment Results for Llama3-8B Model
+The end-to-end experiments on Llama3-8B model with different setups are shown in Figure 15.
+
+K. System Performance vs Price Budget
+We further evaluate our system’s performance compared to homogeneous baselines under various price budgets. As shown
+in Figure 16, as the price budgets increase (from 5 $/h to 60 $/h), the performance gap between our approach and the
+homogeneous setups narrows from approximately 30% to 15%. This is primarily due to the limited availability of cloud
+resources. In homogeneous baselines, we assume an unlimited number of GPUs, allowing performance to scale linearly
+with the price budget. However, in cloud-based scenarios, resource restrictions prevent such linear scaling. When larger
+price budgets are applied, unsuitable GPUs for the current workload may be rented if they are the only available options,
+further limiting performance scalability.
+
+                                     Table 6: Performance of different configurations.
+
+                              Diff Configs                              Real         Estimated
+                              H100 (2,4)                              0.56 req/s     0.60 req/s
+                              H100 (4,2)                              0.44 req/s     0.47 req/s
+                              H100 (4,2) (cross machine)              0.42 req/s     0.44 req/s
+                              L40 (2,4)                               0.42 req/s     0.46 req/s
+                              L40 (4,2)                               0.21 req/s     0.22 req/s
+                              L40 (4,2) (cross machine)               0.18 req/s     0.19 req/s
+                              H100+A100 (4,2) (cross machine)         0.48 req/s     0.52 req/s
+
+
+
+
+L. One-Time Profiling
+We employ a one-time profiling strategy that captures the following components. This approach is referred to the profiling
+method used in Vidur (Agrawal et al., 2024a): (1) Inference prefilling latency: We profile the latency for a single transformer
+layer across varying TP degrees, different workload types, and various GPU types; (2) inference decoding latency: We
+profile the decoding latency for a single transformer layer under similar variations in TP degrees, workload types, and GPU
+types; (3) pipeline communication latency: We measure the communication latency between different GPUs across various
+workload types. Using these measurements, the per-request latency for any configuration is estimated by combining the
+TP costs (both communication and computation) of all layers—which may be served by different GPUs and at varying TP
+degrees—with the PP communication cost. Note that our heuristics, as discussed in Section 4.3 and Appendix D, largely
+reduce the profiling space, e.g., TP is employed only intra-machine. When estimating throughput, the prefill and decoding
+
+                                                              18
+                           Demystifying Cost-Efficiency in LLM Serving over Heterogeneous GPUs
+
+phases are treated separately: (1) The prefill phase is compute-bound, and its batched processing capacity is determined by
+the sum of the individual latencies; (2) the decoding phase is memory-bound, with its batched processing capability defined
+by a single latency value. This distinction has been validated in several studies (Zhong et al., 2024; Patel et al., 2024).
+Table 6 demonstrates examples of our cost estimation under a long-input, short-output workload (i.e., workload 1 in Figure 4).
+In Table 6, the notation (2,4) indicates that the TP degree is 2 and the PP degree is 4. The estimation errors range from 4% to
+7%. Although the estimations are not perfectly accurate, they are sufficiently reliable for selecting the optimal configurations.
+
+
+
+M. Discussion
+Online replanning. Online scheduling for dynamic workloads is orthogonal to the approach presented in this work.
+However, accommodating dynamic workloads could be achieved through the implementation of a replanning mechanism
+analogous to the one proposed in DistServe (Zhong et al., 2024). Concretely, the system could (1) monitor the real-time
+composition of incoming workloads, (2) track GPU resource availability within the cloud environment, and (3) upon
+detecting a significant shift in workload distribution, (e.g., an increase in the proportion of certain workload types) the
+scheduling algorithm could be executed again, incorporating recent historical data to produce an updated serving plan.
+
+                                 Table 7: Performance changes in workload and GPU drop.
+
+                                                 Workload Change             GPU Drop
+                                 Before              26.89 req/s             26.89 req/s
+                                 After           23.70 req/s (13%↓)      20.80 req/s (29%↓)
+                                 Replanning      29.61 req/s (25%↑)      22.85 req/s (10%↑)
+
+As shown in Table 7, we test the workload surge in short output requests in AzureTrace dataset (i.e., trace 2) with a price
+budget of $30 per hour. Before surge, the optimal GPU composition is {20%, 65%, 15%} for datacenter, workstation,
+and consumer GPUs, achieving 26.89 req/s. After workload change, the throughput degrades to 23.7 req/s. In this case,
+replanning (shifting allocation to {63%, 23%, 14%}) boosts throughput to 29.61 req/s. We also test the case when GPU
+drop happens (4 H100s down), the throughput falls from 26.89 to 20.80 req/s. In this case, replanning raises throughput to
+22.85 req/s.
+Trade-offs between prioritizing cost-efficiency and request latency. Prioritizing cost-efficiency typically involves using
+fewer resources (i.e., lower budgets), which can lead to slightly higher response latencies. In contrast, prioritizing latency
+often requires utilizing more resources (i.e., incurring higher costs). We acknowledge that optimizing for cost efficiency
+may result in a slight increase in latency. However, inference tasks typically do not require extremely low latency; meeting
+a predefined latency threshold is usually sufficient. In resource-limited scenarios, where systems are naturally under-
+provisioned, emphasizing throughput can also indirectly improve latency by reducing queuing delays. Our experimental
+results in Figure 6 demonstrate that our method achieved the lowest P99 latency among all compared baselines.
+
+
+
+
+                                                              19
+

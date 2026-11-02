@@ -1,0 +1,54 @@
+{
+  "review_date": "2026-10-15",
+  "scope": "Full extracted text, references and appendices; selected critical tables and figures visually inspected. Cited external papers not separately read.",
+  "papers": [
+    {
+      "path": "papers/refs/mariusgnn.pdf",
+      "sha256": "cb6a27d8265eb8c55b5397b146abb468cf82edbb0b456049c63e94cd584ab4df",
+      "pdf_pages": 18,
+      "text_characters": 158433
+    },
+    {
+      "path": "papers/refs/melange-2404.14527.pdf",
+      "sha256": "e4341854471e46c5af91cfb362a485b67ee4a735fd96181dfcbab84d5f119ec8",
+      "pdf_pages": 20,
+      "text_characters": 75540
+    },
+    {
+      "path": "papers/refs/splitwise-2311.18677.pdf",
+      "sha256": "c7baf19039f7b760c5d83fb61324ec4ffdf384e8a047bd46f2c4e2ad85e3531d",
+      "pdf_pages": 15,
+      "text_characters": 147975
+    },
+    {
+      "path": "papers/refs/tetriserve-arxiv-v4.pdf",
+      "sha256": "b09ba37c1a7a6e8f6c990824f507eba4db0806b943c431a9b577c480893350e6",
+      "pdf_pages": 16,
+      "text_characters": 135083
+    },
+    {
+      "path": "papers/refs/tetriserve-asplos26.pdf",
+      "sha256": "df295ab1aea0c6fd9dfd34c1bfa602bad4e5ba590b54c12730b6cc297d7148de",
+      "pdf_pages": 16,
+      "text_characters": 133242
+    }
+  ],
+  "codex_visual_pages": {
+    "mariusgnn.pdf": [
+      10,
+      11
+    ],
+    "melange-2404.14527.pdf": [
+      9,
+      17
+    ],
+    "splitwise-2311.18677.pdf": [
+      8,
+      11
+    ],
+    "tetriserve-arxiv-v4.pdf": [
+      6,
+      10
+    ]
+  }
+}

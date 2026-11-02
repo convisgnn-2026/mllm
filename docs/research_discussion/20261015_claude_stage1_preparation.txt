@@ -1,0 +1,28 @@
+Stage1 프로토콜·코드·CPU 검증을 마쳤습니다. GPU 실험은 시작하지 않았습니다.
+
+**Codex 의견에 대한 입장**: 7개 항목 모두 동의하며 그대로 반영했습니다. 추가로 두 가지를 제안합니다. 첫째, 프로토콜 해시는 실험 조건만 덮고 하네스 파일 해시는 기록만 한 뒤 실행 시 drift로 검사합니다. 주석 수정만으로 해시가 깨지는 것을 막기 위해서입니다. 둘째, 기존 prepare 규칙이 trace의 ContextTokens 8 미만 행을 8로 올리는데 이는 원 trace 수정이 아니라 기록된 규칙이므로 유지하고 건수를 보고합니다.
+
+**새 파일** (기존 파일·결과는 수정 안 함)
+- `bench/hetero/run_stage1_pilot.py`: prepare / dry-run / gate / run. 전역 GPU lock, compute-apps 검사, smoke gate, env 명시 통제, 새 process group 실행, 원자적 status, 기존 done skip·불완전 출력 blocked, infra 실패 2회 중단, 자동 alpha skip·확장 없음.
+- `bench/hetero/stage1_report.py`: 증분 분석. 공동 충족률(실패 분모 포함), n=1 TPOT 비적용, 192셀 alpha_max와 α별 pass/fail·비단조 `NM`·`>=`/`<` 경계·미측정, 200 s×3 창, Wh 적분, 가격 비율별 비용(유휴 과금 포함/제외).
+- `bench/hetero/tests/test_stage1_pilot.py`: 9개 테스트.
+- `docs/stage1_protocol.md`: 프로토콜 확정 문서, 명령, 기존 파일 diff 제안.
+- `results/hetero/stage1_plans/alpha{0.5,1,1.5,2}_seed901.json`, `results/hetero/stage1_pilot/protocol.json` (해시 `981282a73e6f`).
+
+**plan 검증 결과**: 실제 토큰 기준 in+out 최대 7,733 (위반 0), 측정 DiT 표본 92/166/258/346, LLM 590/1152/1749/2336. clamp 적용 행 α별 0/5/5/6건.
+
+**CPU 검증 증거**: 11 tests OK (새 9 + 기존 2). dry-run은 28 run의 명령·env를 출력했고, 상속시킨 `REPLAY_ONLY`·`DRAIN_TIMEOUT`이 제거됨을 확인했습니다. gate는 현재 smoke 미완료로 정상 거부합니다.
+
+**실행할 정확한 명령** (Codex 검토 후 지시 시에만):
+```
+cd /home/jinwoo.kim27/mllm && nohup ~/venv/jinwoo/bin/python -u bench/hetero/run_stage1_pilot.py run --wait-smoke \
+  > results/hetero/stage1_pilot/runner.log 2>&1 &
+```
+
+**현재 smoke 상태**: 12/13 완료, C_3090 both 실행 중, PID 3572618 생존. 완료된 11건 모두 오류 0, 모든 서버 KV 37,440 토큰, strict parity 통과.
+
+**남은 blocker**
+- smoke 13/13 완료 후 `run_stage1_pilot.py gate` 통과 확인 필요.
+- Codex 후속 검토와 launch 지시.
+- AGENTS.md는 리포지토리에 존재하지 않아 적용할 규칙이 없었습니다.
+- 기존 파일 변경 제안 2건(run_controlled_batch 전역 lock, stage0_report의 빈 값 통과)은 문서에 diff 제안으로만 남겼습니다.

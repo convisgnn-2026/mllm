@@ -1,0 +1,155 @@
+Claude 첫 제안 원문 — Codex 검토 전 초안. 확정된 실험 프로토콜이 아님.
+
+논문 텍스트 전체(1~1187행, 참고문헌 [31]까지)와 9·10쪽 이미지, 설계 문서 2건, 스크립트 7건, 결과 파일 6건을 읽었습니다. 파일 수정과 GPU 실행은 하지 않았습니다. 아래는 Codex와 논의할 첫 실험 설계 제안입니다.
+
+## A. 원 논문 III-B/III-C 재구성과 검산
+
+**정의 재구성** (`papers/refs/llm-pilot-ccgrid26.txt:380-447`)
+
+- Eq.3–6: 단일 배치 B가 동시에 시작하는 닫힌 루프 모델. T_E2E = L·T_pre + L·(S_out−1)·T_dec, TTFT = L·T_pre, TBT = L·T_dec, TPS = B(S_in+S_out)/T_E2E. 도착 과정과 큐잉은 없고, 큐잉은 shared AO의 M/D/1 평균 대기 Wq만 Eq.16에서 더합니다(`:643-659`).
+- Eq.7 (RT): σ∈Σ ⟺ TPS ≥ TPS_SLO ∧ TTFT ≤ TTFT_SLO ∧ TBT ≤ TBT_SLO. Eq.8 (Batch): TPS ≥ TPS_SLO만.
+- 평가 지표의 실제 정의는 V-A1(`:755-763`)에 있습니다. TTFT는 배치 내 질의의 **평균**, TBT는 배치 내 질의의 **p95**입니다. 즉 Eq.7의 "개별 요청 SLO"는 실측에서는 배치 단위 요약 통계로 판정됐습니다.
+- Θ = min(TPS, TPS_SLO). Σ 안에서는 TPS ≥ TPS_SLO이므로 Θ ≡ TPS_SLO로 상수가 되고, Eq.9 CE = Θ·3600/C 의 argmax는 C의 argmin과 같아집니다(`:432-440`). 이 등가는 "가용 집합이 이미 처리량 조건을 강제한다"는 전제에서만 성립합니다.
+
+**새 open-loop SLO와의 구분.** 현재 실험(`bench/hetero/controlled_mixed.py:86-125`)은 Poisson 도착, 계획 도착 기준 TTFT/E2E, 요청별 평균 TPOT, 오류·drain_timeout을 분모에 포함한 **요청별 joint attainment**입니다. 원 논문 Eq.7과 대응시키면 다음과 같습니다.
+
+| 원 논문 | 확장 연구 |
+|---|---|
+| TPS ≥ TPS_SLO (닫힌 루프 용량) | 고정 수요 λ에서 backlog가 증가하지 않는 안정성 |
+| 배치 평균 TTFT, 배치 p95 TBT | 요청별 (TTFT, TPOT, E2E) 동시 만족 비율 ≥ a_i |
+| Θ = TPS_SLO 상수 | Θ_i = λ_i × E[요청 크기_i], 가용 σ 모두에서 상수 |
+
+따라서 "CE 최대화 ≡ 비용 최소화"는 open-loop에서도 그대로 성립하되, Θ가 "용량"이 아니라 "수요"가 됩니다.
+
+**Fig.1/Table IX 검산 결과.** Table VI 가격(`:769-777`)으로 직접 계산했습니다.
+
+| 보고값 | 계산 | 결과 |
+|---|---|---|
+| RT 1st-pick CE 110.0 | 100 / (Sim-D on-demand 0.805 + Sim-A spot 0.104 = 0.909) | 110.0 일치 |
+| RT 1st-pick CE 110.0 | Eq.9 그대로: 100·3600/0.909 | 396,040 tokens/$ |
+| RT 2nd-pick CE 84 | 100 / (0.805 + 0.379 = 1.184) | 84.5 일치 |
+| RT High-End 53.7 | 100 / Sim-G on-demand 1.861 | 53.7 일치 |
+| Batch 1st-pick 121.0 | 121 × 0.909 | 실제 TPS ≈ 110 tokens/s |
+| Batch 1st-pick, Θ cap 적용 시 | 10 / 0.909 | 11.0 (보고값과 불일치) |
+| Batch 2nd-pick 92.9 | 110 / 1.184 | 92.9 일치 |
+| Fig.3 AO(N:1) RT 154.4 vs Batch 15.4 | 비율 | 정확히 10 (cap 적용됨) |
+
+사실로 확인된 것:
+- 보고된 CE 수치는 Eq.9의 ·3600이 빠진 Θ/C, 즉 (tokens/s)/($/h) 값입니다. "tokens/$" 단위 표기와 맞지 않습니다.
+- 본문 "$0.46/hr"(`:961`)는 Sim-D spot + Sim-A spot 합(0.464)이지만, CE 110과 Fig.1(a)에서 $0.5 예산에 불가·$1.0에 가용이 되는 모양은 $0.909(main on-demand + AO spot)와만 일치합니다. 논문 II-C의 "stateless AO 노드에 spot" 논리(`:282-284`)와는 부합합니다.
+- V-C 배치 시나리오의 CE는 Θ cap을 적용하지 않은 실제 TPS 기준이고, V-D Fig.3의 배치 CE는 cap을 적용한 값입니다. 한 논문 안에서 cap 적용 여부가 다릅니다.
+- 비율 주장(2.05×, 2.31×, 1.39×, 1.50×, 51%, 57%, 78%, 15.3%)은 모두 위 수치와 자기 일관됩니다.
+
+의문으로 남는 것(사실 아님, 저자 확인 필요):
+- Fig.3의 RT 셀 값 119.8(AO), 119.8(High-End MP), 135.8(AO Parallel)을 Θ/C로 역산하면 시간당 비용이 각각 약 0.835, 0.835, 0.736 $/h입니다. Table VII 가격으로 재현되지 않고, Parallel AO가 1:1 AO보다 싸게 나와 IV-B3 "비용 K배"(`:629-633`) 서술과 어긋납니다. solver의 비용 표를 확인해야 합니다.
+- 배치 High-End가 $1.0에서 CE 87, $2.0+에서 80.6으로 "higher-cost pricing" 전환이라는데, spot/on-demand 어느 쪽을 쓴 것인지 본문만으로는 확정되지 않습니다.
+
+확장 논문에서는 Θ cap 적용 여부와 단위를 수식·그림·표에서 하나로 고정해야 하고, 모달리티가 다르므로 tokens/$ 대신 "수요 λ를 만족하는 시간당 비용"과 "서비스별 1,000요청당 비용"을 보고하는 것을 권합니다.
+
+## B. 고정 수요벡터에서의 비용 최소화 정의
+
+제안 정의:
+- 서비스 i ∈ {LLM, VLM, DiT} 중 두 개. 수요 λ = (λ_i), 요청 크기 분포 D_i(길이 trace, 이미지 크기, step 수), SLO_i = (deadline 집합, attainment 목표 a_i).
+- 구성 σ = 서비스별 분할·단계 배치·엔진 설정. R(σ) = σ가 실제로 점유하는 GPU 집합.
+- 가용: ∀i, Att_i(σ, λ) ≥ a_i 이고 관측 구간에서 backlog 증가 없음.
+- 비용: C(σ) = Σ_{g∈R(σ)} c_g [$/h]. 목적: min C(σ) s.t. 가용.
+
+반영할 점:
+- **고정 2 GPU·고정 시간이면 C는 상수**입니다(`docs/solver_need_experiments.md:18`). 그 경우 문제는 순수 가용성 판정으로 환원되고, 비용 축은 R(σ)가 다른 후보, 즉 **1 GPU만 쓰는 후보**를 넣어야만 생깁니다. 현재 장비에서는 이것이 실측 가능한 유일한 비용 차이입니다.
+- 모달리티 처리량을 합산하지 않습니다. 가용성은 서비스별 attainment 벡터로만 판정하고, 비용은 스칼라 C(σ)로만 비교합니다.
+- **예측 비용 추정 vs 실측 절감**: 선택기가 고른 σ̂의 C(σ̂)는 "예측 비용"입니다. 검증 seed에서 σ̂의 가용성이 실측으로 확인될 때만 C(기준 고정배치) − C(σ̂)를 "실측 절감"으로 부릅니다. 가용성이 깨지면 절감은 0이 아니라 SLO 위반으로 기록합니다.
+- 보조 목표(공통 수요배율 α 최대화)는 "수요가 비율을 유지하며 증감한다"는 가정을 명시하고, 주 결과와 분리된 부록 수준으로만 둡니다(`docs/1013_meeting.md:157`).
+- 가격 기준은 모두 **가정**입니다. 저장소에는 구매비 4년 상각(4090 $1599, 3090 $1499, `bench/hetero/map_score.py:14`)과 전력요금 $0.12/kWh × PUE 1.3(`bench/hetero/plot_map.py:3`)이 있습니다. 상각 기준에서는 두 카드 단가 차이가 거의 없어 비용이 사실상 "GPU 장수 + 에너지"입니다. 실측 가능한 것은 GPU 점유 시간과 전력 적분(gpu.csv)뿐이므로, 결과표는 GPU-시간(종류별)과 Wh를 1차 지표로, $는 가정 라벨을 붙여 2차로 둡니다. 유휴 3090이 약 30 W를 소비하는 점(`results/hetero/mixed_modal/summary.md:42-44`)은 "보유 장비 과금" 가정에서는 포함, "임대" 가정에서는 제외로 둘 다 보고합니다.
+
+## C. 최소 후보공간과 비교 설계
+
+현재 상태 정리:
+- LLM+VLM: with_vlm 고정 배치가 4개 부하 모두에서 주요 지표 우세(`results/hetero/vlm_placement_load_sweep_seed0/comparison.json`). 단독 기준으로도 with_vlm의 VLM 첫 응답이 더 빠르므로(`vlm_placement_seed0/comparison.json:75,171`), 단독 성능 기반 선택과 간섭 반영 선택이 **같은 답**을 냅니다. 이 후보공간으로는 확장의 타당성을 판별할 수 없습니다.
+- LLM+DiT: 통제 반복 5 seed에서 C_4090과 S4_3090의 trade-off가 재현됐습니다(`results/hetero/controlled_runs/comparison.md:10-21`). 다만 탐색 SLO A/B 둘 다 어느 구성도 90%를 넘지 못해 "통과 구성" 서사는 성립하지 않습니다. 또 pilot에서 C_3090은 단독 TPOT가 좋지만 혼재에서 2.87배 악화되는 "단독 기준 선택이 틀리는" 사례가 있습니다(`docs/1013_meeting.md:45-53`). 이 사례는 통제 실험으로는 아직 재현되지 않았습니다.
+- 실행 제어(encoder 허용 지연) 실험은 세 차례 모두 개선을 입증하지 못했습니다(`docs/solver_need_experiments.md:186-239`). 따라서 첫 실험은 **정적 배치 선택만** 다루고 런타임 제어는 후보에서 뺍니다.
+
+제안하는 최소 후보공간(모두 이미 구현된 분할만 사용):
+
+| 후보 | 4090 | 3090 | 점유 GPU | 구현 근거 |
+|---|---|---|---|---|
+| S4_4090 | LLM 전체 + DiT 전체 | 유휴 | 1 | `run_mixed_modal.sh:48,62` |
+| S3_3090 | 유휴 | LLM 전체 + DiT 전체 | 1 | `:49,64` |
+| S4_3090 | LLM 전체 | DiT 전체 | 2 | 기존 측정 |
+| S3_4090 | DiT 전체 | LLM 전체 | 2 | 스크립트 지원, 미측정 |
+| C_4090 | LLM prefill + DiT | LLM decode | 2 | 기존 측정 |
+| C_3090 | LLM prefill | LLM decode + DiT | 2 | pilot만 |
+| C_split | LLM prefill + DiT denoise | LLM decode + DiT encode·VAE | 2 | `dit_server.py:6`, pilot만 |
+
+포함 이유: 1 GPU 후보 2개는 비용 축을 만들고, 단독 기준 선택기가 "각 서비스가 단독으로 통과하면 가장 싼 것"으로 고를 가능성이 가장 높은 후보라서 간섭 반영의 가치를 가장 직접 시험합니다. C_3090은 단독·혼재 역전 사례의 재현용입니다. A(복제 RR)는 후보 수 억제를 위해 제외합니다.
+
+비교할 선택기 4종(같은 Σ, 같은 비용 함수):
+1. 고정 배치: S4_3090, C_4090, 그리고 규칙 "DiT는 빠른 카드, 서비스 분리"인 S3_4090.
+2. 단독 성능 기반 선택(원 논문 구조의 직접 대응): LLM 배치 p의 LLM 단독 attainment와 DiT 배치 q의 DiT 단독 attainment를 독립으로 가정해 가용 판정, 최소 비용 선택.
+3. 간섭 반영 선택: 보정 seed의 혼재 실측 lookup으로 가용 판정, 최소 비용 선택. 첫 실험에서는 분석 모델 대신 lookup을 써서 "간섭을 반영하는 것 자체의 상한 가치"를 모델 오차와 분리합니다.
+4. 실측 최선(Oracle): 검증 seed에서 가용한 후보 중 최소 비용.
+
+지표: 셀(λ, SLO)별 선택 구성, 선택 구성의 검증 seed 실측 가용 여부, 비용 regret = C(선택) − C(Oracle), 불가 구성 선택률. 선택 데이터(보정 seed)와 평가 데이터(검증 seed)를 분리합니다.
+
+## D. 실험 하나의 구체화: "LLM+DiT 정적 구성 선택의 타당성"
+
+**질문.** 동일 후보공간·동일 수요에서, 단독 성능 기반 선택이 간섭 때문에 불가 구성이나 비싼 구성을 고르는 셀이 존재하며, 혼재 실측을 반영한 선택이 검증 seed에서도 그 손실을 피하는가.
+
+**장비·모델.** RTX 4090 + RTX 3090(UUID 고정, `run_mixed_modal.sh:27`), Llama-3.2-3B-Instruct bf16, SD3.5-medium 512², 28 step, T5 제외, FIFO batch 1(`dit_server.py:7`). LLM gpu-memory-utilization 0.5 고정. vLLM 0.28, torch 2.13(`controlled_runs/C_4090/seed0/deployment.json`).
+
+**분할 구현 상태.** LLM P/D는 NixlConnector + toy proxy(`run_mixed_modal.sh:41-43,60-61`), DiT 단계 분리는 stage별 device(`dit_server.py:26-27`), VLM E/(P+D)는 ECExampleConnector 파일 전달(`run_interference_pilot.py:168-173`). VLM P/D 분할, DiT step 단위 스케줄링, DiT batch>1 운용은 구현되지 않았으므로 후보에 넣지 않습니다.
+
+**워크로드.** Azure code trace 길이, 합성 프롬프트, Poisson 도착(`controlled_mixed.py:30-45`). 수요점 2개: λ₁ = (LLM 2 rps, DiT 0.3 rps)는 기존 plan seed0–4 재사용, λ₀.₅ = (1 rps, 0.15 rps)는 새로 prepare. warmup 60 s 제외, 측정 600 s, drain 최대 300 s. 모든 후보가 같은 seed의 같은 plan·프롬프트 hash를 재생합니다.
+
+**SLO 사전설정과 탐색 분리.** 실행 전 고정: 주 판정 셀은 기존 A(TTFT 0.5 s, TPOT 20 ms, DiT 10 s)와 B(1 s, 12 ms, 3 s), attainment 90%. 민감도는 기존 격자(TTFT {0.3,0.5,1,2} × TPOT {12,20,30,50} × DiT {3,5,10,20}, `results/hetero/solver_need/summary.md:8`)와 attainment 95%. 격자 결과로 A/B를 사후 교체하지 않습니다. 선택은 seed 0–1(보정), 평가는 seed 2–4(검증).
+
+**가격 모델.** 실측: GPU 점유 시간, gpu.csv 전력 적분. 가정: 상각 단가와 전력요금(위 B). 두 가정(유휴 카드 과금 포함/제외)을 모두 표로 냅니다.
+
+**open-loop 처리 규칙.** 계획 도착 기준 지연, send_lag p99 기록해 50 ms 초과 시 클라이언트 병목으로 run 무효. 오류·drain_timeout은 실패로 분모 포함. 안정성: backlog.csv의 마지막 300 s in-flight 추세가 양이면 attainment와 무관하게 해당 run을 불가로 판정합니다. 유한 구간 측정은 정상상태 지연을 과소평가하므로 이 규칙이 필요합니다.
+
+**재현성.** seed별 (후보, 수요) 순서 shuffle, 한 seed의 모든 후보를 끝낸 뒤 다음 seed로 진행해 중간 중단 시에도 paired 비교가 남도록 합니다. 시작 전 nvidia-smi compute-apps 비어 있음 확인(`run_placement_study.py:17-18`), process group 종료, deployment.json·plan sha·prompt sha 저장.
+
+**실행 규모.**
+
+| 블록 | run 수 | 예상 시간 |
+|---|---|---|
+| 혼재: 7 후보 × 2 수요 × 3 seed (1차) | 42 | 약 10 h |
+| 단독: LLM 배치 3종 + DiT 배치 3종, 2 수요, seed 0–1 | 24 | 약 5 h |
+| 혼재 seed 3–4 추가 (1차 통과 시) | 28 | 약 7 h |
+
+**산출물.** run별 replay/{llm,dit}/requests.csv, manifest.json, backlog.csv, gpu.csv. 집계: attainment 격자, 안정성 판정표, 선택기 4종의 셀별 선택·regret 표, 에너지·GPU-시간 표, trade-off 그림.
+
+**중단 판정.** 설정 실패나 오류율 1% 초과 run이 나오면 원인 수정 전 진행 중단. 1차 3 seed에서 Oracle이 A/B와 격자의 90% 이상 셀에서 동일 구성이면 seed 추가 없이 "고정 배치 충분" 결론으로 종료. seed 간 attainment 범위가 후보 간 차이보다 크면 해당 셀은 동률로 기록합니다. 한 후보가 같은 수요에서 2회 이상 drain timeout이면 불가로 확정하고 재실행하지 않습니다.
+
+**스크립트와 필요한 변경.**
+- `bench/hetero/run_controlled_batch.py:35,42`는 후보 2개·plan 경로가 하드코딩입니다. 후보 목록, 수요별 plan 디렉터리, 단독 run(`C none`, `none 4090` 형태) 지정을 인자화해야 합니다.
+- `bench/hetero/compare_controlled.py`는 2 후보 비교용입니다. 다중 후보, 격자 attainment, backlog 안정성, send_lag, gpu.csv 에너지 집계를 추가해야 합니다. 격자 채점은 `analyze_solver_need.py` 로직을 재사용합니다.
+- 신규 `selection_eval.py`: 선택기 4종과 regret 표.
+- `controlled_mixed.py`: 개별 chunk 시각이 없어 "끊김" tail을 못 봅니다. VLM 하네스처럼 chunk 시각 저장을 추가하면 좋지만 첫 실험의 차단 요소는 아닙니다.
+- 점검: seed 0에서 두 후보 모두 LLM 오류 1건이 같은 개수입니다(`comparison.md:12-13`). plan의 in_len 상한 8000에 out_len을 더하면 max-model-len 8192를 넘을 수 있어(`controlled_mixed.py:41-42`) plan 자체 결함일 가능성이 있습니다. 새 plan 생성 전 확인이 필요합니다.
+- S4_4090의 메모리 적합성(DiT 약 6–7 GB + LLM 12 GB)은 첫 run에서 확인합니다.
+
+## E. 반복할 가치가 있는 조건과 종료 조건
+
+반복·확장할 가치가 있는 경우:
+- 사전설정 셀 중 하나 이상에서 선택기들이 다른 구성을 고르고, 검증 seed에서 그 차이가 seed 간 범위를 넘어 재현될 때.
+- 단독 기반 선택기가 불가 구성(예: 1 GPU 후보나 C_3090)을 고르는데 간섭 반영 선택기는 가용 구성을 고를 때. 이것이 원 논문 확장의 핵심 근거입니다.
+- λ₀.₅에서 1 GPU 후보가 어떤 SLO에서든 가용할 때. 그때만 현재 장비로 실측 비용 절감을 말할 수 있습니다.
+
+"고정 배치로 충분"으로 결론 내릴 조건:
+- 모든 (수요, SLO) 셀에서 Oracle이 동일 구성이고, 단독 기반 선택기도 같은 구성을 고르며, 1 GPU 후보가 어느 셀에서도 가용하지 않을 때. 이 경우 부정 결과로 기록하고, 후보공간 확장은 실제 플랫폼 수요·모델이 확보된 뒤로 미룹니다.
+
+현재 장비로 가능한 검증: 가용성 지도, 선택기 정확도와 regret, 1 GPU 대 2 GPU 비용 차이, 에너지 비교, 같은 프로토콜의 LLM+VLM 재실험(후보에 단일 프로세스 VLM과 1 GPU 후보 추가).
+추가 장비가 필요한 최종 비용 검증: 원 논문 Table VII처럼 단가가 다른 인스턴스 풀, 복제 scale-out, 3 서비스 동시 실행. 소비자 GPU 임대 플랫폼의 날짜 기록된 가격표가 그 대용이 될 수 있습니다.
+
+## 읽은 범위, 못 읽은 것, 미확정 사항
+
+읽은 것: 논문 텍스트 I–VI 전체, Eq.1–18, Table I–IX, Fig.1–3 캡션과 9·10쪽 이미지(Fig.1, Fig.2, Fig.3, Table VIII·IX), 참고문헌 [1]–[31]. `docs/solver_need_experiments.md`, `docs/1013_meeting.md` 전체. 스크립트 `run_placement_study.py`, `run_controlled_batch.py`, `plot_mixed_summary.py`, `run_interference_pilot.py`, `run_mixed_modal.sh`, `controlled_mixed.py`, `dit_server.py`, `map_score.py`, `iso_cost.py`, `solver_v0.py` 앞부분, `vlm/README.md`. 결과 `controlled_runs/comparison.{md,json}`, 두 VLM `comparison.json`, `mixed_modal/summary.md`, `solver_need/summary.md`, deployment·config·manifest 1건씩.
+
+못 읽은 것: `/tmp/llm-pilot-layout.txt`(텍스트와 이미지로 충분해 생략), 9·10쪽 외 페이지 이미지, `compare_controlled.py`, `analyze_solver_need.py`, `model_llm.py`, `loadgen.py`, `gated_proxy.py`, controlled_plans JSON 본문, requests.csv와 gpu.csv 원시 데이터. 작업 트리에 bench·hetsim·docs 구파일 삭제가 미커밋 상태로 있는데 손대지 않았습니다.
+
+가장 중요한 미확정 사항 3개:
+1. 플랫폼의 실제 SLO·수요벡터·모델이 없어 A/B와 λ는 탐색값입니다. 선택기 비교 결과는 이 값에 종속됩니다.
+2. 비용 기준(상각 vs 임대, 유휴 카드 과금 여부)과 CE 규약(Θ cap 적용 여부, ·3600 단위)이 미정입니다. 원 논문 자체가 V-C와 V-D에서 cap을 다르게 적용했으므로 확장 논문에서 먼저 고정해야 합니다.
+3. 간섭 반영 선택기를 분석 모델로 할지 실측 lookup으로 할지 미정입니다. 첫 실험은 lookup으로 상한을 재지만, 원 논문처럼 Eq.11–18 형태의 모델을 쓰려면 혼재 실행용 LLM 모델 확장과 DiT·VLM 모델이 새로 필요하며 현재 `solver_v0.py`는 LLM 단독 닫힌 루프 전용입니다.
+
+Codex에 확인을 요청할 항목: Fig.3 CE의 비용 기준표, 본문 "$0.46/hr"의 출처, 배치 시나리오 cap 적용 여부에 대한 저자 의도.

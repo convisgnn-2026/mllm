@@ -1,0 +1,366 @@
+[
+  {
+    "from": "solver",
+    "to": "archive/legacy/solver"
+  },
+  {
+    "from": "hetsim",
+    "to": "archive/legacy/hetsim"
+  },
+  {
+    "from": "scripts",
+    "to": "archive/legacy/scripts"
+  },
+  {
+    "from": "slo_configs",
+    "to": "archive/legacy/slo_configs"
+  },
+  {
+    "from": "figures",
+    "to": "archive/legacy/figures"
+  },
+  {
+    "from": "bench/bench_colocate.py",
+    "to": "archive/legacy/bench/bench_colocate.py"
+  },
+  {
+    "from": "bench/bench_concurrency.py",
+    "to": "archive/legacy/bench/bench_concurrency.py"
+  },
+  {
+    "from": "bench/bench_mixed.py",
+    "to": "archive/legacy/bench/bench_mixed.py"
+  },
+  {
+    "from": "bench/latent_transfer.py",
+    "to": "archive/legacy/bench/latent_transfer.py"
+  },
+  {
+    "from": "bench/policies.py",
+    "to": "archive/legacy/bench/policies.py"
+  },
+  {
+    "from": "bench/profile_stages.py",
+    "to": "archive/legacy/bench/profile_stages.py"
+  },
+  {
+    "from": "bench/score_slo.py",
+    "to": "archive/legacy/bench/score_slo.py"
+  },
+  {
+    "from": "bench/serve_bench.py",
+    "to": "archive/legacy/bench/serve_bench.py"
+  },
+  {
+    "from": "bench/workload.py",
+    "to": "archive/legacy/bench/workload.py"
+  },
+  {
+    "from": "results/fair_slo_sweep.md",
+    "to": "archive/legacy/results/fair_slo_sweep.md"
+  },
+  {
+    "from": "results/fig_frontier.png",
+    "to": "archive/legacy/results/fig_frontier.png"
+  },
+  {
+    "from": "results/fig_pareto.png",
+    "to": "archive/legacy/results/fig_pareto.png"
+  },
+  {
+    "from": "results/fig_sar_vs_tail.png",
+    "to": "archive/legacy/results/fig_sar_vs_tail.png"
+  },
+  {
+    "from": "results/fig_target_shape.png",
+    "to": "archive/legacy/results/fig_target_shape.png"
+  },
+  {
+    "from": "results/map2d.json",
+    "to": "archive/legacy/results/map2d.json"
+  },
+  {
+    "from": "results/mig_reconfig.csv",
+    "to": "archive/legacy/results/mig_reconfig.csv"
+  },
+  {
+    "from": "results/runs",
+    "to": "archive/legacy/results/runs"
+  },
+  {
+    "from": "results/scores.json",
+    "to": "archive/legacy/results/scores.json"
+  },
+  {
+    "from": "results/scoresB.json",
+    "to": "archive/legacy/results/scoresB.json"
+  },
+  {
+    "from": "results/scores_small.json",
+    "to": "archive/legacy/results/scores_small.json"
+  },
+  {
+    "from": "results/servingsim",
+    "to": "archive/legacy/results/servingsim"
+  },
+  {
+    "from": "results/smoke.csv",
+    "to": "archive/legacy/results/smoke.csv"
+  },
+  {
+    "from": "results/smoke_run.json",
+    "to": "archive/legacy/results/smoke_run.json"
+  },
+  {
+    "from": "results/stages.csv",
+    "to": "archive/legacy/results/stages.csv"
+  },
+  {
+    "from": "results/stages_14b.csv",
+    "to": "archive/legacy/results/stages_14b.csv"
+  },
+  {
+    "from": "results/stages_compile.csv",
+    "to": "archive/legacy/results/stages_compile.csv"
+  },
+  {
+    "from": "results/wlB2_d22.json",
+    "to": "archive/legacy/results/wlB2_d22.json"
+  },
+  {
+    "from": "results/wlB2_d37.json",
+    "to": "archive/legacy/results/wlB2_d37.json"
+  },
+  {
+    "from": "results/wlB_skewed.json",
+    "to": "archive/legacy/results/wlB_skewed.json"
+  },
+  {
+    "from": "results/wlF_r0.55.json",
+    "to": "archive/legacy/results/wlF_r0.55.json"
+  },
+  {
+    "from": "results/wlF_r0.65.json",
+    "to": "archive/legacy/results/wlF_r0.65.json"
+  },
+  {
+    "from": "results/wlF_r0.75.json",
+    "to": "archive/legacy/results/wlF_r0.75.json"
+  },
+  {
+    "from": "results/wlF_r0.85.json",
+    "to": "archive/legacy/results/wlF_r0.85.json"
+  },
+  {
+    "from": "results/wlF_r0.85_s8.json",
+    "to": "archive/legacy/results/wlF_r0.85_s8.json"
+  },
+  {
+    "from": "results/wlF_r0.85_s9.json",
+    "to": "archive/legacy/results/wlF_r0.85_s9.json"
+  },
+  {
+    "from": "results/wlS_r0.8.json",
+    "to": "archive/legacy/results/wlS_r0.8.json"
+  },
+  {
+    "from": "results/wlS_r1.2.json",
+    "to": "archive/legacy/results/wlS_r1.2.json"
+  },
+  {
+    "from": "results/wlS_r1.4.json",
+    "to": "archive/legacy/results/wlS_r1.4.json"
+  },
+  {
+    "from": "results/wlS_r1.8.json",
+    "to": "archive/legacy/results/wlS_r1.8.json"
+  },
+  {
+    "from": "results/wlS_r2.0.json",
+    "to": "archive/legacy/results/wlS_r2.0.json"
+  },
+  {
+    "from": "results/wl_evenly_r0.10.json",
+    "to": "archive/legacy/results/wl_evenly_r0.10.json"
+  },
+  {
+    "from": "results/wl_long_seqlen_high_r0.10.json",
+    "to": "archive/legacy/results/wl_long_seqlen_high_r0.10.json"
+  },
+  {
+    "from": "results/wl_smoke.json",
+    "to": "archive/legacy/results/wl_smoke.json"
+  },
+  {
+    "from": "results/chain",
+    "to": "archive/legacy/results/chain"
+  },
+  {
+    "from": "results/colocate.csv",
+    "to": "archive/legacy/results/colocate.csv"
+  },
+  {
+    "from": "results/colocate_w2.csv",
+    "to": "archive/legacy/results/colocate_w2.csv"
+  },
+  {
+    "from": "results/colocate_w32.csv",
+    "to": "archive/legacy/results/colocate_w32.csv"
+  },
+  {
+    "from": "results/colocate_w8.csv",
+    "to": "archive/legacy/results/colocate_w8.csv"
+  },
+  {
+    "from": "results/concurrency.jsonl",
+    "to": "archive/legacy/results/concurrency.jsonl"
+  },
+  {
+    "from": "results/expB",
+    "to": "archive/legacy/results/expB"
+  },
+  {
+    "from": "results/fair",
+    "to": "archive/legacy/results/fair"
+  },
+  {
+    "from": "results/fig_load_predicted.png",
+    "to": "archive/legacy/results/fig_load_predicted.png"
+  },
+  {
+    "from": "results/fig_tail.png",
+    "to": "archive/legacy/results/fig_tail.png"
+  },
+  {
+    "from": "results/fig_threshold.png",
+    "to": "archive/legacy/results/fig_threshold.png"
+  },
+  {
+    "from": "results/mixed.jsonl",
+    "to": "archive/legacy/results/mixed.jsonl"
+  },
+  {
+    "from": "results/scoresB_partial.json",
+    "to": "archive/legacy/results/scoresB_partial.json"
+  },
+  {
+    "from": "results/small",
+    "to": "archive/legacy/results/small"
+  },
+  {
+    "from": "results/solo_ref.json",
+    "to": "archive/legacy/results/solo_ref.json"
+  },
+  {
+    "from": "results/stages_3g.csv",
+    "to": "archive/legacy/results/stages_3g.csv"
+  },
+  {
+    "from": "results/wlB2_d05.json",
+    "to": "archive/legacy/results/wlB2_d05.json"
+  },
+  {
+    "from": "results/wlB_evenly.json",
+    "to": "archive/legacy/results/wlB_evenly.json"
+  },
+  {
+    "from": "results/wlF_r0.60.json",
+    "to": "archive/legacy/results/wlF_r0.60.json"
+  },
+  {
+    "from": "results/wlF_r0.70.json",
+    "to": "archive/legacy/results/wlF_r0.70.json"
+  },
+  {
+    "from": "results/wlF_r0.85_s10.json",
+    "to": "archive/legacy/results/wlF_r0.85_s10.json"
+  },
+  {
+    "from": "results/wlF_r1.10.json",
+    "to": "archive/legacy/results/wlF_r1.10.json"
+  },
+  {
+    "from": "results/wlS_r1.0.json",
+    "to": "archive/legacy/results/wlS_r1.0.json"
+  },
+  {
+    "from": "results/wlS_r1.6.json",
+    "to": "archive/legacy/results/wlS_r1.6.json"
+  },
+  {
+    "from": "results/wlU5_r0.85.json",
+    "to": "archive/legacy/results/wlU5_r0.85.json"
+  },
+  {
+    "from": "results/wl_evenly_r0.20.json",
+    "to": "archive/legacy/results/wl_evenly_r0.20.json"
+  },
+  {
+    "from": "results/wl_long_seqlen_high_r0.20.json",
+    "to": "archive/legacy/results/wl_long_seqlen_high_r0.20.json"
+  },
+  {
+    "from": "docs/ppt",
+    "to": "presentations/slides"
+  },
+  {
+    "from": "docs/mllm_v0.2.pptx",
+    "to": "presentations/mllm_v0.2.pptx"
+  },
+  {
+    "from": "docs/design.md",
+    "to": "archive/legacy/docs/design.md"
+  },
+  {
+    "from": "docs/handoff.md",
+    "to": "archive/legacy/docs/handoff.md"
+  },
+  {
+    "from": "docs/llmservingsim-patches.md",
+    "to": "archive/legacy/docs/llmservingsim-patches.md"
+  },
+  {
+    "from": "docs/research-flow.md",
+    "to": "archive/legacy/docs/research-flow.md"
+  },
+  {
+    "from": "docs/research-idea.md",
+    "to": "archive/legacy/docs/research-idea.md"
+  },
+  {
+    "from": "docs/0922_report.md",
+    "to": "archive/legacy/docs/0922_report.md"
+  },
+  {
+    "from": "docs/assets",
+    "to": "archive/legacy/docs/assets"
+  },
+  {
+    "from": "docs/info.txt",
+    "to": "archive/legacy/docs/info.txt"
+  },
+  {
+    "from": "docs/formulation.md",
+    "to": "archive/legacy/docs/formulation.md"
+  },
+  {
+    "from": "docs/hetsim-report.md",
+    "to": "archive/legacy/docs/hetsim-report.md"
+  },
+  {
+    "from": "docs/simulator-design.md",
+    "to": "archive/legacy/docs/simulator-design.md"
+  },
+  {
+    "from": "docs/0922_jk_sum.md",
+    "to": "archive/legacy/docs/0922_jk_sum.md"
+  },
+  {
+    "from": "docs/mllm.pdf",
+    "to": "presentations/mllm.pdf"
+  },
+  {
+    "from": "docs/reseach_env.md",
+    "to": "docs/research_env.md"
+  }
+]

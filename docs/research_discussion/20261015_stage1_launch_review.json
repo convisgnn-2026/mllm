@@ -1,0 +1,18 @@
+{
+  "protocol_sha256": "981282a73e6fd6254562efafb1875a7d9e93fffa59d1867d7b3361a34ad44af0",
+  "cpu_tests": 12,
+  "smoke_gate_passed": true,
+  "launch": {
+    "pid": 3612757,
+    "started_unix_s": 1792036670.5869648,
+    "command": [
+      "/home/jinwoo.kim27/venv/jinwoo/bin/python",
+      "-u",
+      "/home/jinwoo.kim27/mllm/bench/hetero/run_stage1_pilot.py",
+      "run",
+      "--wait-smoke"
+    ],
+    "protocol_sha256": "981282a73e6fd6254562efafb1875a7d9e93fffa59d1867d7b3361a34ad44af0"
+  },
+  "notes": "28 mixed exploratory runs only; solo and validation runs not automatically scheduled"
+}

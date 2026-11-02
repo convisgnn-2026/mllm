@@ -1,0 +1,906 @@
+                                          Characterization of Request and Token Energy Costs
+                                           for LLM Inference Workloads on GPU Platforms
+                                                                   Prabhu Vellaisamy, Vanessa Lam, Shawn Blanton, and John Paul Shen
+                                                                                   Electrical and Computer Engineering Department
+                                                                                               Carnegie Mellon University
+                                                                                                  Pittsburgh, PA, USA
+
+
+                                             Abstract—Large language model (LLM) inference serving is    For example, a longer output generation sequence can improve
+                                          priced by tokens, but GPU energy is consumed over inference    J/token while consuming more total Joules.
+                                          windows. This accounting mismatch makes token-normalized          Recent industry-based economic model describes AI "toke-
+ arXiv:2608.28044v1 [cs.PF] 28 Aug 2026
+
+
+
+
+                                          metrics incomplete, since average output-token energy can
+                                                                                                         nomics" through token utility, demand, supply, and monetiza-
+                                          decrease even when total request energy increases. We characterize
+                                          this behavior with a decomposed energy model: a fixed one-time tion [9]. It identifies throughput per MW (TPS/MW) and cost
+                                                                                                         per token as key supply-side metrics, which further motivates
+                                          prefill with a fixed generation setup cost, while each output-token
+                                          generation step adds marginal step energy. We evaluate this    the understanding of what token-normalized metrics conceal.
+                                          LLM inference energy model on NVIDIA H100 and H200 GPUs        A token is an economic accounting unit, whereas GPU energy
+                                          across dense and mixture-of-experts (MoE) models, reporting
+                                          both request energy and token energy as functions of model typeis incurred over a request execution window. Hence, an equal
+                                          (M), phase (P), batch size (B), context length (C), and output number of tokens need not impose the same physical costs, and
+                                                                                                         a lower average cost per token need not indicate a lower total
+                                          length (N). For Llama-3.2-1B on H200 at batch-16 and context-4K,
+                                          increasing output length from 10 to 512 tokens reduces token   request cost. We ask: When does a lower token-normalized
+                                          energy from 7.46 to 0.72 J/token while total batched inference-energy cost represent a true reduction in GPU energy, and
+                                          window energy increases from 1.19 to 5.93 kJ. Batching also
+                                          reduces token energy, but the gain is context-bounded: at 10   when does it reflect amortization of request-window energy?
+                                          output tokens, the batch-16 to batch-1 gain falls from 6.31× at   We describe each evaluated operating point using
+                                          context-512 to 1.17× at context-4K. MoE models amplify this    (M, P, B, C, N ), where M is the model and P denotes
+                                          effect: sparse routing and fragmented expert execution increasethe inference phase: TTFT-oriented for the prefill-dominated
+                                          fixed energy at low concurrency, while batching spreads that   window, or decode-oriented for a long-output window. Batch
+                                          energy across more generated tokens and substantially narrows
+                                          the dense-vs.-MoE token-energy gap. These results show that    size (B) specifies how many requests share an inference
+                                                                                                         window [3], context length (C) determines prompt-processing
+                                          energy-aware serving should jointly optimize both request energy
+                                          and token energy, rather than only reducing per-token energy   work and KV-cache state, and output length (N ) determines
+                                          cost.                                                          how many autoregressive decode steps are executed. These
+                                             Index Terms—large language model inference, GPU energy      parameters are already visible to serving systems, but a single
+                                          efficiency, request energy, token energy, reasoning efficiency
+                                                                                                         token-normalized metric does not capture their energy impact.
+                                                                                                            Our energy model decomposes the total energy for each
+                                                                I. I NTRODUCTION                         inference request into two components based on the two
+                                             Large language model (LLM) inference is priced as a token- servicing phases: prefill phase processes the prompt, and decode
+                                          accounted service. Commercial APIs charge for input and phase generates output tokens [4], [5]. The central abstraction
+                                          output tokens [1], while serving systems report time-to-first- in this paper is a decomposed energy model for inference
+                                          token (TTFT), time-per-output-token (TPOT), throughput, and request energy (see Fig. 1 and Fig. 2):
+                                          “goodput” over token streams [2]–[5]. Production schedulers
+                                                                                                                   Erequest(s) (N ) = Efixed + N × Edecode,step       (1)
+                                          also make decisions based on token-visible quantities, such
+                                          as batch size, prompt length, and generated output length. where Erequest(s) (N ) is the measured GPU energy of the
+                                          However, GPU energy is consumed during inference windows complete inference window containing B requests, each
+                                          in which the GPU is allocated, kernels are launched, memory generating N output tokens. Efixed is the request-level energy
+                                          is accessed, synchronization occurs, and the CPU orchestrates independent of output length, and Edecode,step is the marginal
+                                          the host/runtime to keep the GPU device actively utilized [6]– energy added per output token generation step for the complete
+                                          [8]. Therefore, there is an accounting mismatch: the service- batch. Conceptually,
+                                          visible unit is the token generated, but the hardware-visible
+                                                                                                                          Efixed = Eprefill + Edecode,fixed           (2)
+                                          unit for energy is the inference window. A scalar unit like
+                                          Joules-per-token (J/token) is useful but paints an incomplete where Eprefill is the one-time energy used to process the prompt
+                                          picture, since it does not reveal whether an efficiency gain and construct the initial KV cache, and Edecode,fixed represents
+                                          comes from reducing total energy, or from spreading a fixed generation-window setup and other costs that do not grow with
+                                          inference-window energy cost across more generated tokens. output length.
+
+
+
+
+© 2026 IEEE. Personal use of this material is permitted. Permission from IEEE must be obtained for all other uses, in any current or future media, including reprinting/republishing this material for
+       advertising or promotional purposes, creating new collective works, for resale or redistribution to servers or lists, or reuse of any copyrighted component of this work in other works.
+Fig. 1. Request-shape energy abstraction for LLM inference. Prior work reports aggregate energy, power, J/token, tokens/J, serving performance, energy
+models, or host-side overheads. This work focuses on when lower J/token reflects true energy reduction versus spreading fixed energy across more tokens. We
+characterize each request shape with five parameters, (M, P, B, C, N ), denoting model, phase, batch size, context length, and output length. Request energy
+decomposes into prefill and decode energy. Decode energy contains fixed energy paid once for the decode window and step energy added by each decode step.
+Our proposed energy abstraction explains why batching or longer outputs can reduce token energy while increasing total request energy. Both token energy and
+request energy must be considered in overall system optimizations.
+
+
+
+   Host/runtime orchestration, synchronization, model resi-         (Ereq ) and token energy (Etoken ). Modern serving systems
+dency, and kernel-launch activity can contribute to both the        already manipulate request shape for latency and throughput [3]–
+fixed and step terms [7], [8]. One-time setup activity contributes  [5]. We study the same surface as an energy-control surface,
+to Efixed , whereas residency energy and orchestration or           asking when a shape reduces token energy by spreading fixed
+launch activity that grow with inference-window duration are        energy across more tokens and when this can lead to increasing
+represented through Edecode,step . This decomposition holds         the total request energy.
+model, batch size, initial context length, platform, and runtime       Prior LLM energy studies establish that inference energy de-
+fixed while output length varies. It is used as a local affine      pends on model, platform, runtime, and workload configuration,
+approximation over the measured output-length range, and for        and commonly report average power, total energy, J/token, or
+very long outputs, growing KV-cache traffic can cause marginal      tokens/J [10]–[16]. Energy modeling and serving-optimization
+step energy to increase.                                            studies further show that input length, output length, hardware
+   The corresponding average per-request energy is                  choice, runtime configuration, and service level objective (SLO)
+                               Erequest(s) (N )                     constraints shift the energy operating point [17]–[22]. Host-
+                    Ereq =                                      (3) side characterization studies show that framework dispatch,
+                                     B
+                                                                    CUDA-library overhead, and kernel launch costs can dominate
+This model explains why request energy and average token
+                                                                    short decode regimes [7], [8], while execution-idle studies
+energy can move in opposite directions. We define average
+                                                                    show that allocated GPUs can remain in elevated-power states
+token energy as:
+                                                                    even when visible activity is low [6]. These results motivate
+                                Erequest(s) (N )                    careful energy measurement, but do not separate request energy
+                   Etoken =                                     (4)
+                                    B×N                             from token energy. We measure LLM inference energy using
+This normalizes total batched request energy by B × N the GPU cumulative NVML energy counter [23], which gives
+generated tokens and therefore includes fixed request-level total energy over the inference window. We evaluate dense
+energy amortized across those tokens. Increasing output length and mixture-of-experts (MoE) models on NVIDIA H100 and
+N can reduce energy per output token by amortizing fixed H200 GPUs across eager and FlashAttention runtimes [24],
+request costs, while still increasing total and per-request energy. TTFT-oriented and long-output request regimes, batch sizes
+Increasing batch size B can reduce token energy by sharing B, context lengths C, and output lengths N up to 8K tokens.
+fixed costs across requests, although its effect on total and This paper makes the following contributions:
+per-request energy depends on the request shape and platform.          • A fixed energy and step energy model. We formulate
+Energy-aware serving must therefore track both request energy             measured request energy as fixed request-level energy plus
+     marginal step energy. The fixed term includes one-time
+     prefill and fixed generation setup, while each output-token
+     generation step contributes marginal energy. This model
+     explains why token energy can decrease even when request
+     energy increases (see Fig. 1 and Fig. 2).
+   • A request-shape characterization of LLM inference
+     energy. We measure how analysis regime, batch size,
+     context length, and output length affect request and token
+     energy. Across platforms, H200 consistently lowers dense-
+     model token energy, while MoE differences depend on
+     model and request shape.
+   • Evidence that output length and batching spread
+     fixed energy. We show that longer outputs and larger
+     batches can reduce average token energy (Etoken ), but
+                                                                  Fig. 2. Energy abstraction and attribution model: request shape-based energy
+     gains shrink with context length, and very long outputs decomposition by separating absolute request energy from token-normalized
+     can enter a regime where step energy dominates. We request energy.
+     also show that MoE models are especially sensitive to
+     batching, consistent with substantial routing, dispatch, and
+     fragmented expert-execution overheads being amortized           Modern serving systems exploit this phase asymmetry
+     across request shape.                                        through scheduling and memory management. PagedAttention
+   • Attribution of floor- and kernel-active energy. We com- virtualizes the KV cache into fixed-size blocks and enables
+     bine NVML request-energy measurements with resident- continuous batching [3]. DistServe separates prefill and decode
+     floor and isolated-kernel replay measurements to explain workers to reduce phase interference [4], while Sarathi-Serve
+     why short, low-concurrency inference windows can be chunks long prefills and schedules them alongside decode
+     dominated by floor energy and orchestration rather than work [5]. These systems primarily optimize latency and
+     active kernel work.                                          throughput, but their packing decisions also change inference
+   • Free batching for Perf/W. We report prompt tokens/J          request energy.
+     to identify the free-batching regime, where additional
+     batched prompt work fits into an already-open TTFT- B. Related Works
+     oriented window and improves energy efficiency, and             1) LLM inference energy benchmarking: Prior work has
+     the point where larger contexts move the request into a established GPU energy as a first-class metric for LLM
+     compute-heavy regime. This exposes transitions that are inference. Words-to-Watts [13] measures inference energy
+     not visible from TN =1 , the complete N = 1 window time, across language tasks and serving stacks, while Chen et al. [10]
+     alone.                                                       report power and energy variation across GPU generations
+   • Utility-aware reasoning-budget characterization. We          under matched workloads. TokenPowerBench [12] extends
+     evaluate Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B, and this direction with phase-aligned prefill/decode measurements
+     DeepSeek-R1-Distill-Llama-8B on MATH-500 and ARC- across batch size, context length, inference engine, and par-
+     Challenge under 64-, 256-, and 1024-token reasoning allelism. Wilhelm et al. [14] advocate energy-per-token as a
+     caps to show that utility/J-maximizing reasoning budget first-class metric beyond accuracy, and Fernandez et al. [11]
+     is model- and workload-dependent, and need not coincide quantify how framework choice, batching, decoding strategy,
+     with accuracy-maximizing budget.                             quantization, hardware platform, and online/offline serving
+                                                                  mode shift inference energy. These studies provide strong
+          II. BACKGROUND AND R ELATED W ORKS                      measurement foundations, but primarily report aggregate or
+                                                                  token-normalized quantities such as average power, total joules,
+A. LLM Inference Execution                                        J/token, or tokens/J. Such metrics do not distinguish reductions
+   LLM inference has two phases: prefill and decode. In prefill, in step energy from spreading fixed energy across more tokens.
+the model processes the full input prompt in one forward             2) Token economics: NVIDIA’s tokenomics framework [9]
+pass and populates the key-value (KV) cache. As prompt links token utility and demand to infrastructure supply and
+tokens are processed together, prefill exposes substantial token- monetization. It emphasizes model-system-software co-design
+level parallelism and is typically dominated by large batched and metrics such as cost per token and throughput per megawatt.
+GEMMs [8]. In decode, the model generates one output token This work is complementary: rather than modeling price or
+per forward pass. Decode is sequential across output tokens total cost of ownership, we isolate GPU energy and decompose
+because each step depends on the KV state produced by the complete inference window into fixed and output-length-
+previous steps. Its cost, therefore, grows with output length dependent components. This separation reveals that a favorable
+(N ) and with the accumulated KV state, which scales with token-normalized metric is achieved by amortization rather
+batch size (B) and context length (C).                            than by a lower absolute energy.
+                                                                   TABLE I
+                                     C OMPARISON OF THIS WORK AGAINST PRIOR LLM INFERENCE ENERGY STUDIES .
+
+Work / Group              Focus                                                                Phase Batch Ctx. Out. HW MoE Req./Token Window
+
+Energy                    Power/energy measurement and token-normalized inference met-          ✓     ✓    ✓     ✓     ✓     ✓         ×           ×
+benchmarks [10], [12],    rics.
+[13]
+Serving and               Energy impact of frameworks, batching, decoding, hardware, and        ✓     ✓    ✓     ✓     ✓     ✓         ×           ×
+optimization [11], [19]   system control.
+Input/output              Energy models and operating curves over input/output token counts.    ✓     ×    ✓     ✓     ✓     ✓         ×           ×
+models [14], [17], [18]
+Host-side                 Kernel-launch and dispatch decomposition, execution-idle high-        ✓     ✓    ✓     ×     ✓     ×         ×           ✓
+overhead [6]–[8]          power states.
+
+This Work                 Abstraction of LLM inference energy costs by differentiating          ✓     ✓    ✓     ✓     ✓     ✓         ✓           ✓
+                          inference request energy and average token energy, and shows
+                          how schedulers should account for both for efficient inference
+                          service.
+
+Legend: Phase = prefill/decode; Batch = batch size; Ctx. = context length; Out. = output length; HW = hardware/platform comparison; req./token = explicit
+separation of total request energy from token-normalized energy; Window = inference-window or decode-window amortization mechanism.
+
+
+
+   3) Energy modeling and serving optimization: A comple-                  III. E XPERIMENTAL M ETHODOLOGY
+mentary line of work models LLM energy as a function of            Our methodology measures how request shape impacts
+workload shape and serving configuration. Wilkins et al. [17] GPU energy and token-normalized request efficiency. For
+fit per-LLM energy and runtime models for offline energy- each configuration, we vary the request-shape parameters and
+optimal scheduling on heterogeneous CPU-GPU systems. measure GPU energy over the corresponding inference window
+SweetSpot [18] derives an analytical efficiency model from using the cumulative NVML energy counter.
+Transformer compute and memory complexity and identifies
+non-linear input/output-length regimes. Cluster-scale work A. Request Shape and Energy Metrics
+such as DynamoLLM [19] designs heterogeneous-instance and          We denote a measured configuration by (M, P, B, C, N ),
+frequency-scaling policies under SLO constraints. These works with NVML energy measuring over a complete inference
+show that energy efficiency depends strongly on workload request. We define request energy as the total GPU energy
+shape, system configuration, and deployment policy, but they consumed by each individual inference request:
+do not focus on cases where token-level efficiency improves
+while total request energy increases.                                                      Erequest(s) (N )
+                                                                                    Ereq =                                 (5)
+   4) Host overhead and execution-idle: Prior CPU-GPU                                             B
+coupling work identifies host orchestration and kernel-launch Erequest(s) (N ) is the measured energy of the complete batched
+overheads using kernel launch and queue time [7], while request window. Its fixed term includes one-time prefill and
+TaxBreak [8] decomposes inference overhead into Python fixed generation setup, while its output-length-dependent term
+translation, ATen dispatch, CUDA-library overhead, and kernel- captures marginal generation-step energy.
+launch components. Execution-idle studies further show that        We focus on average token energy Etoken as defined in Eq. 4,
+allocated GPUs can remain in elevated-power states even which normalizes total batched request energy by generated
+when visible kernel activity is low [6]. These results show output tokens, Erequest(s) (N ) = Efixed + N × Edecode,step ,
+that an inference window can carry fixed orchestration energy. which also includes prefill (Fig. 2).
+However, they primarily expose host-bound behavior through
+latency and overhead decomposition, not through request-level B. NVML Energy Measurement
+energy or performance per watt.                                    Dynamic power and energy telemetry on NVIDIA
+                                                                 GPUs is exposed through the NVIDIA Management
+C. This Work                                                     Library (NVML) [23]. We use two NVML interfaces.
+   This work makes the distinction between request energy nvmlDeviceGetTotalEnergyConsumption reports
+and token energy the main object of characterization (Table I). cumulative energy consumption in mJ. Differences between
+We focus on request shapes where batching or longer outputs synchronized readings at inference-window boundaries provide
+reduce token energy by spreading fixed energy across more GPU energy and its associated circuitry during the measured
+tokens, but can still increase total request energy by extending window (ENVML ). nvmlDeviceGetPowerUsage reports
+the decode window. We capture this with a fixed energy and power in mW averaged over a one-second interval. The
+step energy model (Eq. 1) and use floor, kernel-active, and cumulative energy-counter difference is used as the primary
+residual attribution to explain selected trends.                 energy metric since the power samples averaging one-second
+intervals cannot temporally resolve short decode windows,          process. The replay first runs a 500 ms warmup, then runs three
+small batches, or transitions between GPU execution and            500 ms measurement windows whose boundaries are emitted by
+host/runtime gaps [25], [26]. Hence, power readings are polled     the child process and observed by the parent. The parent reads
+at a nominal 50 ms cadence as smoothed diagnostics through         nvmlDeviceGetTotalEnergyConsumption at each
+pynvml [27]. Calling NVML directly from the profiling              boundary and also records nvmlDeviceGetPowerUsage
+process also avoids the startup and parsing overheads of           as a smoothed diagnostic. Because Hopper power readings are
+repeated nvidia-smi queries.                                       averaged over one second, they are not used as an independent
+                                                                   consensus channel for the 500 ms replay windows. Instead,
+C. Measurement Protocol                                            replay reliability is evaluated from the cumulative energy-
+   Each configuration performs warmup iterations followed          counter windows: at least two effective windows must remain,
+by profiled iterations using torch.profiler [28], [29].            and the inter-window variation of the energy-derived net power
+By default, we use W = 10 warmup runs and R = 10                   must be at most 5%. For a kernel k, the replay-derived active
+profiled runs. Mean latency is reported over the profiled runs,    energy contribution is:
+and cumulative-counter energy is measured over the last five
+profiled runs and normalized per inference to maintain tractable                      Eactive,k = Pnet,k tk νk                   (7)
+measurement runtimes.                                            where Pnet,k is the energy-counter-derived active power above
+   To ensure deterministic request shapes, prompts are synthe- the local floor, tk is the mean production duration, and νk is the
+sized as random token tensors drawn uniformly from each production dispatch count. We define Eactive = P Eactive,k .
+                                                                                                                         k
+model’s vocabulary while excluding EOS IDs. The same For these diagnostic cases, we report:
+input tensor is reused across warmup and measured iterations.
+Attention masks are all ones, so the requested context length C               ENVML = Efloor + Eactive + Eresidual               (8)
+is the actual attended sequence length. Further, C is clamped
+                                                                    And hence, Eresidual = ENVML − Efloor − Eactive . Because
+to the model’s configured maximum, and EOS termination
+                                                                 floor and isolated-replay estimates are not strictly additive under
+is disabled so that each request generates exactly N output
+                                                                 production overlap, the diagnostic residual may be signed. The
+tokens.
+                                                                 residual is not redistributed to kernels. Because isolated replay
+   We use N = 1 as a TTFT-oriented, prefill-dominated
+                                                                 cannot perfectly reproduce the production inference window,
+configuration and N > 1 to measure complete fixed-length
+                                                                 this attribution is used only to support interpretation of how
+inference windows. The N = 1 measurement includes prompt
+                                                                 fixed energy is spread across generated tokens.
+processing, generation setup, and first-token production, while
+each N > 1 measurement includes the same one-time work                             IV. E XPERIMENTAL S ETUP
+followed by additional decode steps. Consequently, all request-
+                                                                 A. Hardware Systems
+and token-energy results are computed from the measured
+energy of the complete inference window. Floor and per-kernel       We evaluate the workloads on two single-GPU NVIDIA
+replay measurements are used for diagnostic attribution and      Hopper-class   platforms from a shared research cluster:
+are described next.                                                 •  H100    platform:    Intel Xeon 8480C, 56 cores @
+                                                                       2.0/3.8 GHz, PCIe Gen5, paired with an NVIDIA H100
+D. Diagnostic Floor and Kernel Attribution                             SXM GPU with 80 GB HBM3 and 700 W nominal TDP.
+   We use lightweight attribution to explain measured trends.       • H200 platform: Intel Xeon Gold 6538Y+, 32 cores, paired
+First, we measure resident floor power from loading the model         with an NVIDIA H200 NVL GPU with 141 GB HBM3e
+into GPU memory, initializing the runtime, synchronizing               and 600 W nominal TDP.
+CUDA, and issuing no kernels. We sample GPU package Table II summarizes the GPU-level differences relevant to LLM
+power through pynvml at a nominal 50 ms cadence. When inference. H100 SXM and H200 NVL use the same Hopper
+the cumulative NVML energy counter is available, we also generation, but they are not matched devices: H200 NVL has
+take a longer idle measurement window counter difference as a larger and higher-bandwidth HBM3e subsystem, while the
+a cross-check and use the energy-counter-derived power as the H100 SXM has a higher advertised peak Tensor-compute rate
+primary resident-floor value. We use the measured resident and a higher configurable TDP. All runs use one GPU and
+floor energy as:                                                 six CPU cores per GPU. Host-memory reservations vary from
+                    Efloor = Pfloor · Twindow                (6) 32 to 192 GB to accommodate model- and trace-dependent
+                                                                 profiler memory requirements.
+   This helps explain why short, low-concurrency decode             We selected H100 and H200 as commercially available
+windows can have high Etoken . Second, we estimate kernel- Hopper-generation platforms that are representative of current
+active energy using isolated replay. Following the replay-based large-model deployments. The H200 provides greater memory
+attribution strategy used in TaxBreak [8], we keep a database capacity and bandwidth, features that affect decode energy
+of unique kernels recorded in each model run along with by changing the cost of KV-cache traffic and long-context
+their metadata (name, launch shape, input shape, and dtype). inference. This is a system-level comparison rather than an
+Each unique kernel signature is replayed in isolation in a child isolated memory experiment, since the two test platforms also
+                             TABLE II
+D IFFERENCES BETWEEN THE EVALUATED H OPPER GPU PLATFORMS . P EAK
+                                                                                                                  Request Energy Scaling on H200
+T ENSOR THROUGHPUT ASSUMES SPARSITY. P RODUCT SPECIFICATIONS ARE
+FROM NVIDIA [30], [31]. P RIOR WORK SHOWS THAT ENERGY EFFICIENCY                  Llama-3.2-1B             Llama-3.2-3B      Llama-3.1-8B    OLMoE-1B-7B         Qwen1.5-MoE-A2.7B
+   DEPENDS ON BOTH GPU ARCHITECTURE AND AI WORKLOAD UNDER
+                                                                                                            B=1, C=512                           B=16, C=2048
+
+
+
+
+                                                                        output token (mJ/tok)
+    POWER LIMITS [32], WHILE MEMORY BANDWIDTH AND DVFS CAN
+
+
+
+
+                                                                         Request energy per
+            MATERIALLY AFFECT THAT RELATIONSHIP [33].
+                                                                                                105
+Feature                      H100 SXM            H200 NVL
+Compute generation       Hopper (GH100)    Hopper (GH100)                                       104
+Peak BF16/FP16 Tensor     1,979 TFLOPS       1,671 TFLOPS
+GPU memory                 80 GB HBM3       141 GB HBM3e
+Memory bandwidth             3.35 TB/s          4.8 TB/s
+Maximum configurable TDP       700 W             600 W                                                10          128         512           10             128        512
+Form factor                    SXM      PCIe, dual-slot air-cooled                                         Output length N                       Output length N
+                                                                     Fig. 3. Request energy scaling (mJ/token) across varying output generation
+differ in host CPU, GPU form factor, and nominal TDP. We             lengths. The evaluation contrasts a low-load scenario (left) against a high-load
+                                                                     scenario (right) on a single NVIDIA H200 GPU. The y-axis is log-scaled.
+consequently attribute cross-platform energy differences to the
+complete platform configuration, and relate the observed trends
+to these features in the H100 vs. H200 results discussion.                                                       Request Latency Scaling on H200
+B. System Software                                                                Llama-3.2-1B             Llama-3.2-3B      Llama-3.1-8B    OLMoE-1B-7B         Qwen1.5-MoE-A2.7B
+   We use a Python 3.13 environment with PyTorch                                                            B=1, C=512                           B=16, C=2048
+                                                                        Inference latency
+2.9.0+cu128, cuda12.6/toolkit module, and Trans-
+formers 4.57.3. Unless stated otherwise, runs use BFloat16
+                                                                                                104
+eager execution. FlashAttention-2 is enabled only for the
+                                                                              (ms)
+
+corresponding sweep. Request energy is measured using
+NVML through the pynvml Python interface, while power                                           103
+telemetry is retained only as a diagnostic. Trace collection uses
+torch.profiler. Per kernel replay runs in a child process                                             10          128         512           10             128        512
+under nsys profile -trace=cuda,nvtx to validate                                                            Output length N                       Output length N
+CUDA dispatch and collect kernel activity.
+                                                                     Fig. 4. Inference latency scaling (ms) across varying output generation lengths.
+C. LLM Workloads                                                     The evaluation contrasts a low-load scenario (left) against a high-load scenario
+  We evaluate dense and mixture-of-experts LLMs in BFloat16.         (right) on a single NVIDIA H200 GPU. The y-axis is log scaled.
+Dense LLMs include Llama-3.2-1B, Llama-3.2-3B, and
+Llama-3.1-8B [34]. MoE models include OLMoE-1B-7B and                request energy and utility per joule across models, benchmarks,
+Qwen1.5-MoE-A2.7B, which differ in expert organization.              and GPU platforms.
+OLMoE uses 64 routed experts per layer with top-8 routing
+and no shared experts, whereas Qwen1.5-MoE uses 64 experts           A. Output Length Is a First-Class Energy Axis
+per layer with 4 shared and 60 routed experts under top-4               Fig. 3 plots token energy across output lengths N ∈
+routing. We use Hugging Face’s default per-expert independent        {10, 128, 512} for two H200 operating points: low load (B=1,
+matrix multiplications and disable token dropping. Prompts           C=512) and high load (B=16, C=2048). Fig. 4 shows the
+are synthesized to the target context length to eliminate            corresponding latency results. Together, they show that output
+tokenizer-induced length variation.                                  length plays a crucial role both as a performance axis and an
+                                                                     energy-accounting axis.
+     V. E XPERIMENTAL R ESULTS AND O BSERVATIONS                        1) Low-load amortization is modest for dense models:
+   First, we vary output length and batch size to illustrate how     At (B=1, C=512), increasing N from 10 to 512 to-
+decode-window costs amortize and where that amortization             kens reduces token energy by only 1.1× for Llama-3.2-
+ceases to hold. (Section V-A). We then compare H100 and              1B (2,431→2,182 mJ/token) and 1.2× for Llama-3.1-8B
+H200 to separate platform scaling from request-shape structure       (6,011→4,866 mJ/token). This near-flat response means that
+(Section V-B), contrast prefill and decode as distinct operating     extending the decode window does not substantially change
+regimes (Section V-C), and use per-kernel attribution to explain     the energy paid per generated token in this regime. The request
+floor-dominated cases (Section V-D). We close by summarizing         remains low-concurrency and underutilized, so a large amount
+the scheduler-facing implications (Section V-E). Section VI          of fixed energy is spread across relatively little token work.
+then extends the analysis to utility-aware reasoning, examining         In contrast, the MoE models in Fig. 3 show a stronger
+how capped reasoning budgets trade task accuracy against             reduction in token energy as N increases. This behavior is
+                           TABLE III                                                                 TABLE V
+    R EPRESENTATIVE H200 AFFINE FITS OVER N ∈ {10, 128, 512}.            L ONG - OUTPUT REQUEST ENERGY PER OUTPUT TOKEN ON H200 AT B=16,
+          R ESIDUALS ARE (Efit − Emeasured )/Emeasured .                             C=512. VALUES ARE Erequest(s) (N )/(B × N ).
+
+ Model          B     C     Efixed Estep /B     Residual (%)                       N         Llama-3.2-3B          Llama-3.1-8B
+                             (J) (mJ/token) N =10 N =128 N =512
+                                                                                  128         337 mJ/token         548 mJ/token
+ Llama-3.2-1B    1    512    12.11   2163.56   +38.79   -4.09    +0.26
+ Llama-3.2-1B   16   2048   276.78    351.06    -5.34   +2.53    -0.18            512         372 mJ/token         582 mJ/token
+ Llama-3.2-3B   16    512    30.63    437.17   -28.34   +5.95    -0.34           1024         455 mJ/token         691 mJ/token
+ Llama-3.1-8B   16    512    83.73    604.84   -27.81   +7.38    -0.42           4096         945 mJ/token        1,394 mJ/token
+                                                                                 8192        1,600 mJ/token       2,358 mJ/token
+                           TABLE IV
+BATCHING GAIN FOR COMPLETE H200 REQUESTS AT N =10, REPORTED AS
+                  Etoken (B=1)/Etoken (B=16).                            for short-output decode at N =10, where the absolute gains are
+                                                                         smaller because fewer output tokens are available to spread the
+Model                       C=512      C=1024     C=2048        C=4096   fixed energy. As context grows, the KV state accessed during
+Llama-3.2-1B                 6.31×      3.19×       1.85×       1.17×    each decode step grows as well, moving the workload from
+Llama-3.2-3B                 4.67×      2.66×       1.70×       1.22×    a regime dominated by fixed energy toward one dominated
+Llama-3.1-8B                 3.85×      2.15×       1.47×       OOM      by step energy. This trend is consistent with growing HBM
+OLMoE-1B-7B                 12.59×     11.88×       6.41×       3.93×    demand: each decode step reads a larger KV cache as context
+Qwen1.5-MoE-A2.7B           6.60×      4.75×        3.18×       1.90×    length increases, so the memory subsystem becomes a larger
+                                                                         component of step energy and leaves less fixed energy for
+                                                                         batching to spread across tokens.
+consistent with a larger output-length-amortizable component                5) Very long outputs reveal a second regime: The linear fit is
+arising from their larger total parameter footprint and the              not intended as a global model for arbitrarily long generations.
+routing, dispatch, and fragmented expert-execution overheads             Extended request runs with N ∈ {1024, 4096, 8192} show that
+identified by TaxBreak [8]. These mechanisms can contribute to           token energy is not guaranteed to keep decreasing with output
+both the request window and the per-decode-step costs. There-            length (Table V). Llama-3.2-3B/H200 at (B=16, C=512)
+fore, the observed MoE scaling indicates greater amortization            reaches 337 mJ/token at N =128, but rises to 1,600 mJ/token
+of low-concurrency overhead.                                             at N =8192. Llama-3.1-8B/H200 at the same request shape
+   2) High-load amortization is stronger: At (B=16,                      rises from 548 mJ/token to 2,358 mJ/token. Output length
+C=2048), the same output-length sweep yields a 5.7× re-                  therefore creates two regimes: one where more generated tokens
+duction for Llama-3.2-1B (2,198→386 mJ/token) and a 5.4×                 reduce token energy by spreading fixed energy, and one where
+reduction for Llama-3.1-8B (7,588→1,398 mJ/token). Here,                 step energy dominates. The second regime is consistent with
+fixed energy is spread across more generated tokens, so token            the growing cache and sustained active execution of long
+energy improves even though the decode window consumes                   autoregressive generation, since each additional token both
+more total energy.                                                       extends the decode window and increases the state accessed
+   3) A linear request-energy fit separates fixed energy and             by subsequent steps. We therefore interpret the rise as step
+step energy: For each fixed (M, B, C) configuration, we fit              energy overtaking the fixed component.
+the measured complete inference-window energy at N ∈                        6) Batching amortizes MoE execution overheads:
+{10, 128, 512} to Erequest (N ) = Efixed + N Estep . The inter-          At low load (B=1, C=512, N =10), OLMoE-1B-7B
+cept estimates energy independent of output length, while Estep          costs 22,476 mJ/token and Qwen1.5-MoE-A2.7B costs
+is the incremental energy of one full-batch decode step. Table III       10,277 mJ/token. These are 9.2× and 2.5× higher than their
+reports Estep /B, the corresponding incremental energy per               active-parameter-comparable dense counterparts, Llama-3.2-1B
+generated token.                                                         at 2,431 mJ/token and Llama-3.2-3B at 4,093 mJ/token. Prior
+   The model captures the overall increase in request energy, but        TaxBreak analysis identifies routing, dispatch, and fragmented
+its relative error can be substantial at N =10, where the request        expert execution as important MoE overheads [8]. Our low-
+is shortest. Table III further reports residuals at each measured        load energy gap is consistent with those mechanisms rather
+length. We use the model only as a local decomposition over              than active parameter count alone. The observed pattern is
+the measured range, not as evidence that marginal step energy            consistent with insufficient independent token work to fill the
+is constant outside it.                                                  GPU effectively, leaving a relatively expensive under-filled
+   4) Batch gain is context-bounded: Batch size (B) and output           execution window.
+length (N ) can both spread fixed energy across more generated              At high load (B=16, C=2048, N =10) the picture changes
+tokens, but context length increases step energy. For Llama-3.2-         but does not collapse to a single ranking. OLMoE-1B-7B costs
+1B at N =512, the B=16 token-energy advantage over B=1                   3,440 mJ/token compared to Llama-3.2-1B at 2,198 mJ/token,
+is 11.2× at C=512, but shrinks to 6.0× at C=2048 and 3.7×                leaving a 1.6× active-parameter gap. Qwen1.5-MoE-A2.7B
+at C=4096. Table IV shows the same context-bounded pattern               costs 3,781 mJ/token and becomes 1.11× lower in token energy
+than Llama-3.2-3B at 4,216 mJ/token. Relative to Llama-3.1-8B,                                         H100 vs H200 Request Energy and Power (N=10)
+a total-parameter-comparable dense reference at 7,588 mJ/token,
+                                                                                                     Llama-3.2-1B      Llama-3.1-8B    Qwen1.5-MoE-A2.7B    H200
+OLMoE-1B-7B and Qwen1.5-MoE-A2.7B are 2.2× and 2.0×                                                  Llama-3.2-3B      OLMoE-1B-7B     H100
+lower in token energy, respectively. The observed reduction is
+consistent with batching amortizing MoE routing and dispatch
+
+
+
+
+                                                                   output token(mJ/tok)
+                                                                   Request energy per
+overheads, but the crossover depends on which dense baseline is
+                                                                                          104
+used. Larger batches can provide more concurrent expert work
+and make fragmented expert kernels and dispatches less under-
+filled, allowing the GPU to remain active more consistently [8].
+The model-specific crossover indicates that routing structure                             103
+and execution regularity remain relevant alongside active-
+parameter count.
+    7) Batching consistently improves token energy in the
+                                                                                          600
+measured space: Across measured (M, C, N ) configurations
+
+
+
+
+                                                                   Average power
+on each GPU, increasing batch size from B=1 to B=16                                       500
+reduces token energy. For OLMoE-1B-7B on H200 at C=512,                                   400
+
+
+
+
+                                                                        (W)
+N =10, token energy falls from 22,476 to 1,786 mJ/token                                   300
+(12.6×). Llama-3.2-1B at the same shape falls from 2,431                                  200
+to 386 mJ/token (6.3×). Under-filled batches therefore leave
+                                                                                          100
+substantial token-energy efficiency unrealized, although latency
+
+
+
+
+                                                                                                  B4 12
+                                                                                                  B8 12
+                                                                                                 B1 12
+                                                                                                 B2 512
+                                                                                                 B4 024
+                                                                                                 B8 024
+                                                                                                B1 024
+                                                                                                 B1 024
+                                                                                                 B2 048
+                                                                                                 B4 048
+                                                                                                 B8 048
+                                                                                                B1 048
+                                                                                                 B1 048
+                                                                                                 B2 096
+                                                                                                 B4 096
+                                                                                                        096
+budget and queueing policy still determine whether batching
+
+
+
+                                                                                                    _C5
+                                                                                                    _C5
+                                                                                                    _C5
+                                                                                                   6_C
+                                                                                                   _C1
+                                                                                                   _C1
+                                                                                                   _C1
+
+                                                                                                      1
+                                                                                                   _C2
+                                                                                                   _C2
+                                                                                                   _C2
+                                                                                                   _C2
+
+                                                                                                      2
+                                                                                                   _C4
+                                                                                                   _C4
+                                                                                                   _C4
+                                                                                                  6_C
+
+
+
+
+                                                                                                  6_C
+is usable.
+
+
+                                                                                                B1
+    Key Insight. Output length and batching reduce token energy                                                     Configuration (batch, context length)
+only while fixed energy dominates. Context growth and very
+long outputs move the workload towards a regime where step         Fig. 5. Request energy per output token and power scaling on H100 (dashed)
+energy dominates, so token energy and request energy must be       vs. H200 (solid) GPUs for output length N = 10. This figure illustrates the
+                                                                   scaling behavior of dense and mixture-of-experts model architectures across
+considered together.                                               varying batch sizes B and context lengths C.
+
+B. Platform Energy Gains Depend on Model and Request
+Shape                                                            configurable power envelope and different form factor are
+   Fig. 5 compares H100 and H200 at N =10 across evaluated consistent with its lower sampled diagnostic power, while its
+(B, C) configurations. Short-output requests make fixed request- higher HBM bandwidth may reduce execution time for memory-
+level energy more visible, allowing us to separate platform bound decode steps. Because the platforms also differ in host
+scaling from request-shape structure.                            CPU and GPU form factor, the experiment cannot isolate the
+   1) H200 lowers token energy for dense models: Across contribution of any individual feature. Prior H100/H200 studies
+matched Llama-3.2-1B, Llama-3.2-3B, and Llama-3.1-8B likewise find that energy efficiency depends on workload,
+configurations, H200 reduces token energy to 0.61-0.84× of memory behavior, and power-management effects [32], [33].
+H100. For Llama-3.2-3B at B=1, C=512, token energy drops           2) MoE platform gains are request-shape dependent: At
+from 6,741 mJ/token on H100 to 4,093 mJ/token on H200, a (B=1, C=2048), OLMoE-1B-7B drops from 27,671 mJ/token
+1.65× reduction. The smallest dense-model gain is Llama-3.1- on H100 to 22,035 mJ/token on H200, a 0.80× ratio. Qwen1.5-
+8B at B=16, C=2048, where the H200/H100 ratio is 0.84×. MoE-A2.7B drops from 18,283 to 12,007 mJ/token, a 0.66× ra-
+This is a higher-load regime on both platforms, the advantage tio. The direction is not universal: at (B=16, C=512), OLMoE-
+from fixed energy contributes less to the total.                 1B-7B is 1,786 mJ/token on H200 versus 1,462 mJ/token on
+   The shift in sampled diagnostic power is smaller than the H100, a 1.22× ratio, despite lower sampled power on H200
+energy shift. Across the plotted complete N =10 configurations, (123 W versus 221 W). At (B=16, C=2048), its token energy
+the median of the smoothed NVML power readings is 312.5 W is nearly equal across platforms, 3,440 mJ/token on H200 vs.
+on H100 versus 216.4 W on H200. Request shape still deter- 3,521 mJ/token on H100.
+mines how long the GPU remains active, how many requests           3) The request-shape trend is qualitatively preserved across
+share the window, and how much KV state is accessed. The the two measured platforms: Although H200 generally shifts
+documented hardware differences make this a platform-level dense-model configurations downward in absolute energy, it
+effect rather than a memory-only comparison. Both devices does not alter the main structure of the energy surface. Low-
+use the Hopper/GH100 generation, but H200 NVL provides batch and low-output decode remains expensive per token,
+141 GB HBM3e and 4.8 TB/s bandwidth, compared with 80 GB batching still spreads fixed energy across more tokens, and
+HBM3 and 3.35 TB/s on H100 SXM. Conversely, H200 NVL context length still erodes the batch gain. Scheduling policies
+has a lower advertised peak Tensor-compute rate and lower therefore need per-platform calibration for absolute energy,
+maximum configurable TDP [30], [31]. The H200 NVL’s lower although we observe similar request-shape trends on the two
+                             Utilization and Power by Request Phase (H200)                                                                     2) Additional generation dominates long-output request
+                                                                                                                                            energy: At (B=16, C=2048) on H200, measured Llama-3.2-
+                                          GPU utilization                             Average power                                         1B batched inference-window energy increases from 319 J at
+                            TTFT (N=1)                                                    Long-output request (N=128)                       N =1 to 3,158 J at N =512. The additional 2,839 J relative
+
+
+
+
+                                                      Average power (W)
+
+
+
+
+                                                                                                                        Average power (W)
+GPU utilization (%)
+
+
+
+
+                                                                          GPU utilization (%)
+                                                                                                                                            to the TTFT-oriented configuration accounts for 89.9% of
+                      100                         600                                                               600                     the complete N =512 batched inference-window energy. For
+                       75                                                                                                                   Llama-3.1-8B, batched inference-window energy increases
+                                                  400                                                               400
+                       50                                                                                                                   from 1,028 J to 11,455 J; the additional 10,427 J accounts for
+                                                  200                                                               200                     91.0% of the N =512 total. Thus, lower sampled diagnostic
+                       25                                                                                                                   power during long-output requests does not imply lower total
+                        0                         0                                                                 0                       energy: repeated autoregressive generation dominates their
+                          B B B B B                                                   B B B B B
+                       2-1 2-3 1-8 -7 2.7                                          2-1 2-3 1-8 -7 2.7                                       complete batched-window energy. These differences compare
+                  a -3. a-3. a-3. oE-1B oE-A                                  a -3. a-3. a-3. oE-1B oE-A                                    complete measured request windows and do not treat the N =1
+                 m m m                                                       m m m
+              Lla Lla Lla OLM 1.5-M                                       Lla Lla Lla OLM 1.5-M
+                                    en                                                          en                                          measurement as isolated prefill energy.
+                                 Qw                                                          Qw                                                3) MoE TTFT-oriented windows show lower GPU utilization
+                                                                                                                                            than dense-model windows: OLMoE-1B-7B and Qwen1.5-
+ Fig. 6. TTFT-oriented (N = 1) and long-output (N = 128) inference                                                                          MoE-A2.7B reach 54.9% and 47.9% GPU active-time uti-
+ operating points on H200 at B = 4, C = 2048.
+                                                                                                                                            lization in the N =1 TTFT-oriented window, compared with
+                                                                                                                                            95.7-97.9% for the measured Llama-1B and Llama-8B config-
+ evaluated platforms.                                                                                                                       urations. Their sampled diagnostic power, 270 W for OLMoE-
+   Key Insight. H200 lowers token energy consistently for the                                                                               1B-7B and 244 W for Qwen1.5-MoE-A2.7B, is lower than the
+ measured dense models, while MoE gains depend on model                                                                                     559 W measured for Llama-3.1-8B. Lower power does not, by
+ and request shape. Platform calibration therefore remains                                                                                  itself, imply better energy efficiency. The utilization results
+ necessary even when qualitative batching and context trends                                                                                are consistent with lower, more irregular GPU activity due
+ are preserved.                                                                                                                             to expert routing and per-expert computation [8]. For mixed
+                                                                                                                                            dense/MoE serving, this means TTFT-oriented power headroom
+                                                                                                                                            and long-output energy efficiency can move differently across
+ C. TTFT and Long-Output Requests Occupy Distinct Operating
+                                                                                                                                            model families.
+ Points
+                                                                                                                                               Key Insight. TTFT-oriented and long-output request win-
+    Fig. 6 compares TTFT-oriented (N = 1) and long-output                                                                                   dows occupy different operating points. The former are prefill-
+ (N = 128) inference windows at B = 4, C = 2048 on                                                                                          dominated, while repeated generation with lower GPU active-
+ H200. The N = 1 window is prefill-dominated but also                                                                                       time utilization determines much of the energy of long-output
+ includes generation setup and first-token production, while                                                                                requests.
+ the N = 128 window contains the same one-time work
+ followed by additional decode steps. Therefore, this comparison D. The Energy Dynamics of Free Batching
+ characterizes two complete-request operating points.               Table VI shows the bounded free-batching region using
+    1) TTFT-oriented requests show high GPU utilization; long- complete N = 1 request windows. At C=512, increasing B
+ output requests are lower-power but repeated: At B=4, from 1 to 4 nearly quadruples the prompt work while TN =1
+ C=2048 on H200, the Llama-3.1-8B TTFT-oriented config- remains nearly constant at 25.18-28.73 ms. Prompt efficiency
+ uration (N =1) reaches 97.9% GPU active-time utilization, therefore rises from 85.49 to 220.32 prompt tokens/J.
+ with sampled diagnostic power of 559.1 W, reflecting dense         The regime is bounded. At B=8, increasing C from 512
+ prompt processing over the 2,048-token context together with to 4096 raises TN =1 from 45.27 to 1,175.80 ms and ENVML
+ first-token production. The corresponding complete long-output from 33,905 to 686,698 mJ, while prompt efficiency falls from
+ request (N =128) has sampled diagnostic power of 273.0 W and 120.81 to 47.70 prompt tokens/J. The sum of per-launch launch-
+ 56.9% utilization, a 51.2% difference in the smoothed power to-start delays (TKLQT [7]) grows from 8,279 to 637,926 ms
+ readings. Llama-3.2-1B shows the same pattern: the N =1 over the same span. Since individual queue intervals overlap,
+ configuration reaches 95.7% utilization with sampled diagnostic this sum is not elapsed overhead; its growth is consistent with
+ power of 522.4 W, while the N =128 request has sampled a deeper device queue as execution becomes compute-heavy.
+ diagnostic power of 170.2 W and 28.6% utilization, a 67.4%         Table VII illustrates the endpoints using separate floor and
+ difference. This behavior is consistent with prefill exposing replay-active shares: 61.1% and 13.6%, respectively, for the
+ substantial prompt-token parallelism, whereas the duration of host-bound endpoint, versus 27.6% and 60.4% for the compute-
+ a long-output request contains repeated autoregressive steps heavy endpoint. The comparison shows a shift from an under-
+ with lower GPU active-time utilization. Because NVML power filled, floor-dominant window toward compute-heavy execution.
+ telemetry on Hopper is averaged over one-second intervals,         Key Insight. Free batching is real but bounded. TN =1
+ these power values characterize smoothed operating-point shows when extra batch work is nearly latency-free, while
+ differences and are not used to compute request energy.         prompt tokens/J shows whether it is energy-efficient. The replay
+                                                                  TABLE VI
+L LAMA -3.2-1B/H100 TTFT- ORIENTED , PREFILL - DOMINATED TRANSITION FROM HOST- BOUND TO COMPUTE - HEAVY REQUEST SHAPES . TN =1 IS THE
+    COMPLETE N = 1 INFERENCE - WINDOW TIME . P ROMPT TOKENS /J IS COMPUTED AS (B × C)/ENVML . T HE TKLQT [7] SUM IS THE SUM OF
+  PER - LAUNCH LAUNCH - TO - START DELAYS . S INCE QUEUE INTERVALS CAN OVERLAP, THE WALL - CLOCK TIME IS NOT ADDITIVE . B OLD TEXT MARKS
+                              CONFIGURATIONS WHERE TN =1 REMAINS NEARLY CONSTANT AS BATCH SIZE INCREASES .
+
+
+         B        C        N      ENVML (mJ)         TKLQT Avg.          TKLQT Sum          TN =1 (ms)       Prompt tokens/J
+          1     512        1         5,988.9             8.05 µs           6.76 ms             25.18               85.49
+          2     512        1         6,810.4            24.38 µs           21.23 ms             25.41             150.36
+          4     512        1         9,295.6           668.23 µs          581.89 ms            28.73              220.32
+          8     512        1        33,905.2          9,507.70 µs        8,279.31 ms           45.27              120.81
+          8     1024       1         71,897.2         40,383.57 µs      35,166.01 ms           111.31             113.94
+          8     2048       1        191,210.2        145,693.76 µs      131,561.46 ms          325.74              85.69
+          8     4096       1        686,698.1        540,615.08 µs      637,925.79 ms         1,175.80             47.70
+
+
+
+                            TABLE VII                                ulers, therefore, need measured model/runtime profiles rather
+   L LAMA -3.2-1B/H100 DIAGNOSTIC FLOOR AND ISOLATED - REPLAY        than parameter-count heuristics.
+ ESTIMATES FOR HOST- BOUND AND COMPUTE - HEAVY TTFT- ORIENTED ,
+  PREFILL - DOMINATED CONFIGURATIONS . F LOOR AND REPLAY- ACTIVE        2) Batch targets should be shape-aware: Moderate batching
+SHARES ARE NORMALIZED BY MEASURED NVML REQUEST ENERGY AND            often captures much of the available token-energy gain, but the
+ARE REPORTED SEPARATELY BECAUSE THE DIAGNOSTIC ESTIMATES ARE
+                                                                     knee is model- and context-dependent. For Llama-3.2-1B/H200
+                   NOT STRICTLY ADDITIVE .
+                                                                     at C=512, N =10, moving from B=1 to B=4 captures 79%
+    Request Regime     TKLQT ENVML Floor Replay-active               of the B=16 gain. For OLMoE-1B-7B at the same shape, B=4
+    (Configuration)    Avg (µs) (mJ) share  share                    captures 81%. The additional value of batching is consistent
+    Host-bound
+                                                                     with routing and dispatch, leaving more fixed energy to spread
+    B=1, C=512,           8.05    5,988.9 61.1%     13.6%            across generated tokens. Architecture changes the crossover
+    N =1                                                             point as well: OLMoE-1B-7B becomes cheaper per output
+    Compute-heavy                                                    token than Llama-3.1-8B at (B=4, C=2048, N =10), with
+    B=8, C=4096,       540,615.08 686,698.1 27.6%   60.4%
+    N =1
+                                                                     7,298 vs. 8,235 mJ/token, and the gap widens at B=16.
+                                                                        Table IV summarizes the broader trend. Dense models lose
+                                                                     most of their batching gain as C grows, while the larger
+                                                                     gains for MoE models are consistent with expert-dispatch
+estimates show when the energy budget shifts from floor energy
+                                                                     costs leaving more fixed energy to spread across generated
+toward active kernel work.
+                                                                     tokens. Thus, the batch target should be tuned by model family,
+                                                                     context length, output length, and latency SLO.
+E. Scheduler Implications and Energy-Aware Serving Design
+                                                                        3) Request-level metrics are necessary: The fixed compo-
+   The preceding results translate into three scheduler-facing       nent is large enough that sampled power and token-normalized
+rules: calibrate by model and runtime, choose batch size as a        metrics can be misleading if reported alone. For rows with
+function of request shape, and track request-level cost rather       floor attribution, the median floor share is 51.6% of measured
+than relying solely on the sampled power or average token-           request energy; in low-load short-decode regimes (B=1,
+energy metric.                                                       C=512, N =10), the median rises to 79.1%. At high-load long-
+   1) Model and runtime effects require calibration: Model size      output shapes such as (B=16, C=2048, N =512), it falls to
+alone is not a reliable energy predictor. Across Llama/H200 at       31.0%. Smoothed diagnostic power also compresses important
+(B=1, C=512, N =10), Llama-3.2-3B has 3× the parameters              differences: the most token-efficient measured decode setting,
+of Llama-3.2-1B but costs only 1.68× more token energy               Llama-3.2-1B/H200 at (B=16, C=512, N =128), consumes
+(4,093 vs. 2,431 mJ/token), while Llama-3.1-8B has 8× the            189.6 mJ/token and has sampled power of 181 W, while the least
+parameters but costs only 2.47× more. The same sub-linear            token-efficient setting, Llama-3.1-8B/H100 at (B=1, C=8192,
+trend remains at higher load: at B=16, C=512, N =512, the            N =10), consumes 84,784 mJ/token and has sampled power of
+8B/1B token-energy ratio is 3.18×. Runtime also shifts the           516 W. A 447× token-energy spread appears as only a 2.8×
+energy surface. For Llama-3.2-3B on H100, FlashAttention-2           spread in the smoothed power readings.
+reduces token energy relative to eager by 13.4% at (B=1,                Table VIII summarizes the resulting policy implications:
+C=512), 31.6% at (B=1, C=2048), and 51.9% at (B=16,                  batching is most valuable when fixed energy dominates, and
+C=2048). The increasing benefit at larger context and batch is       less valuable when long-context KV-cache traffic or very long
+consistent with fused attention reducing intermediate-memory         output generation makes step energy dominate.
+traffic and improving reuse in the GPU memory hierarchy,                Key Insight. The same generated-token count can impose
+rather than changing the model’s arithmetic work [24]. Sched-        very different energy costs depending on request shape. Sched-
+                                                           TABLE VIII
+                                   R EQUEST- SHAPE POLICY SUMMARY FOR ENERGY- AWARE SERVING .
+
+
+Regime                                      Observed Energy Behavior                       Strategy for Scheduler Actions
+
+Short-context dense decode                  Fixed energy dominates; batching               Use moderate batching when latency
+                                            strongly lowers token energy.                  allows; tune the target by model scale,
+                                                                                           architecture, context length, and SLO
+                                                                                           rather than assuming a universal batch
+                                                                                           size.
+Long-context dense decode                   KV-cache traffic raises step energy; batch     Avoid waiting too long for large batches;
+                                            gain erodes with context length C.             optimize latency and request energy
+                                                                                           jointly.
+MoE decode at low concurrency               Low-concurrency MoE behavior is                Batch MoE requests more aggressively
+                                            consistent with routing and fragmented         than dense requests at the same context
+                                            dispatch overheads.                            length.
+Long-output decode                          Token energy first improves as fixed           Track both request energy and token
+                                            energy is spread across more tokens, then      energy; do not optimize tokens/J alone.
+                                            can rise when step energy dominates.
+TTFT-oriented vs. long-output requests      TTFT-oriented windows are                      Track both TTFT-oriented and
+                                            prefill-dominated; repeated generation         long-output request energy within the
+                                            dominates long-output request energy.          fixed-plus-marginal model.
+
+
+
+ulers should therefore expose request energy, token energy,       define utility per joule as
+and performance per watt together, and treat batch size as an                                   PR
+                                                                                                i=1      Ui
+energy-control knob whose benefit depends on context length,                              ηU = PR             ,                    (9)
+output length, and model family.                                                                   i=1   Ei
+                                                                where R is the number of recorded responses. Thus, ηU
+      VI. U TILITY-AWARE R EASONING E VALUATION                 measures aggregate correct responses per joule. Accuracy is
+                                                                computed over distinct benchmark questions, while the energy
+   The tokenomics economic model [9] separates the utility reported in Table IX is mean energy per request. Unlike
+delivered by generated tokens from the infrastructure cost tokens/J, utility/J accounts for whether the generated output
+of producing them, with the latter depending on request successfully completes the task. Hence, a system can generate
+shape. This motivates a complementary question: Do additional tokens efficiently while producing little additional benchmark
+reasoning tokens deliver utility proportional to their energy utility.
+cost? Prior work couples task accuracy with inference energy      Table IX reveals distinct model-workload reasoning regimes.
+through accuracy- or intelligence-per-joule metrics [35] and For Qwen3-8B on MATH-500, increasing the reasoning cap
+characterizes the energy cost of test-time reasoning [36], from 64 to 1024 raises accuracy from 26.0% to 68.8% on H100
+[37]. Building on this framing, we operationalize utility as and from 25.4% to 68.2% on H200. However, request energy
+final-answer correctness and use utility per joule to compare increases by 7.42× and 7.51×, respectively, reducing utility/J
+controlled reasoning-token budgets.                             by approximately 2.8× on both platforms. The diminishing
+   We evaluate Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B, and return is more pronounced when short-budget accuracy is
+DeepSeek-R1-Distill-Llama-8B on 500 MATH-500 questions already high. For Qwen3-8B on ARC-Challenge, the same
+and 300 ARC-Challenge questions using greedy decoding. All increase in cap improves accuracy by only 4.0 % points on
+three models are evaluated on both H100 and H200 GPUs. H100 and 4.3 % points on H200, while request energy increases
+The prompt and decoding configuration are fixed within each by approximately 4.3×. Consequently, utility/J decreases by
+model, and only the maximum reasoning budget is varied approximately 4.1× on both GPUs.
+across 64-, 256-, and 1024-token caps. The final-answer token     An intermediate reasoning budget is beneficial when its
+allowance remains fixed. Because a model can terminate accuracy gain is sufficient to offset the additional energy.
+reasoning before reaching its cap, the measured energy reflects On MATH-500, DeepSeek-R1-Distill-Qwen-7B achieves its
+the actual generated sequence rather than the nominal cap highest utility/J at the 256-token cap on both platforms.
+alone. Each configuration uses B=1 and is averaged over three Similarly, DeepSeek-R1-Distill-Llama-8B achieves its highest
+runs. For every response, we record final answer correctness, ARC-Challenge utility/J at 256 tokens, where the additional
+reasoning and answer tokens, truncation status, and request reasoning substantially improves accuracy relative to the 64-
+energy from the cumulative NVML energy counter.                 token cap. In contrast, DeepSeek-R1-Distill-Llama-8B remains
+   For each recorded response i, let Ui ∈ {0, 1} denote final- poorly matched to MATH-500: although its accuracy increases
+answer correctness and Ei its measured request energy. We at 1024 tokens, the gain is insufficient to compensate for the
+                                                                TABLE IX
+U TILITY- AWARE CAPPED - REASONING RESULTS AT B=1. E NERGY IS MEAN PER REQUEST AND UTILITY PER JOULE IS AN AGGREGATE RATIO . DS DENOTES
+                                                         D EEP S EEK -R1-D ISTILL .
+
+Benchmark        Model          Cap     H100 Acc.     H100 Energy (J)       H100 Utility/J     H200 Acc.      H200 Energy (J)       H200 Utility/J
+MATH-500         Qwen3-8B       64            26.0               316.8            0.000821            25.4                 245.8           0.00103
+                                256           39.0             1,024.7            0.000381            39.0                 796.3          0.000490
+                                1024          68.8             2,351.2            0.000293            68.2               1,845.8          0.000369
+                 DS-Qwen-7B     64             9.4               640.7            0.000147             9.2                 515.2          0.000179
+                                256           23.2             1,211.4            0.000192            21.4                 977.9          0.000219
+                                1024          38.0             3,148.8            0.000121            36.0               2,567.4          0.000140
+                 DS-Llama-8B    64             5.6               760.5            0.000074             5.6                 551.4          0.000102
+                                256            6.2             1,365.0            0.000045             7.0               1,002.6          0.000070
+                                1024          13.4             2,805.1            0.000048            12.2               2,063.7          0.000059
+ARC-Challenge    Qwen3-8B       64            90.0               272.6            0.003302            89.7                 200.7          0.004467
+                                256           93.7               950.0            0.000986            93.3                 696.1          0.001341
+                                1024          94.0             1,169.9            0.000804            94.0                 856.3          0.001098
+                 DS-Qwen-7B     64            63.3               491.1            0.001290            63.3                 394.0          0.001607
+                                256           73.0             1,023.0            0.000714            75.0                 833.6          0.000900
+                                1024          78.7             2,035.9            0.000386            80.0               1,695.6          0.000472
+                 DS-Llama-8B    64            28.0               759.2            0.000369            29.7                 546.3          0.000543
+                                256           57.3             1,355.7            0.000423            61.3                 985.5          0.000622
+                                1024          78.3             2,276.8            0.000344            79.0               1,683.4          0.000469
+
+
+
+additional request energy, and the 64-token cap remains utility-     (MoE) models, reporting both request energy and token energy
+optimal. The utility-maximizing caps are therefore 64, 256, and      as functions of request-shape parameters including: model type
+64 tokens for Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B, and             M , phase P , batch size B, context length C, and output length
+DeepSeek-R1-Distill-Llama-8B, respectively, on MATH-500,             N . We characterize LLM inference energy as a request-shape
+and 64, 64, and 256 tokens on ARC-Challenge. Notably, the            problem rather than a static per-token cost. Using cumulative
+1024-token cap yields the highest accuracy for every model-          NVML energy measurements on H100 and H200 GPUs, we
+benchmark pair, but does not maximize utility/J for any of           show that request energy and token energy can move in opposite
+them.                                                                directions: longer outputs and larger batches can reduce token
+   The platform comparison separates hardware efficiency from        energy by spreading fixed energy across more tokens, while
+reasoning-budget efficiency. Across the evaluated configura-         increasing total request energy as the window extends. We
+tions, H200 reduces mean request energy by 16.7-28.0 %               also show that prefill has a bounded free-batching regime,
+relative to H100 and improves utility/J at every operating point,    where extra prompt work improves prompt tokens/J before
+while the observed accuracy differs by at most 4.0 % points.         larger contexts move execution into a compute-heavy regime.
+Nevertheless, the utility-optimal cap is identical on H100 and       The scheduler-facing implication is that energy-aware serving
+H200 for every model-benchmark pair. Thus, greater hardware          should expose request energy, token energy, and performance
+efficiency lowers the absolute energy cost of reasoning but          per watt alongside latency, throughput, batch size, context
+does not eliminate the diminishing utility of additional tokens      length, and output length. Finally, we operationalize the utility/J
+or change the preferred reasoning depth in these experiments.        metric. Reasoning tokens can lead to waste (saturating accuracy
+   Key Insight. Reasoning budgets should be selected jointly         at certain token counts). Hence, models and the token counts
+by model, workload, and service objective rather than by             can be configured for both high efficiency and low energy
+accuracy or token count alone. Short caps are appropriate            wastage.
+when accuracy has already saturated or when the model is
+poorly matched to the task, whereas moderate caps are justified                                      R EFERENCES
+when their marginal accuracy gain outweighs their additional             [1] OpenAI, “API Pricing,” https://openai.com/api/pricing/, 2026, accessed:
+request energy. Larger reasoning budgets should be reserved                  2026-05-08.
+                                                                         [2] V. J. Reddi et al., “MLPerf inference benchmark,” in 2020 ACM/IEEE
+for settings in which accuracy requirements take priority over               47th Annual International Symposium on Computer Architecture (ISCA),
+energy-normalized utility. Energy-aware serving systems should               2020, pp. 446–459.
+therefore expose accuracy, request energy, and utility/J together        [3] W. Kwon et al., “Efficient memory management for large language
+                                                                             model serving with PagedAttention,” in Proceedings of the 29th
+when selecting models and reasoning budgets.                                 Symposium on Operating Systems Principles, ser. SOSP ’23. New York,
+                                                                             NY, USA: Association for Computing Machinery, 2023, p. 611–626.
+             VII. S UMMARY AND C ONCLUSION                                   [Online]. Available: https://doi.org/10.1145/3600006.3613165
+                                                                         [4] Y. Zhong et al., “DistServe: Disaggregating prefill and decoding for
+  This work presents an empirical characterization and energy                goodput-optimized large language model serving,” in 18th USENIX
+model for GPU energy consumption during LLM inference.                       Symposium on Operating Systems Design and Implementation (OSDI 24).
+                                                                             Santa Clara, CA: USENIX Association, Jul. 2024, pp. 193–210. [Online].
+We evaluate this LLM inference energy model on NVIDIA                        Available: https://www.usenix.org/conference/osdi24/presentation/zhong-
+H100 and H200 GPUs across dense and mixture-of-experts                       yinmin
+ [5] A. Agrawal et al., “Taming Throughput-Latency tradeoff in LLM                 [23] NVIDIA Corporation, NVML API Reference Guide, NVIDIA Corporation,
+     inference with Sarathi-Serve,” in 18th USENIX Symposium on Operating               2026, nVIDIA GPU Deployment and Management Documentation.
+     Systems Design and Implementation (OSDI 24). Santa Clara, CA:                      [Online]. Available: https://docs.nvidia.com/deploy/nvml-api/index.html
+     USENIX Association, Jul. 2024, pp. 117–134. [Online]. Available:              [24] T. Dao, “Flashattention-2: Faster attention with better parallelism
+     https://www.usenix.org/conference/osdi24/presentation/agrawal                      and work partitioning,” in International Conference on Learning
+ [6] Y. Lei et al., “The energy cost of execution-idle in gpu clusters,” 2026.          Representations, B. Kim, Y. Yue, S. Chaudhuri, K. Fragkiadaki,
+     [Online]. Available: https://arxiv.org/abs/2604.04745                              M. Khan, and Y. Sun, Eds., vol. 2024, 2024, pp. 35 549–35 562.
+ [7] P. Vellaisamy, T. Labonte, S. Chakraborty, M. Turner, S. Sury, and                 [Online]. Available: https://proceedings.iclr.cc/paper_files/paper/2024/
+     J. P. Shen, “Characterizing and optimizing LLM inference workloads on              file/98ed250b203d1ac6b24bbcf263e3d4a7-Paper-Conference.pdf
+     cpu-gpu coupled architectures,” in 2025 IEEE International Symposium          [25] A. McDaniel et al., “Fine-grained power and energy attribution
+     on Performance Analysis of Systems and Software (ISPASS), 2025, pp.                on amd gpu/apu-based exascale nodes,” 2026. [Online]. Available:
+     49–61.                                                                             https://arxiv.org/abs/2604.06056
+ [8] P. Vellaisamy, S. Tripathi, V. Natarajan, S. S. Thenarasu, S. Blanton,        [26] B. Tran, M. Maiterth, W. Shin, M. D. Sinclair, and S. Venkataraman,
+     and J. P. Shen, “Taxbreak: Unmasking the hidden costs of LLM                       “Wattchmen: Watching the wattchers–high fidelity, flexible gpu energy
+     inference through overhead decomposition,” 2026. [Online]. Available:              modeling,” arXiv preprint arXiv:2603.26435, 2026.
+     https://arxiv.org/abs/2603.12465                                              [27] nvidia-ml-py contributors, “nvidia-ml-py,” PyPI package. https://pypi.org/
+ [9] NVIDIA, “Tokenomics Guide: Case Studies and More,” Online                          project/nvidia-ml-py/, 2026.
+     documentation, 2026, accessed: 2026-08-25. [Online]. Available:               [28] A. Paszke et al., “Pytorch: An imperative style, high-performance deep
+     https://www.nvidia.com/en-us/solutions/ai/tokenomics-guide/                        learning library,” Advances in neural information processing systems,
+[10] Z. Chen et al., “An empirical study on the power consumption of LLMs               vol. 32, 2019.
+     with different gpu platforms,” in 2024 IEEE International Conference          [29] PyTorch Contributors, “PyTorch Profiler Tool,” Meta AI, Linux Foun-
+     on Big Data (BigData), 2024, pp. 8640–8642.                                        dation. https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html,
+[11] J. Fernandez, C. Na, V. Tiwari, Y. Bisk, S. Luccioni, and E. Strubell,             2026.
+     “Energy considerations of large language model inference and efficiency       [30] NVIDIA, “NVIDIA H100 Tensor Core GPU,” Product specifications,
+     optimizations,” in Proceedings of the 63rd Annual Meeting of the                   2026, accessed July 2026. [Online]. Available: https://www.nvidia.com/
+     Association for Computational Linguistics (Volume 1: Long Papers),                 en-us/data-center/h100/
+     W. Che, J. Nabende, E. Shutova, and M. T. Pilehvar, Eds. Vienna,              [31] NVIDIA, “NVIDIA H200 Tensor Core GPU,” Product specifications,
+     Austria: Association for Computational Linguistics, Jul. 2025, pp. 32 556–         2026, accessed July 2026. [Online]. Available: https://www.nvidia.com/
+     32 569. [Online]. Available: https://aclanthology.org/2025.acl-long.1563/          en-us/data-center/h200/
+[12] C. Niu et al., “Tokenpowerbench: Benchmarking the power consumption           [32] M. Mayr, S. Wind, L. Schröder, G. Hager, H. Köstler, and
+     of LLM inference,” Proceedings of the AAAI Conference on Artificial                G. Wellein, “AI Application Benchmarking: Power-Aware Performance
+     Intelligence, vol. 40, no. 38, p. 32582–32590, Mar. 2026. [Online].                Analysis for Vision and Language Models,” 2026. [Online]. Available:
+     Available: https://ojs.aaai.org/index.php/AAAI/article/view/40535                  https://arxiv.org/abs/2603.16164
+[13] S. Samsi et al., “From words to watts: Benchmarking the energy costs          [33] A. Ujeniya, J. Eitzinger, G. Hager, and G. Wellein, “Architectural
+     of large language model inference,” in 2023 IEEE High Performance                  Trade-offs in the Energy-Efficient Era: A Comparative Study of
+     Extreme Computing Conference (HPEC), 2023, pp. 1–9.                                Power-Capping NVIDIA H100 and H200,” 2026. [Online]. Available:
+[14] P. Wilhelm, T. Wittkopp, and O. Kao, “Beyond Test-Time Compute                     https://arxiv.org/abs/2604.11391
+     Strategies: Advocating Energy-per-Token in LLM Inference,” in                 [34] A. Grattafiori et al., “The llama 3 herd of models,” 2024. [Online].
+     Proceedings of the 5th Workshop on Machine Learning and Systems,                   Available: https://arxiv.org/abs/2407.21783
+     ser. EuroMLSys ’25. Association for Computing Machinery, 2025, pp.            [35] J. Saad-Falcon et al., “Intelligence per watt: Measuring intelligence
+     208–215. [Online]. Available: https://doi.org/10.1145/3721146.3721953              efficiency of local ai,” arXiv preprint arXiv:2511.07885, 2025.
+[15] S. Poddar, P. Koley, J. Misra, N. Ganguly, and S. Ghosh, “Towards             [36] Y. Jin, G.-Y. Wei, and D. Brooks, “The energy cost of reasoning:
+     sustainable NLP: Insights from benchmarking inference energy in large              Analyzing energy usage in LLMs with test-time compute,” arXiv preprint
+     language models,” in Proceedings of the 2025 Conference of the                     arXiv:2505.14733, 2025.
+     Nations of the Americas Chapter of the Association for Computational          [37] F. Oviedo et al., “Energy use of ai inference, efficiency pathways, and
+     Linguistics: Human Language Technologies (Volume 1: Long Papers),                  test-time scaling,” Joule, p. 102430, Apr. 2026. [Online]. Available:
+     L. Chiruzzo, A. Ritter, and L. Wang, Eds. Albuquerque, New Mexico:                 http://dx.doi.org/10.1016/j.joule.2026.102430
+     Association for Computational Linguistics, Apr. 2025, pp. 12 688–12 704.
+     [Online]. Available: https://aclanthology.org/2025.naacl-long.632/
+[16] X. Liu et al., “Position: LLM inference should be evaluated
+     as energy-to-token production,” 2026. [Online]. Available: https:
+     //arxiv.org/abs/2605.11733
+[17] G. Wilkins, S. Keshav, and R. Mortier, “Offline energy-optimal LLM
+     serving: Workload-based energy models for LLM inference on hetero-
+     geneous systems,” in Proceedings of the 3rd Workshop on Sustainable
+     Computer Systems (HotCarbon), 2024.
+[18] H. Pizzini Cavagna et al., “Sweetspot: An analytical model for
+     predicting energy efficiency of LLM inference,” in Proceedings
+     of the 17th ACM/SPEC International Conference on Performance
+     Engineering. ACM, May 2026, p. 83–95. [Online]. Available:
+     http://dx.doi.org/10.1145/3777884.3797011
+[19] J. Stojkovic, C. Zhang, I. Goiri, J. Torrellas, and E. Choukse, “Dynamollm:
+     Designing LLM inference clusters for performance and energy efficiency,”
+     in 2025 IEEE International Symposium on High Performance Computer
+     Architecture (HPCA), 2025, pp. 1348–1362.
+[20] Q. Liu, D. Huang, M. Zapater, and D. Atienza, “Greenllm: Slo-aware
+     dynamic frequency scaling for energy-efficient LLM serving,” 2025.
+     [Online]. Available: https://arxiv.org/abs/2508.16449
+[21] A. K. Kakolyris, D. Masouros, P. Vavaroutsos, S. Xydis, and D. Soudris,
+     “Slo-aware gpu frequency scaling for energy efficient LLM inference
+     serving,” 2025. [Online]. Available: https://arxiv.org/abs/2408.05235
+[22] M. M. A. Ifath and I. Haque, “Characterizing performance-energy
+     trade-offs of large language models in multi-request workflows,” 2026.
+     [Online]. Available: https://arxiv.org/abs/2604.09611
+

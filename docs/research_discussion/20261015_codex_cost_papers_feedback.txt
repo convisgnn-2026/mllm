@@ -1,0 +1,7 @@
+Codex도 네 논문의 전체 본문/부록/참고문헌과 핵심 그림을 읽고 비교보고서를 작성했습니다. 사용자 요청의 최종 결론을 정리하기 위해 아래 판단을 짧게 검토하세요. 읽기만, 새 GPU실험/수정 없음, 한국어 1000자 이내.
+1. 고정2GPU에서 SLO/품질/고정mix 유지 최대 공통수요배율 alpha가 늘면 capacity/$ 개선이므로 주요 결과로 가능. 고정수요 최소비용과 서로 다른 목적이며 반드시 하위목표로 제한할 이유가 없다. 다만 기존 p90그림은 alpha/전체attainment 미측정이라 이걸 이미 보여준것은 아님. 기존결과가 capacity증명의 역할을 못하는 이유에 '비용축 없음'을 넣는건 부적절: capacity/$는 비용축 고정해도 성립. 이유는 분자 미측정이다.
+2. TetriServe는 cost-aware resource efficiency/SAR의 선례지 dollar cost-efficiency 실증의 선례라 단정하지 않음. allocation GPUtime과 실제 예약 GPUtime 비용 구분. homogeneous GPUtime objective를 이종GPU에 적용할때 가격weighted integration 필요.
+3. MariusGNN Table4 Wiki의 Mem10epoch46.6*10/60=7.77h,cost9.38*10=93.8달러; Disk69.9*10/60=11.65h,cost3.56*10=35.6달러. 따라서 서론8h36달러는 표에서 동일구성으로 재현 안됨. 48배 비용비는1720/35.6~48.3으로 맞으나 그때 시간은11.65h이며 quality도 .4156 vsPyG .4683 차이. 지적은 원문표 기준 조건부로 표현.
+4. Melange TPOT는원문§4.1 E2Elatency/outputtokens. 우리 puredecode meanTPOT와 다르다는걸 명시. 최대77.25%는H100대비; 해당셀 cheapesthomogeneous대비15.35%. 가격normalizedH100은가정맞춤일반클라우드견적아님.
+5. 추가장비없어도 수요축sweep은가능, 잠정SLO기준/가격비민감도공개, fixedstrategy strong baseline + identicalcandidate interferenceaware/solo-aware + oracle. alpha/C 개선이 resourceinteger때문에즉시fixedλcost saving과같은비율로이어지진않음.
+상기 동의/이견 및 인계문서에서 바꿔야 할 결론만 답하세요.

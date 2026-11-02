@@ -1,0 +1,1001 @@
+                                              Efficiently Serving Large Multimodal Models Using EPD Disaggregation
+
+
+                                              Gursimran Singh 1 Xinglu Wang 2 Yifan Hu 1 Timothy Yu 1 Linzi Xing 1 Wei Jiang 3 Zhefeng Wang 3
+                                                               Xiaolong Bai 3 Yi Li 3 Ying Xiong 1 Yong Zhang 1 Zhenan Fan 1
+
+
+                                                                 Abstract                                              Aggregated
+                                                                                                                           1                LLM1
+
+
+
+
+                                                                                                                                E1
+                                                                                                                           2                LLM2
+
+
+
+
+                                                                                                                                E2
+                                                                                                            DP=4
+arXiv:2501.05460v4 [cs.DC] 28 Jun 2025
+
+
+
+
+                                              Large Multimodal Models (LMMs) extend Large                                  3                       LLM3
+
+
+
+
+                                                                                                                                E3
+                                              Language Models (LLMs) by handling diverse                                                    LLM4                 E5          LLM5
+
+
+
+
+                                                                                                                                 E4
+                                                                                                                           4
+                                              inputs such as images, audio, and video, but at                          Disaggregated
+                                              the cost of adding a multimodal encoding stage                                                         E5
+
+
+
+
+                                                                                                                                       E4
+                                                                                                                                E1
+                                                                                                                                E2
+                                                                                                                                E3
+                                                                                                                           1
+                                              that increases both computational and memory
+
+
+                                                                                                            P=3; E=1
+                                                                                                                           2                LLM1                  LLM4
+                                              overhead. This step negatively affects key Service
+                                                                                                                           3                  LLM2                    LLM5
+                                              Level Objectives (SLOs), such as time to first to-
+                                                                                                                           4                              LLM3
+                                              ken (TTFT) and time per output token (TPOT).
+                                              We introduce Encode-Prefill-Decode (EPD) Dis-
+                                              aggregation, a novel framework that separates the             Figure 1: Aggregated (top) vs. disaggregated (bottom) sys-
+                                              encoding, prefill, and decode stages onto dedi-               tem architectures. In the aggregated setup, the encoder (E)
+                                              cated resources. Unlike current systems, which                and LLM share the same GPUs, leading to interference be-
+                                              bundle encoding and prefill together, our approach            tween encode and prefill stages (e.g., LLM-4 delays E5).
+                                              decouples these steps, unlocking new opportuni-               Disaggregation isolates these stages across GPUs, reduc-
+                                              ties and optimizations. These include a mech-                 ing contention and improving utilization. This separation
+                                              anism to cache multimedia tokens for efficient                enables better performance under multimodal workloads,
+                                              transfer, a novel way to parallelize the encod-               addressing key limitations of existing systems.
+                                              ing load within a request, a module for opti-
+                                              mal resource allocation for disaggregated serv-               1. Introduction
+                                              ing, and a novel role-switching method to handle
+                                              changing workload characteristics. Experimen-                 Large Language Models (LLMs) have revolutionized lan-
+                                              tal evaluations with popular LMMs show sub-                   guage understanding and reasoning, achieving superhuman
+                                              stantial gains in memory efficiency (up to 15×                performance on a variety of tasks (Achiam et al., 2023;
+                                              lower peak memory utilization), batch sizes (up               Chang et al., 2024). Recently, the scope of these models has
+                                              to 22× larger), 10× more images per request,                  expanded to include multiple modalities, such as images,
+                                              and 2.2× larger KV caches. Furthermore, it                    audio, and videos, leading to the emergence of Large Multi-
+                                              leads to significant improvements in SLO attain-              modal Models (LMMs) (Yao et al., 2024; Liu et al., 2023;
+                                              ment (up to 90–100% improvement) and TTFT                     Chen et al., 2024). LMMs enable users to interact with
+                                              (up to 71% reduction), compared to systems that               diverse data types, such as posing questions about visual
+                                              do not disaggregate. The code is available at                 scenes or analyzing audio clips, thereby unlocking novel ap-
+                                              https://github.com/vbdi/epdserve.                             plications across fields like healthcare, autonomous systems,
+                                                                                                            and creative industries (Luo et al., 2025).
+                                                                                                            However, serving LMMs in an efficient manner presents
+                                                                                                            unique challenges. Meeting strict Service Level Objectives
+                                             1
+                                               Huawei Technologies Canada, BC, Canada 2 Simon Fraser        (SLOs), such as time to first token (TTFT) and time per out-
+                                         University, BC, Canada 3 Huawei Cloud, China. Correspondence       put token (TPOT), becomes increasingly difficult given the
+                                         to: Zhenan Fan < zhenanfan@gmail.com>, Gursirman Singh             added computational and memory demands of processing
+                                         <gursimran.singh1@huawei.com>.                                     multimodal data (Alvar et al., 2025; Liu et al., 2024). Unlike
+                                         Proceedings of the 42 nd International Conference on Machine       LLMs, where inference involves prefill and decoding stages,
+                                         Learning, Vancouver, Canada. PMLR 267, 2025. Copyright 2025        LMMs require an additional encoding stage to process raw
+                                         by the author(s).                                                  multimodal inputs (e.g., images or videos) into tokenized
+
+                                                                                                        1
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+                                                                      images or supporting larger batch sizes. In preliminary
+                                                                      investigations, removing the LLM and its associated KV
+                                                                      cache significantly increases the maximum batch size and
+                                                                      the number of images per request (Figure 2).
+                                                                      Thus, we propose Encode-Prefill-Decode (EPD) Disaggre-
+                                                                      gation, a framework that decouples the encode, prefill, and
+                                                                      decode stages, assigning each stage dedicated resources
+                                                                      to operate independently. This design enables customized
+Figure 2: Impact of disaggregation on supported batch
+                                                                      strategies for batching, parallelization, and scheduling at
+size and number of images per request for the MiniCPM-
+                                                                      each stage, optimizing resource utilization while reducing
+V 2.6 model. Removing the LLM from the GPU signifi-
+                                                                      contention. As a result, EPD achieves better memory uti-
+cantly increases capacity, enabling larger batches and higher-
+                                                                      lization, higher throughput, and improved compliance with
+resolution inputs. This demonstrates the memory efficiency
+                                                                      critical SLOs like TTFT and TPOT.
+benefits of disaggregation.
+                                                                      The major contributions of this work are as follows:
+representations. This stage is computationally intensive,             • We propose an efficient system for LMM inference that
+especially for high-resolution or complex multimodal in-                introduces the novel idea of disaggregating the encoding
+puts, and often produces a substantial number of additional             and prefill stages. Our approach addresses key challenges
+tokens (Wu et al., 2023). The resulting token inflation in-             in inter-stage communication, efficient parallelization, re-
+creases resource consumption and leads to quadratic growth              source allocation, and performance optimization within
+in prefill-stage compute demands, adversely impacting SLO               this framework.
+attainment.                                                           • We introduce intra-request parallelization (IRP), which
+                                                                        shards a request into independent encoding jobs that can
+Disaggregating the prefill stage from the decode stage has              be executed in parallel, significantly reducing first-token
+emerged as a well-studied solution for improving LLM in-                latency.
+ference efficiency (Zhong et al., 2024; Qin et al., 2024;             • We formulate the resource allocation problem as an op-
+Patel et al., 2024; Jin et al., 2024; Hu et al., 2024). By              timization over batch sizes, scheduling strategies, and
+assigning separate resources to each stage, prefill-decode              parallelization approaches for each pipeline stage. Fur-
+disaggregation enables independent optimization of batch-               thermore, we provide a simple black-box optimizer that
+ing, scheduling, and resource allocation strategies, signifi-           uses workload samples to approximate the optimal con-
+cantly enhancing system throughput and memory utilization.              figuration for a given workload.
+However, these techniques fall short in addressing LMM-               • We develop a dynamic role-switching capability that mon-
+specific challenges, as the addition of an encoding stage               itors the system for bottlenecks and enables flexible re-
+fundamentally changes the resource dynamics. The encod-                 allocation of resources across the E, P, and D stages by
+ing stage adds significant compute and memory overhead,                 switching an instance’s role between stages. This ensures
+inflates tokens, and creates dependencies that affect later             the system can respond effectively to changes in workload
+stages, requiring a fresh look at disaggregation strategies for         requirements during online serving.
+multimodal workloads.                                                 • We conduct evaluations on several popular LMM
+These challenges present optimization opportunities that cur-           models—MiniCPM-V 2.6, InternVL2-8B, and InternVL2-
+rent serving systems do not exploit. Presently, the encode              26B—using both real-world and synthetic workloads. Re-
+and prefill stages are aggregated into a single monolithic              sults demonstrate the superiority of our approach: up to
+and synchronous step executed on the same set of GPUs.                  15× lower memory usage, 22× larger batch sizes, 10×
+Sequential execution of encoding and prefilling introduces              more images per request, up to a 90–100% improvement
+interference, as demonstrated in Figure 1. In the aggre-                in SLO attainment, and up to 71% lower TTFT.
+gated setup (top), the prefill step (LLM 4 ) interferes with
+the encode-heavy request (E 5 ). As a result, such aggrega-           2. Related Work
+tion leads to suboptimal resource utilization and degraded
+SLO performance, revealing the inadequacy of current solu-            In this section, we describe existing approaches in the litera-
+tions for LMM workloads. Disaggregating encoding from                 ture for multimodal model serving and their limitations, and
+prefill enables the system to reduce such interference under          then we review the use of disaggregation techniques.
+specific workloads. From another perspective, simultane-              Multimodal Model Serving. There are two ways to en-
+ously loading both the multimodal encoder (MME) and the               able a multimodal model serving system: (1) adopting and
+LLM onto the same GPUs in aggregated setups restricts the             extending existing LLM serving systems, such as vLLM
+available memory for processing multiple high-resolution
+
+                                                                  2
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+(Kwon et al., 2023), SARATHI (Agrawal et al., 2023), and
+Orca (Yu et al., 2022); and (2) leveraging open-source code
+from recent works on improving multimodal model infer-
+ence. The first approach fails to address the encoding bot-
+tleneck inherent in LMMs, limiting their applicability to
+multimodal workloads, particularly when handling high-
+volume and high-resolution multimedia data. In the second
+                                                                      Figure 3: The inference pipeline of EPD Disaggregation.
+approach, recent advancements such as KV cache eviction
+(Li et al., 2024; Ning et al., 2024) and compression (Kang
+et al., 2024) focus on specific features and limited scenar-          stages—EP-migration and PD-migration—handle the trans-
+ios. For instance, Inf-MLLM (Ning et al., 2024) enables               fer of data from encoding to prefill and from prefill to de-
+efficient streaming inference for LMMs on a single GPU,               code, respectively. We denote the input text prompt as ip ,
+targeting resource-constrained scenarios. While these im-             multimodal data as im , and the output text as o. The steps
+plementations are feasible for serving LMMs, they fail to             are as follows:
+meet user SLOs in cloud serving scenarios. To the best of             Encoding (E): The multimodal input im is processed by the
+our knowledge, we are the first to propose an LMM serving             multimodal encoder E, converting it into multimodal tokens
+system that leverages disaggregation and a series of inte-            vte = E(im ), which form a high-dimensional embedding
+grated techniques to enable better resource allocation and            for the next pipeline stage.
+improved SLOs.
+                                                                      EP-migration: Once encoding completes, the generated
+Disaggregated Serving.           Disaggregated serving has            tokens are transferred to the prefill stage P via the EP-
+emerged as a promising technique in large model serving.              migration function ψEP , such that vtp = ψEP (vte ).
+By decoupling the prefill and decode stages, systems like
+SplitWise (Patel et al., 2024), DistServe (Zhong et al., 2024),       Prefill (P): The prefill stage processes vtp and the text
+and DéjàVu (Strati et al., 2024) mitigate interference be-          prompt ip to produce the initial KV cache and first output
+tween these phases, enabling finer control over TTFT and              token: kv1p , op1 = P (vtp , ip ).
+TPOT. However, these systems primarily target LLMs and                PD-migration: The KV cache and token are passed to the
+overlook the encoding step required for LMMs, which is                decode stage via the PD-migration function ψP D , where
+tightly coupled with prefill. Recent work, such as Moon-              kv1d , od1 = ψP D (kv1p , op1 ).
+cake (Qin et al., 2024) and PD-Serve (Jin et al., 2024), have
+extended disaggregation to include KV cache management                Decode (D): Decoding proceeds autoregressively, gen-
+and other system-level optimizations. Despite these ad-               erating the next token odt+1 and updating the cache:
+                                                                         d
+vancements, they remain limited in their applicability to             kvt+1 , odt+1 = D(kvtd , odt ).
+LMMs. Disaggregating the encoding phase from prefill                  This autoregressive process continues until the output se-
+could unlock new opportunities for optimizing LMM serv-               quence is fully generated.
+ing. For instance, when handling requests with long videos,
+the frames could be encoded in parallel, reducing head-of-            3.2. System Design and Optimization
+line blocking and improving overall system efficiency. This
+approach would enable more flexible batching and schedul-             Figure 4 illustrates the architecture of the EPD Disaggre-
+ing strategies, achieving better latency and throughput for           gated inference system. Each pipeline stage (Encoding,
+multimodal workloads.                                                 Prefill, and Decoding) has independent instances that run
+                                                                      the corresponding stage. These instances operate in data par-
+                                                                      allel (DP) mode, enabling concurrent processing of multiple
+3. Method                                                             requests per stage and ensuring scalability and efficiency.
+In this section, we first describe the EPD disaggregation             Each instance comprises a scheduler, responsible for
+framework (Section 3.1), followed by a detailed explanation           scheduling requests, block managers (responsible for man-
+of the system design and optimizations (Section 3.2), includ-         aging cache(s)), and multiple workers. The workers operate
+ing asynchronous token transfer, intra-request parallelism,           in tensor-parallel (TP) and/or pipeline-parallel (PP) mode,
+optimized resource allocation, and dynamic role switching.            where each worker holds only a subset of the model weights
+                                                                      and the corresponding caches required for the stage.
+3.1. EPD Disaggregation
+                                                                      In the encoding stage, workers load only the encoder
+As shown in Figure 3, disaggregating an LMM system                    weights and initialize the Multimodal (MM) cache. In the
+involves dividing the inference process into three stages:            prefill stage, the LLM weights are loaded, and both the
+encoding, prefill, and decode. Transitions between these              MM and KV caches are required to efficiently manage all
+
+                                                                  3
+                                     Efficiently serving LMMs using EPD Disaggregation
+
+
+
+
+                       Figure 4: System architecture of the proposed EPD Disaggregated Inference.
+
+the data associated with the request. In the decoding stage,         the blocks are reassigned or de-allocated, ensuring flexible
+workers load the LLM weights for decoding tasks and use              cache utilization even under heavy workloads.
+the KV cache.
+                                                                     3.2.2. I NTRA -R EQUEST PARALLEL (IRP)
+Cache transfers occur asynchronously when an instance
+pulls a request from its queue, ensuring the transfer occurs         Multimodal requests often include multiple high-resolution
+once the downstream instance is ready. Further, our system           images in many practical scenarios like autonomous driving
+incorporates several techniques to optimize the performance          and video question answering. In modern LMMs, these
+of the disaggregated LMM pipeline, with a primary focus              images are further converted into a large number of patches
+on ensuring smooth token transfers between stages (Section           that need to be processed through a computationally heavy
+3.2.1), reducing latency (Section 3.2.2), managing resources         MME. This significantly increases the computation load,
+effectively (Section 3.2.3), and adapting to changing work-          making the encoding process a major bottleneck.
+loads (Section 3.2.4). The ablation of these features is shown
+                                                                     To address this, we introduce Intra-Request Parallelism
+in Section 4.4.
+                                                                     (IRP), which partitions a single request’s image patches
+                                                                     across multiple encoding workers in a data-parallel fash-
+3.2.1. A SYNCHRONOUS T OKEN T RANSFER
+                                                                     ion. Since patches are encoded independently, they can be
+Disaggregating the system introduces an additional step of           processed and transferred concurrently. Specifically, each
+transferring vision tokens from the encoding to the prefill          encoding worker concurrently processes a subset of patches,
+stage. To minimize latency during token transfers between            computes their token representations, and asynchronously
+stages, our system employs direct, asynchronous transfers            transfers them to the prefill stage. Once all patch-level to-
+via high-bandwidth channels (NVLink, and InfiniBand).                kens reach the prefill stage, they are aligned, projected, and
+The asynchronous transfer allows the system to continue              merged to form the complete multimodal tokens.
+processing new requests without interruption. Both encod-
+ing and prefill workers maintain an MM cache to facilitate           3.2.3. O PTIMIZED R ESOURCE A LLOCATION
+this process.
+                                                                     The EPD system requires tuning various configurations,
+When encoding is complete, tokens are stored in the encod-           including batch sizes, scheduling strategies, and paralleliza-
+ing worker’s MM cache, allowing it to serve new requests             tion methods for each pipeline stage. To determine the
+immediately. An asynchronous event loop monitors com-                optimal setup, we collect historical workload samples and
+pleted encoding tasks and initiates direct token transfers           apply a black-box optimizer.
+to the prefill worker’s MM cache. Once the transfer is
+                                                                     Let f (·) represent the system’s performance metric (e.g.,
+confirmed, the encoding cache entries are cleared to free
+                                                                     goodput, see Section 4). Since f (·) is treated as a black-
+memory. To manage these cache blocks effectively, we in-
+                                                                     box function with an unknown internal mechanism, we rely
+troduce the MMBlockManager, which pre-allocates cache
+                                                                     on a simulator—extended from DistServe (Zhong et al.,
+blocks based on each request’s needs. After token transfer,
+
+                                                                 4
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+2024)—to evaluate performance metrics efficiently. The               switching between P and D stages, as both the LLM and
+objective is to maximize performance while minimizing                KV cache can be reused.
+GPU usage, which inherently reduces pipeline inefficiencies
+(e.g., idle time) and improves resource utilization. Formally,       4. Experiments
+we solve
+                                                                     In this section, we analyze and compare the performance of
+                max       f (p, b, s) − βcost(p)          (1)
+              (p,b,s)∈X                                              the proposed EPD disaggregation method against various
+                                                                     baselines. We start with an end-to-end generation perfor-
+Here, X is the search space for system configs, including            mance analysis in Section 4.1, followed by an examination
+parallelization configs p, max batch size configs b, and             of the first token latency in Section 4.2. We then evalu-
+scheduling configs s (See Appendix D for details). We                ate the memory savings achieved by EPD in Section 4.3.
+use Bayesian optimization (Calvo et al., 2019) to solve              Next, we present an ablation analysis of the key system
+Problem 1.                                                           components in Section 4.4. Finally, we present an exten-
+                                                                     sion of our framework to Neural Processing Units (NPUs)
+3.2.4. DYNAMIC ROLE S WITCHING                                       in Section 4.5. Additional experiments are detailed in the
+The configuration optimizer described in the previous sec-           Appendix, including 1) a throughput comparison for offline
+tion can determine the optimal settings for a given workload.        and heterogeneous settings in Appendix A.3, 2) additional
+However, in an online environment, workload characteris-             analysis of the implementation on NPUs in Appendix F, 3)
+tics can change dynamically, requiring adjustments to the            an experiment extending our framework to the audio modal-
+configuration. Re-initializing the entire system from scratch        ity in Appendix A.1, and 4) additional SLO and memory
+in response to these changes can be both difficult and costly.       experiments in Appendix A.
+For instance, there may be ongoing requests in the encoding,         Baselines: We compared the proposed EPD method against
+context, or decoding phases with precomputed KV and/or               two popular baselines: DistServe (Zhong et al., 2024) and
+VE caches stored in memory. A naive re-initialization would          vLLM (Kwon et al., 2023). The DistServe baseline imple-
+not only involve booting time but also force these requests to       ments the prefill-decode (PD) disaggregation approach, in
+restart from the beginning, potentially causing a cascading          which the prefill and encoding phases are executed on one
+impact on SLO metrics for subsequent requests.                       set of GPUs, while the decode phase is disaggregated on
+To overcome these challenges, we introduce dynamic role              separate GPUs. Since DistServe was originally designed for
+switching, which enables any instance in the E, P, or D              LLMs, we extended it to support LMMs by enabling mul-
+stages to switch roles to any other stage (E, P, or D) with          timodal data processing and modifying its block manager
+minimal overhead. At a high level, dynamic role switching            to accommodate multimodal tokens. The vLLM baseline
+continuously monitors the system’s queuing statistics across         adopts a monolithic architecture, where all three stages run
+all stages and reallocates workers to stages experiencing            on the same set of GPUs.
+higher demand. When a decision is made to transfer an                Models: We utilized three LMMs in our analysis:
+instance from a source stage S to a destination stage T , the        MiniCPM-V 2.6 (Yao et al., 2024), InternVL2-8B, and
+migration process occurs in three key steps:                         InternVL2-26B (Chen et al., 2024). These LMMs are
+                                                                     renowned for their advanced capabilities in processing and
+   • Offload: The instance in the S stage stops accepting            understanding multimodal data. Detailed descriptions of the
+     new requests and redistributes its queued tasks to sib-         LMMs and their sizes can be found in Appendix E.2.
+     ling instances in the same stage.                               Datasets: To evaluate performance across diverse scenarios,
+   • Migration: The instance is reconfigured to meet the             we use three datasets: synthetic workload, NextQA, and
+     requirements of the T stage. This may involve switch-           Video-MME. The synthetic workload enables configurable
+     ing both the model and cache type. For example, if the          parameters such as prompt length, number of images per
+     E stage is involved, the instance may switch from an            request, image resolution, output length, and sampling set-
+     LLM to an MME model and from a KV cache to an                   tings. Unless otherwise noted, the input prompt length is set
+     MM cache.                                                       to 22 tokens. NextQA (Xiao et al., 2021), a benchmark video
+   • Onload: The migrated instance resumes processing                question-answering dataset, features human-annotated ques-
+     new requests, helping to alleviate the queuing bottle-          tions and answers, offering a more realistic reflection of real-
+     neck at the T stage.                                            world video request distributions compared to the synthetic
+                                                                     workload. Video-MME (Fu et al., 2024) is a multimodal
+This process typically takes less than 0.7 seconds. The              evaluation dataset designed for assessing large LMMs on
+duration is longer for migrations involving the E stage due          video understanding tasks. It contains multiple-choice video
+to model and cache changes, but significantly shorter when
+
+                                                                 5
+                                     Efficiently serving LMMs using EPD Disaggregation
+
+
+
+
+            (a) MiniCPMv-2.6                           (b) InternVL2-8B                         (c) InternVL2-26B
+
+Figure 5: SLO attainment (↑) for end-to-end inference across multiple models and image counts per request. Subfigures (a),
+(b), and (c) correspond to MiniCPM-V 2.6, InternVL2-8B, and InternVL2-26B, respectively. The top and bottom rows show
+results for 2 and 4 images per request. EPD consistently outperforms all baselines across configurations.
+
+question answering items that span diverse video lengths,           details of the corresponding SLO criteria are discussed in
+topics, and reasoning types. In contrast to NextQA, which           Appendix E.3. The results for three models (columns) are
+emphasizes open-ended video-text generation, Video-MME              presented in Figure 5. The X-axis represents the overall
+focuses strictly on multiple-choice QA and covers a broader         request rate (λ), and the Y-axis indicates the percentage of
+spectrum of video durations and formats.                            requests meeting both TTFT and TPOT requirements, with
+                                                                    a 90% threshold denoted by a black dotted line.
+Evaluation Metrics: We evaluate the system based on
+runtime performance and memory consumption. The per-                EPD outperforms all baselines, achieving over 90% SLO
+formance metrics are as follows:                                    attainment at lower request rates. This is due to its ability
+                                                                    to parallelize the computationally intensive image encod-
+  • TTFT: The time from the submission of a request to              ing step across multiple GPUs. DistServe and vLLM often
+    the system until the first token is received by the user.       maintain less than 10% SLO attainment due to interference.
+  • TPOT: The average time interval between consecutive             Meanwhile, comparing the first and second rows for vary-
+    output tokens (excluding the first token).                      ing image counts per request (2 and 4), we observe that,
+  • SLO Attainment: The percentage of requests that meet            while more images per request increase the workload, EPD
+    predefined SLOs, such as TTFT and TPOT require-                 maintains reasonable performance, whereas baselines’ SLO
+    ments.                                                          attainment drops significantly. Lastly, InternVL, which is
+  • Goodput: The highest request rate at which 90% or               prefill-heavy, experiences queuing delays due to the higher
+    more SLO attainment is achieved.                                number of image tokens, particularly at higher request rates.
+                                                                    This effect further exacerbates the performance degradation
+For memory benchmarking experiments, we analyze the                 from the 8B to the 26B model. In contrast, MiniCPM-V, op-
+baselines by evaluating the benefits of available free mem-         timized to generate fewer image tokens, avoids these delays
+ory in each approach. Additional free memory can facil-             and achieves lower overall latency. Further results with 6
+itate higher batch sizes, accommodate more images per               and 8 images are provided in Appendix A.4.
+request, or enable larger key-value (KV) cache sizes (see
+Section 4.3).                                                       Next, we repeat the experiment using the non-synthetic
+                                                                    video question-answering dataset, NextQA (Xiao et al.,
+                                                                    2021). To do so, we randomly sampled 100 examples,
+4.1. SLO Attainment for End-to-End Generation
+                                                                    with input text token lengths ranging from 4 to 21 (aver-
+In this experiment, we evaluate the goodput of EPD and              age: 11.42) and output token lengths ranging from 1 to 7
+the baselines in an online setting where 100 multimodal             (average: 2.75). Each video request was represented by 8
+requests arrive following a Poisson process with rate λ. The        uniformly sampled frames, and we used MiniCPM-V 2.6
+length of output tokens is fixed to 10. We test requests with       in the experiment, adhering to the SLO criteria of TTFT =
+2 and 4 images, each at a resolution of 4032 × 3024. The            5.60 and TPOT = 0.06. As illustrated in Figure 7, EPD is
+
+                                                                6
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+
+
+
+                   (a) MiniCPMv-2.6                   (b) InternVL2-8B                      (c) InternVL2-26B
+
+Figure 6: Distribution of TTFT (Y-axis) across varying numbers of images per request (X-axis) for (a) MiniCPM-V 2.6, (b)
+InternVL2-8B, and (c) InternVL2-26B. Each plot illustrates the latency behavior under increasing input sizes.
+
+
+
+
+Figure 7: SLO attainment (↑) versus request rate on the               Figure 8: SLO attainment (↑) versus request rate on the
+NextQA dataset using the MiniCPM-V 2.6 model. EPD                     Video-MME dataset using the MiniCPM-V 2.6 model. EPD
+consistently achieves higher SLO attainment compared to               significantly outperforms competing baselines across all
+all baselines.                                                        request rates.
+
+the only framework achieving 90% SLO attainment at low
+request rates, demonstrating its superior ability to handle           4.2. First Token Generation Latency
+real-world workloads compared to DistServe and vLLM.                  Multimodal requests often impose a heavy load on both the
+Finally, we conduct the same experiment using the Video-              E and P phases, making the first token generation a key la-
+MME (Fu et al., 2024) dataset. We evaluate SLO attainment,            tency bottleneck. Therefore, in this experiment, we analyze
+defined as TTFT ≤ 3.1s and TPOT ≤ 0.025s, on 100 ran-                 the first token latency for various baselines. The results
+domly sampled Video-MME examples using MiniCPM-V                      presented in Figure 6 show box plots of TTFT distributions
+2.6. Each video is represented by 64 uniformly sampled                for three different models. Note that, as the decoding phase
+frames, following the MiniCPM frame configuration re-                 is excluded, the vLLM baseline is equivalent to DistServe
+ported on the Video-MME leaderboard. The results are                  and is thus omitted. Requests are generated according to
+shown in Figure 8.                                                    a Poisson distribution with a fixed request rate λ. Specifi-
+                                                                      cally, λ = 0.25 for MiniCPM-V 2.6 and λ = 0.08 for both
+As seen, EPD consistently outperforms vLLM and Dist-                  InternVL2-8B and InternVL2-26B. Thanks to intra-request
+Serve across all rates, demonstrating a strong generalization         parallelization, EPD significantly outperforms both vLLM
+to temporal multimodal workloads, such as videos.                     and DistServe. Specifically, TTFT is reduced by up to
+                                                                      71.9%, 32.8%, and 44.9% compared to the DistServe base-
+                   #Frames                                            line for the MiniCPM-V 2.6, InternVL2-8B, and InternVL2-
+                               8      16     32      64
+      Method                                                          26B models, respectively.
+      vLLM                   0.42    0.82   1.59    3.11
+      DistServe              0.42    0.81   1.54    3.08              Additionally, we conducted a TTFT comparison on the
+      EPD (ours)             0.24    0.30   0.49    1.00              Video-MME (Fu et al., 2024) dataset for various baselines.
+                                                                      The results are presented in Table 1. As seen, EPD achieves
+Table 1: Mean TTFT latency (in seconds) (↓) for varying               a latency reduction of up to 68.2% over DistServe and up to
+video lengths at a fixed request rate of 1 request/sec. Results       69.2% over vLLM. Moreover, the performance gap widens
+are averaged over 100 Video-MME samples. EPD achieves                 with increasing video length—for instance, at 8 frames, EPD
+the lowest latency across all video lengths.                          reduces latency by 42.9%, and at 64 frames, the reduction
+
+                                                                  7
+                                     Efficiently serving LMMs using EPD Disaggregation
+
+reaches 67.5% relative to DistServe. These results highlight       ferent settings of image resolution and models in Table 3.
+EPD’s superior scalability and robustness under increasingly       The number of images per request is fixed to 10, and the KV
+demanding video processing workloads.                              cache is allocated to utilize 80% of the available free mem-
+                                                                   ory. As seen, EPD significantly outperforms DistServe for
+4.3. Memory Savings through Stage Disaggregation                   both E and P batch sizes. For example, with InternVL2-26B
+                                                                   at 787×444 resolution, EPD supports a batch size of 22 for
+In this section, we analyze the memory savings achieved by         encoding vs. DistServe’s 1, achieving 22× improvement.
+disaggregating the encoding and prefill stages. The E work-        Similarly, for MiniCPM-V 2.6 at 787×444, EPD achieves
+ers can save memory as they do not require LLM weights             a batch size of 29 vs. DistServe’s 2 for prefill, a 14.5×
+or the KV cache. Analyzing only the weight size indicates          improvement.
+memory reduction of approximately 95%, 96.2%, and 78.3%
+for the MiniCPM-V 2.6, InternVL2-8B, and InternVL2-26B                                                           DistServe     EPD
+models. Similarly, for the P workers, memory savings of                 Model          Image Reso.    #Patch      (E, P)      E   P
+about 5%, 3.7%, and 21.6% are achieved, respectively. In                                 313,234        1           7         49      86
+practice, since KV cache is also not required at E workers,          MiniCPMv 2.6        787,444        3           2         16      29
+the memory saving can be even higher (93.3% saving, i.e.,                               4032,3024       10         OOM         4       9
+15× lower, according to profiling). These reductions in                                  313,234        13           2        15      2
+                                                                     InternVL2-8B        787,444         3           9        67      10
+memory usage enable the EPD system to support higher                                    4032,3024       13           2        15      2
+numbers of images per request and batch sizes (discussed
+                                                                                        313,234         13         OOM        6       1
+in the following experiments) and larger KV cache sizes              InternVL2-26B      787,444          3          1         22      4
+(discussed in Appendix A.2).                                                           4032, 3024       13         OOM        6       1
+
+
+         Model         Image Reso.    DistServe   EPD              Table 3: Comparison of the maximum supported batch sizes
+                         313,234         77       490
+                                                                   for E and P stages across different models and image reso-
+     MiniCPM-V 2.6       787,444         26       165              lutions. Higher values are better; italicized values indicate
+                        4032,3024         7       49               the best in each row. OOM denotes cases where the model
+                         313,234         19        19              ran out of memory.
+      InternVL2-8B       787,444         19        19
+                        4032,3024        19        19
+                                                                   4.4. Ablation Study
+                         313,234          1        10
+     InternVL2-26B       787,444         11        45              In this section, we analyze the impact of various components
+                        4032,3024         1        10              of the proposed system.
+
+Table 2: Comparison of the maximum number of images                              #I/R=2        #I/R=4          #I/R=6        #I/R=8
+supported per request for various image resolutions across
+                                                                     EPD           0.92          1.02           1.14          1.74
+different models. Higher values are better; best values in           w/o IRP    1.46 (1.6x)   2.47 (2.4x)    3.37 (2.9x)   4.27 (2.5x)
+each row are italicized.
+                                                                   Table 4: Effect of ablating IRP feature from the proposed
+EPD Supports a Higher Number of Images per Request:                system on TTFT (s). Disabling IRP negatively affects the
+We compare the maximum number of images per request                TTFT (up to 2.9x worse) for various multiple images/ re-
+supported by the disaggregated (EPD) and aggregated (Dist-         quest (#I/R). Results are averaged over 100 requests.
+Serve or vLLM) systems across three multimodal models:
+MiniCPMv, InternVL2-8B, and InternVL2-26B. The exper-              Effect of IRP: We analyze the effect of ablating IRP, pre-
+iment was conducted at three different image resolutions,          sented in Section 3.2.2. The experimental settings are the
+with a fixed batch size of 1 and with 80% of the available         same as the TTFT experiment in Section 4.2. As shown in
+memory allocated for the KV cache. As shown in Table 2,            Table 4, removing the IRP feature negatively affects TTFT
+EPD handles more images per request than DistServe, for            across various images/ request. Moreover, the degradation
+example, at 4032×3024 resolution, 7× more for InternVL2-           exacerbates as the number of images/ request increases. This
+26B and 10× more for InternVL2-8B. For InternVL2-8B,               is because the IRP feature allows parallelization of encoding
+the limit of 19 images per request is due to its maximum           load within the same request across multiple GPUs.
+context length. Without this constraint, a larger number of
+                                                                   Effect of Offline Optimizer: By default, the EPD system
+images per request could be supported.
+                                                                   collects workload samples and finds the optimal configura-
+EPD Supports Higher Batch Sizes: We compare maxi-                  tion offline using the optimizer. To demonstrate its effect,
+mum supported batch sizes for E and P stages across dif-           we conduct an experiment without using the optimizer and
+
+                                                               8
+                                        Efficiently serving LMMs using EPD Disaggregation
+
+                 Goodput (r/s) ↑   TTFT (s) ↓    TPOT (s) ↓          First, we compare EPD-NPU against the vLLM and Dist-
+    EDP               1.25            2.12          0.031            Serve baselines on the InternVL2-8B LMM. We evaluate
+    w/o Opt.       0.56 (2.2x)     4.48 (2.1x)   0.025 (0.8x)        SLO attainment, defined as TTFT ≤ 8.5s and TPOT ≤ 0.12s
+                                                                     on eight 4K images per request. We used the same settings
+Table 5: Ablating the offline optimizer reduces goodput by           as described in Section 4.1, except that we employed a heavy
+2.2× on average when configurations are selected randomly.           encoding workload of eight 4032 × 3024 images per request.
+↓ indicates lower is better; ↑ indicates higher is better.           The optimal configuration for this workload was found to
+                                                                     be 5E2P1D, and the corresponding results are presented in
+                                                                     Figure 9. As shown, EPD is the only configuration that
+select configurations randomly. Specifically, we uniformly
+                                                                     achieves the SLO requirements, while the other baselines
+sample 10 configurations at random and report the expected
+                                                                     fail to meet the SLOs entirely, even at low request rates.
+value of the performance metric in the second row of Table 5.
+For a fair comparison, when evaluating TTFT and TPOT,
+we maintain the same request rate of 1.25 r/s, which corre-
+sponds to the goodput of the EPD system (see Appendix
+E.4 for more details). As shown in Table 5, disabling the op-
+timizer causes significant performance degradation in terms
+of both goodput and TTFT. This highlights the importance
+of the optimizer, especially when the EPD system has many
+tunable configurations.
+Effect of Dynamic Role Switching: To analyze the im-
+pact of dynamic role switching, we conduct a controlled
+experiment simulating a shift in workload characteristics.
+Specifically, we generate 100 requests following the same            Figure 9: SLO attainment (↑) on NPUs under varying re-
+static workload configuration as described in Section 3.2.4.         quest rates for a synthetic workload using the InternVL2-8B
+However, to introduce an artificial workload change, the first       model. EPD maintains positive SLO attainment under strict
+10 requests generate 50 output tokens, while the remaining           TTFT constraints, while baselines fail to meet the criteria.
+90 requests generate 500 output tokens. The request arrival
+rate is fixed at 3 requests per second. The results are shown        Next, we compare the TTFT of EPD-NPU against vLLM.
+in Table 6.                                                          EPD-NPU achieves a 35.2% improvement over vLLM, sur-
+                                                                     passing the 24.4% improvement observed in the GPU sce-
+                   Latency (s) ↓   TTFT (s) ↓    TPOT (s) ↓          nario. This additional ∼10% improvement is attributed to
+    EPD                28.01          1.42          0.05             the proportionally heavier encoding workload of LLMs on
+    w/o Switch      61.10 (2.2x)   1.33 (0.9x)   0.12 (2.4x)         NPUs compared to GPUs. Please refer to Appendix F.1 for
+                                                                     more details. As a result, disaggregating the encoding from
+Table 6: Ablating dynamic role-switching from EPD de-                the prefill phase yields greater benefits on NPUs than on
+grades TPOT by 2.4× and increases end-to-end latency by              GPUs.
+2.2×. Results are averaged over 100 requests with one 4K
+image each. ↓ indicates lower is better.                             5. Conclusion
+Without dynamic worker migration, the system performs                In this paper, we proposed a novel approach for optimizing
+poorly because it remains fixed in the initial configuration         LMM systems via disaggregation of key processing stages.
+(5E1P2D, optimized offline for 50 tokens) and is unable to           By separating the encoding, prefill, and decoding phases
+adapt to the increased decoding demand. In contrast, the             into distinct stages, our system provides greater flexibility in
+EPD system with migration dynamically reconfigures itself            resource allocation, enabling more efficient management of
+(2E1P5D) to handle the new workload (500 output tokens)              computational and memory resources. This disaggregation,
+by shifting three E instances to D, resulting in approximately       together with dynamic resource allocation, asynchronous to-
+2× better performance.                                               ken transfer, and advanced parallelization strategies, directly
+                                                                     addresses several critical challenges in LMM deployment,
+                                                                     including latency reduction, memory optimization, and ef-
+4.5. Adaptation to Neural Processing Units (NPUs)
+                                                                     ficient computational resource usage. We validated the ef-
+We present the results of adapting the proposed EPD frame-           fectiveness of our system through extensive experiments.
+work to Huawei Ascend NPUs. For more details on the                  Finally, we outline the system’s limitations and future direc-
+implementation and experiments, see Appendix F.                      tions in Appendix B and Appendix C, respectively.
+
+                                                                 9
+                                    Efficiently serving LMMs using EPD Disaggregation
+
+Impact Statement                                                      ing. In International conference on machine learning,
+                                                                      pp. 4507–4518. PMLR, 2020.
+This paper presents work whose goal is to advance the field
+of Machine Learning. There are many potential societal              Jin, Y., Wang, T., Lin, H., Song, M., Li, P., Ma, Y.,
+consequences of our work, none which we feel must be                   Shan, Y., Yuan, Z., Li, C., Sun, Y., et al. P/d-serve:
+specifically highlighted here.                                         Serving disaggregated large language model at scale.
+                                                                       arXiv:2408.08147, 2024.
+References                                                          Kang, H., Zhang, Q., Kundu, S., Jeong, G., Liu, Z., Krishna,
+Achiam, J., Adler, S., Agarwal, S., Ahmad, L., Akkaya,                T., and Zhao, T. Gear: An efficient kv cache compres-
+  I., Aleman, F. L., Almeida, D., Altenschmidt, J., Alt-              sion recipefor near-lossless generative inference of llm.
+  man, S., Anadkat, S., et al. Gpt-4 technical report.                arXiv:2403.05527, 2024.
+  arXiv:2303.08774, 2023.                                           Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu,
+Agrawal, A., Panwar, A., Mohan, J., Kwatra, N., Gula-                C. H., Gonzalez, J. E., Zhang, H., and Stoica, I. Ef-
+ vani, B. S., and Ramjee, R. Sarathi: Efficient llm in-              ficient memory management for large language model
+  ference by piggybacking decodes with chunked prefills.             serving with pagedattention. In Proceedings of the
+  arXiv:2308.16369, 2023.                                            ACM SIGOPS 29th Symposium on Operating Systems
+                                                                     Principles, 2023.
+Alvar, S. R., Singh, G., Akbari, M., and Zhang, Y. Divprune:
+  Diversity-based visual token pruning for large multimodal         Li, Y., Huang, Y., Yang, B., Venkitesh, B., Locatelli,
+  models. arXiv preprint arXiv:2503.02175, 2025.                      A., Ye, H., Cai, T., Lewis, P., and Chen, D. Snapkv:
+                                                                      LLM knows what you are looking for before generation.
+Calvo, B., Shir, O. M., Ceberio, J., Doerr, C., Wang,                 arXiv:2404.14469, 2024.
+  H., Bäck, T., and Lozano, J. A. Bayesian perfor-
+  mance analysis for black-box optimization benchmark-              Liu, H., Li, C., Wu, Q., and Lee, Y. J. Visual instruction
+  ing. In Proceedings of the Genetic and Evolutionary                 tuning. In Proceedings of NeurIPS, 2023.
+  Computation Conference Companion, pp. 1789–1797,                  Liu, H., Zhang, Y., Yang, X., Li, X., Chen, H., Zhu, J.,
+  2019.                                                               and Gong, Y. A survey of resource-efficient llm and
+Chang, Y., Wang, X., Wang, J., Wu, Y., Yang, L., Zhu,                 multimodal foundation models. arXiv:2401.08092, 2024.
+  K., Chen, H., Yi, X., Wang, C., Wang, Y., et al. A                Liu, Z., Wu, Z., Gan, C., Zhu, L., and Han, S.
+  survey on evaluation of large language models. ACM                  Datamix: Efficient privacy-preserving edge-cloud in-
+  Transactions on Intelligent Systems and Technology, 15              ference.   In Computer Vision–ECCV 2020: 16th
+  (3):1–45, 2024.                                                     European Conference, Glasgow, UK, August 23–28,
+Chen, Z., Wu, J., Wang, W., Su, W., Chen, G., Xing, S.,               2020, Proceedings, Part XI 16, pp. 578–595. Springer,
+  Zhong, M., Zhang, Q., Zhu, X., Lu, L., Li, B., Luo,                 2020.
+  P., Lu, T., Qiao, Y., and Dai, J. Internvl: Scaling up            Luo, J., Zhang, W., Yuan, Y., Zhao, Y., Yang, J., Gu, Y.,
+  vision foundation models and aligning for generic visual-           Wu, B., Chen, B., Qiao, Z., Long, Q., Tu, R., Luo, X.,
+  linguistic tasks. In Proceedings of CVPR, pp. 24185–                Ju, W., Xiao, Z., Wang, Y., Xiao, M., Liu, C., Yuan, J.,
+  24198, June 2024.                                                   Zhang, S., Jin, Y., Zhang, F., Wu, X., Zhao, H., Tao, D.,
+Fu, C., Dai, Y., Luo, Y., Li, L., Ren, S., Zhang, R., Wang,           Yu, P. S., and Zhang, M. Large language model agent:
+  Z., Zhou, C., Shen, Y., Zhang, M., et al. Video-mme:                A survey on methodology, applications and challenges.
+  The first-ever comprehensive evaluation benchmark of                arXiv:2503.21460, 2025.
+  multi-modal llms in video analysis. arXiv preprint                Ning, Z., Zhao, J., Jin, Q., Ding, W., and Guo, M. Inf-
+  arXiv:2405.21075, 2024.                                             mllm: Efficient streaming inference of multimodal large
+Hu, C., Huang, H., Xu, L., Chen, X., Xu, J., Chen, S., Feng,          language models on a single gpu. arXiv:2409.09086,
+  H., Wang, C., Wang, S., Bao, Y., et al. Inference with-             2024.
+  out interference: Disaggregate llm inference for mixed            Patel, P., Choukse, E., Zhang, C., Shah, A., Goiri, I.,
+  downstream workloads. arXiv:2401.11181, 2024.                       Maleki, S., and Bianchini, R. Splitwise: Efficient gen-
+Huang, Y., Song, Z., Li, K., and Arora, S. Instahide:                 erative llm inference using phase splitting. In 2024
+  Instance-hiding schemes for private distributed learn-              ACM/IEEE 51st Annual International Symposium on
+                                                                      Computer Architecture (ISCA), pp. 118–132, 2024.
+
+
+                                                               10
+                                    Efficiently serving LMMs using EPD Disaggregation
+
+Qin, R., Li, Z., He, W., Zhang, M., Wu, Y., Zheng, W.,                actions. In Proceedings of the IEEE/CVF Conference on
+  and Xu, X. Mooncake: A kvcache-centric disaggregated                Computer Vision and Pattern Recognition (CVPR), pp.
+  architecture for llm serving. arXiv:2407.00079, 2024.               9777–9786, June 2021.
+Singh, G., Wang, C., Tazwar, A., Wang, L., and Zhang,               Yao, Y., Yu, T., Zhang, A., Wang, C., Cui, J., Zhu, H., Cai,
+  Y. Ipprotect: protecting the intellectual property of               T., Li, H., Zhao, W., He, Z., et al. Minicpm-v: A gpt-4v
+  visual datasets during data valuation. arXiv preprint               level mllm on your phone. arXiv:2408.01800, 2024.
+  arXiv:2212.11468, 2022.
+                                                                    Yu, G.-I., Jeong, J. S., Kim, G.-W., Kim, S., and
+Strati, F., Mcallister, S., Phanishayee, A., Tarnawski, J.,           Chun, B.-G. Orca: A distributed serving system
+  and Klimovic, A. Déjàvu: Kv-cache streaming for fast,             for Transformer-Based generative models. In 16th
+  fault-tolerant generative llm serving. In ICML, July 2024.          USENIX Symposium on Operating Systems Design and
+Wu, J., Gan, W., Chen, Z., Wan, S., and Philip, S. Y.                 Implementation (OSDI 22), pp. 521–538, July 2022.
+ Multimodal large language models: A survey. In 2023                Zhong, Y., Liu, S., Chen, J., Hu, J., Zhu, Y., Liu, X., Jin,
+ IEEE International Conference on Big Data (BigData),                 X., and Zhang, H. Distserve: Disaggregating prefill and
+ pp. 2247–2256. IEEE, 2023.                                           decoding for goodput-optimized large language model
+Xiao, J., Shang, X., Yao, A., and Chua, T.-S. Next-qa:                serving. In OSDI, pp. 193–210. USENIX Association,
+  Next phase of question-answering to explaining temporal             2024.
+
+
+
+
+                                                               11
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+A. Additional Experiments                                                 Model             # Images/Req.     DistServe    EPD
+
+A.1. Adaptation to Audio modality                                                                  5            86%         99%
+                                                                                                  10            74%         97%
+In this section, we extend EPD to the audio modality to eval-             MiniCPM-V 2.6           20            49%         95%
+                                                                                                  40            OOM         92%
+uate its effectiveness beyond vision tasks, highlighting the
+                                                                                                  80            OOM        OOCL
+method’s generalizability. Specifically, we evaluate EPD in
+an online, audio setting using the ultravox-v0 3 model,                                            5            94%         95%
+                                                                          InternVL2-8B            10            89%        91 %
+based on LLaMA3.1-8B. To simulate an encode-intensive                                             20           OOCL        OOCL
+workload, each request is configured to include 24 audio
+                                                                                                   5            67%         89%
+files. Evaluation metrics include SLO attainment—defined
+                                                                                                  10            36%         80%
+as TTFT ≤ 2.0 s and TPOT ≤ 0.025 s—and goodput (re-                       InternVL2-26B
+                                                                                                  20            OOM         63%
+quests per second, r/s). As shown in Table 7, EPD con-                                            40            OOM        OOCL
+sistently outperforms vLLM and DistServe across all re-
+quest rates, demonstrating superior efficiency and reliability.        Table 8: Comparison of maximum supported KV cache size
+Combined with prior results in the video domain, these find-           (in terms of percentage of free memory) on prefill node
+ings reinforce EPD’s robustness and generalizability across            for various #images/ request. Image resolution fixed to 4K.
+modalities.                                                            Higher (italicized) is better.
+
+           Rate (r/s)      SLO Attainment Rates (↑)
+                           vLLM     DistServe    EPD                   A.3. Throughput Comparison for Offline and
+                                                                            Heterogeneous scenario
+              0.10          0.99       0.99      0.99
+              0.25          1.00       0.94      0.99                  In this section, we compare the throughput of the EPD and
+              0.50          0.99       0.89      1.00
+              1.00          0.91       0.72      0.96
+                                                                       DistServe methods under both offline and heterogeneous
+              1.10          0.87       0.69      0.93                  settings. In the offline scenario, a batch of requests is sub-
+              1.15          0.87       0.68      0.93                  mitted in advance, allowing the system to process them
+         Goodput (r/s) ↑    1.01       0.45      1.16                  overnight with the goal of maximizing end-to-end (E2E)
+                                                                       throughput. In the heterogeneous setting, we consider a
+Table 7: SLO attainment results (↑) for online audio bench-            cluster composed of GPUs with varying computational and
+marking with ultravox-v0 3 (24 audio files per re-                     memory capacities.
+quest). All baselines use 4 GPUs: vLLM operates in data-               Our motivation is as follows: in the DistServe system, both
+parallel (DP) mode, DistServe uses a 3P1D configuration,               the encoding and prefill stages are executed on the same
+and EPD adopts a 2E1P1D setup. EPD achieves consis-                    worker, requiring the corresponding memory to be allocated
+tently high SLO attainment and the highest goodput across              on a single GPU. However, GPU memory is limited, and
+all request rates.                                                     this constraint becomes particularly problematic in hetero-
+                                                                       geneous environments that include low-end GPUs. In such
+                                                                       cases, the total memory demand of the encoding and pre-
+A.2. EPD Supports Larger KV Cache Sizes                                fill stages may approach or exceed the available memory,
+In this section, we compare the maximum KV cache size                  significantly restricting the batch size or even rendering
+that can be allocated across various baselines. The batch size         the DistServe method infeasible on these devices. Thus,
+is fixed at 1, and the image resolution is set to 4032×3024.           we consider a controlled scenario in our experiment where
+As shown in Table 8, EPD supports significantly larger KV              the memory usage of the prefill stage in DistServe remains
+cache sizes than DistServe. For instance, for the InternVL2-           within the capacity of low-end GPUs, but only permits a
+26B model at 10 images per request, EPD can support a KV               minimal batch size of 1 for both encoding and prefill stages.
+cache size of 80% vs 36% for DistServe, representing a 2.2×            We conduct this experiment using 8 A800 GPUs. For the
+improvement. Notably, in certain scenarios—such as with                EPD system, we use the default 5E2P1D configuration,
+the InternVL2-26B model and 20 images per request—the                  which allocates 5, 2, and 1 GPUs to the encoding, prefill,
+DistServe system encounters an OOM error, indicating that              and decoding stages, respectively. The corresponding max-
+it cannot process 20 images even with a KV cache size of               imum batch sizes are set to 8 for encoding, 8 for prefill,
+0. Additionally, some configurations encounter an Out of               and 128 for decoding. In the DistServe system, we adopt
+Context Limit (OOCL) error, where the large number of                  the 7P1D setup, with maximum batch sizes of 1 and 128.
+encoding tokens generated by high image counts exceeds                 Here, the encoding and prefill steps are conducted on the 7
+the LLM’s context limit during the prefill stage.                      P workers. The workload consists of 1,000 requests, each
+                                                                       containing a single image, a simple prompt (“What is the
+
+                                                                  12
+                                    Efficiently serving LMMs using EPD Disaggregation
+
+
+
+
+Figure 10: Left: Impact of varying the number of encoding workers in the EPD method. The notation xEyP denotes
+a configuration with x encoder and y prefill workers. The DistServe method uses a fixed 7P configuration, assigning 7
+workers to handle both encoding and prefill steps. Middle: Effect of the number of images per request on end-to-end
+throughput. Right: Sensitivity to encoding and prefill batch sizes, where these two numbers are set equal.
+
+
+
+
+            (a) MiniCPMv-2.6                          (b) InternVL2-8B                          (c) InternVL2-26B
+
+Figure 11: SLO attainment (↑) for end-to-end inference across multiple models and image counts per request. Subfigures
+(a), (b), and (c) correspond to MiniCPM-V 2.6, InternVL2-8B, and InternVL2-26B, respectively. The top and bottom rows
+show results for 6 and 8 images per request. EPD consistently outperforms all baselines, demonstrating robust performance
+as image count increases..
+
+
+content of this image?”), and a maximum of 10 output to-            either manually choose a large batch size or rely on the al-
+kens. We perform an ablation study by tuning the system’s           gorithm in Sec. 3.2.3 to automatically determine an optimal
+hyperparameters as described in Sec. 3.2.3, and analyze             configuration.
+their impact on throughput. The results are presented in
+Fig. 10.                                                            A.4. SLO Attainment for Higher Number of Images
+The left plot demonstrates the importance of selecting an           In this section, we show additional results from the experi-
+appropriate GPU configuration. The algorithm detailed               ment in Section 4.1 pertaining to 6 and 8 images per request.
+in Sec. 3.2.3 can automatically select the 5E2P config-             The results are presented in Figure 11. As seen, the SLO
+uration as the optimal setup for maximizing end-to-end              attainment for EPD begins to decline as number of images
+(E2E) throughput. The middle plot shows that EPD achieves           rise, particularly at higher request rates. This decline re-
+higher throughput when the number of images per request             flects the increasing computational demand associated with
+is small, indicating that its disaggregated architecture ef-        processing multiple high-resolution images within a single
+fectively mitigates encoder-side compute bottlenecks. The           request. Nevertheless, EPD continues to outperform all
+right plot highlights that EPD is relatively insensitive to         baselines, which struggle even at low request rates and fail
+encoding and decoding batch sizes. This enables users to            to scale effectively under increased workloads.
+
+                                                               13
+                                     Efficiently serving LMMs using EPD Disaggregation
+
+B. Limitations                                                        cloud for prefill and decode stages, minimizing privacy risks
+                                                                      without compromising model capability. This hybrid archi-
+While disaggregated serving offers significant benefits in            tecture could form the foundation for privacy-preserving
+meeting strict service-level objectives, it is not universally        multimodal systems.
+optimal. In scenarios where throughput is the primary con-
+cern and SLOs can be relaxed, traditional aggregated serving
+can outperform disaggregated approaches due to superior               D. Optimizer Details
+GPU utilization. This is largely attributed to the absence            We recapitulate the configuration optimization problem:
+of inter-stage communication overhead and pipeline ineffi-
+ciencies/ bubbles that can arise from resource imbalance in                            max      f (p, b, s) − β · cost(p)             (2)
+disaggregated setups.                                                               (p,b,s)∈X
+
+From a cost-efficiency perspective, disaggregated serving             For the search space X , there could be implicit constraints
+is most beneficial when latency SLOs are non-negotiable.              during the configuration search. For example, the total
+In contrast, when maximizing throughput per dollar is the             number of GPUs must not exceed the available resources
+primary goal and latency constraints are minimal, aggre-              (e.g., 8 or 16). Alternatively, if the cloud service provider
+gated configurations are often more cost-effective. This              intends to fully utilize all available 8 GPUs, an implicit
+can be attributed to the reduced communication cost and               constraint could enforce the number of GPUs to be exactly
+orchestration overhead that result in higher GPU utilization.         8. These constraints serve to reduce the search space. The
+                                                                      system configuration involves parallelization configurations
+Specific to the EPD disaggregation strategy, the encoding
+                                                                      p, maximum batch size configurations b, and scheduling
+and prefill stages are predominantly compute-bound. As a
+                                                                      configurations s. These variables are vectors, where each
+result, the primary performance gains from disaggregation
+                                                                      element corresponds to the configuration of an individual
+stem from stage-specific finetuning of batching, schedul-
+                                                                      instance. Each instance is capable of handling requests
+ing, and parallelization strategies, especially IRP for paral-
+                                                                      independently, including managing (sub-)workers for ten-
+lelizing encoding load of a request across multiple GPUs.
+                                                                      sor parallelism and pipeline parallelism. Instances within
+However, these gains are sensitive to pipeline inefficiencies,
+                                                                      a stage process different requests in parallel, a concept re-
+for instance pipeline bubbles can erode the latency benefits.
+                                                                      ferred to as data parallelism. Note that p, b, and s can
+Thus, careful tuning of resource allocation and responsive
+                                                                      have variable lengths, as the number of instances is itself
+worker migration is required to ensure these stages are well-
+                                                                      a configurable parameter. For the i-th instance, we denote
+balanced for a given model and workload.
+                                                                      its stage as Stagei ∈ {E, P, D}, where E represents the
+                                                                      encoder stage, P represents the processing stage, and D
+C. Future Work                                                        represents the decoder stage.
+Although the encode and prefill stages have similar compute           • Parallelization: Let p denote the vector of parallel con-
+characteristics, their memory usage profiles differ substan-             figs for all instances. For the i-th instance, if it is a prefill
+tially. This asymmetry presents a promising opportunity                  or decoding instance, then its config pi includes: pTP   i , the
+
+to explore heterogeneous hardware configurations. For in-                number of GPUs used for tensor parallelism; and pPP           i ,
+
+stance, using high-memory high-compute GPUs for prefill                  the number of GPUs used for pipeline parallelism. If
+and low-memory but high-compute units for encoding could                 it is an encoding instance, considering IRP does not re-
+further enhance efficiency and cost-effectiveness in disag-              quire communication, which is better than TP, we only
+gregated setups.                                                         use IRP. Therefore for encode, we overload the symbol
+                                                                         pTP
+                                                                           i = pi
+                                                                                  IRP
+                                                                                       to denote the number of GPUs used for IRP.
+Another area of exploration is reducing the overhead of                  If the cost per                       c, then the total cost is:
+                                                                                        PGPU is a constant
+visual token migration, which can be a bottleneck in mul-                cost(p) = c pi ∈p (pTP   i ×  p PP
+                                                                                                         i  ).
+timodal disaggregated pipelines. Compression techniques,              • Max Batch Size determines how many requests are pro-
+particularly those leveraging the inherent redundancy in vi-             cessed simultaneously during the encoding, prefill, and
+sual tokens as identified in token pruning literature (Alvar             decoding stages. Let b denote the batch size config for all
+et al., 2025), may significantly reduce transfer latency and             instances. For i-th instance, bi is its max batch size. This
+cost.                                                                    config involves a trade-off between latency and through-
+Lastly, disaggregated serving introduces new possibilities               put. Larger batch sizes improve throughput by enabling
+in privacy-aware inference (Liu et al., 2020; Huang et al.,              parallel processing but may increase latency if the stages
+2020; Singh et al., 2022), especially in edge-cloud environ-             become compute-bound.
+ments. For example, encoding could be performed on edge               • Scheduling involves two main decisions: First, which
+devices, keeping raw, privacy-sensitive images local. Only               workers should each request be assigned to? Second,
+the encoded representations would be transmitted to the                  how should the order of requests be determined within a
+
+                                                                 14
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+  worker queue? To solve these decisions, we adapt strate-             aggregation. For efficient data movement, the system em-
+  gies from the DistServe framework (Zhong et al., 2024).              ploys NCCL for inter-node GPU communication and asyn-
+  In the encoding stage, when a request arrives, it is as-             chronous CudaMemcpy for intra-node transfers, ensuring
+  signed and pushed to an instance queue. Between different            smooth operations without disrupting GPU computations
+  stages, global queues are used, and each available engine            across the disaggregated EPD framework.
+  pulls proactively from the queues. Possible assignment
+  strategies in the encoding stage include Round-Robin or              E.1. Hyper-parameters in EPD system
+  Least-Loaded First for assigning requests. Once a request
+  is assigned to a worker’s queue, we can apply ordering               We conducted our experiments using a cluster of 8 NVIDIA
+  strategies like first-come-first-serve or shortest-job-first,        A100 GPUs (82GB). Each server was equipped with 128
+  or more complex strategies that prioritize requests based            CPUs and 1TB of RAM. The CUDA version was 12.2.
+  on their Service Level Objectives (SLOs). For simplicity,            Flash attention-2 was used for the attention implementation.
+  we constrain that all instances within the same stage share          We use FP16 precision for all experiments.
+  the same scheduling strategy.                                        To ensure a fair comparison, we standardized key
+                                                                       performance-affecting settings of the inference engine
+E. Implementation Details                                              across all baselines. Specifically, these include a block
+                                                                       size of 16; a maximum of 2048 blocks per request; context
+EPD is a fully capable distributed serving system for LMMs,
+                                                                       tokens capped at 49,152, and decoding tokens at 81,920
+comprising several key components: a load estimation mod-
+                                                                       per batch. The scheduling policy for all stages was set to
+ule, a resource allocation module, a RESTful API frontend,
+                                                                       First-Come-First-Served (FCFS). Further, to allow enough
+and a multimodal-aware orchestration layer. The entire
+                                                                       resources for memory-heavy multimodal requests to exe-
+framework is implemented with a mix of Python and C++/
+                                                                       cute, KV cache GPU utilization was set to 50%, and the
+CUDA implementations, ensuring superior scalability and
+                                                                       maximum number of multimedia data of 32 was imposed
+performance. To facilitate integration, we repurpose the
+                                                                       per prompt. The size of the multimodal cache was fixed to
+distributed execution engine from vLLM, which supports
+                                                                       3000 across all models, and the vLLM inference engine was
+numerous popular LLMs and LMMs, allowing easy adapta-
+                                                                       run in eager mode. Finally, for the vLLM inference engine,
+tion of new models into our disaggregated framework with
+                                                                       we used the version 0.6.1.post1 which represents a stable
+minimal effort.
+                                                                       version for multimodal inference.
+The API interface adheres to OpenAI’s multimodal specifi-
+                                                                       In our online experiments, requests were sent to the infer-
+cations, enabling users to specify parameters such as output
+                                                                       ence engine using a Poisson arrival process with a fixed λ,
+length, temperature, and multimodal data inputs.
+                                                                       representing the number of requests per second. Each trial
+The scheduler is specifically designed for the disaggregated           was executed until 100 requests were completed, ensuring
+EPD framework, dynamically managing batch sizes and                    sufficient data for consistent performance analysis. Further,
+enabling asynchronous execution of the encoding, prefill,              to optimize TTFT and TPOT in this latency-sensitive set-
+and decoding phases. The load estimation module ensures                ting, we disabled batching by setting batch sizes to 1 for the
+efficient GPU allocation across these phases, adapting to              encoding, prefill, and decoding stages.
+changing workload demands in real time.
+Our repurposed distributed execution engine uses Ray actors            E.2. LMM Details
+to implement GPU workers, which manage multimodal and                  MiniCPM-V 2.6 integrates a SigLip-400M vision encoder,
+key-value caches, and coordinate the independent execution             comprising 400 million parameters, with a Qwen2-7B lan-
+of the encoding, prefill, and decoding tasks. Furthermore,             guage model, containing 7.6 billion parameters, culminat-
+it supports 3D parallelism, incorporating Data Parallelism             ing in 8 billion parameters. It excels in tasks involving
+(DP), Tensor Parallelism (TP), and Pipeline Parallelism (PP)           single-image, multi-image, and video comprehension, even
+to maximize resource utilization and scalability.                      surpassing GPT-4V in these domains (Yao et al., 2024).
+The orchestration layer includes custom CUDA kernels op-               InternVL2-8B features an InternViT-300M-448px vision
+timized for parallelism in the encoding and prefill phases.            encoder with 300 million parameters, paired with an in-
+These kernels enable efficient management of paged mul-                ternlm2 5-7b-chat language model comprising 7.7 bil-
+timodal caches and ensure seamless asynchronous transfer               lion parameters, totaling 8 billion parameters. Similarly,
+of multimodal tokens between encoding and prefill GPUs.                InternVL2-26B combines an InternViT-6B-448px-V1-5 vi-
+The orchestration layer oversees the execution of encod-               sion encoder with 6 billion parameters and an internlm2-
+ing, prefill, and decoding instances, handling tasks such              chat-20b language model containing 20 billion parameters,
+as request distribution, KV cache transmission, and result             resulting in 26 billion parameters.
+
+
+                                                                  15
+                                     Efficiently serving LMMs using EPD Disaggregation
+
+
+
+
+                                        (a) GPU                                   (b) NPU
+
+Figure 12: Breakdown of latency for encode and prefill stages using the InternVL2-8B model across varying numbers of
+images per request. Subfigures (a) and (b) show results on GPU and NPU, respectively. Light green denotes encode latency
+and light blue indicates prefill latency. NPUs demonstrate distinct latency characteristics compared to GPUs as input size
+increases.
+
+E.3. SLO Criteria                                                     follows: batch sizes for the E, P, and D stages are 2, 1, and
+                                                                      128, respectively; the number of workers in each stage is 6,
+Table 9 outlines the SLO criteria for TTFT and TPOT across
+                                                                      1, and 1; and IRP is enabled. We uniformly random-sample
+various models and different numbers of images per request
+                                                                      10 configs from the search space. To maintain the same
+(#I/R). These criteria are empirically derived based on the
+                                                                      computational cost, all 8 GPUs are utilized across different
+characteristics of the underlying models, such as the compu-
+                                                                      configs. Consequently, the search space is constrained to
+tational complexity of the MME and LLM. We also consider
+                                                                      leverage 8 GPUs, which can be enforced through rejection
+what is realistically achievable by both our method and the
+                                                                      sampling. The sample mean of the performance metric
+baselines on a fixed number (8 GPUs) used in experiments.
+                                                                      (goodput, TTFT, and TPOT) is presented in Table 5. Recall
+Across models, as #I/R increases, there is an approximately
+                                                                      that the goodput metric is defined as the maximum request
+linear increase in the TTFT criteria due to the higher encod-
+                                                                      rate while maintaining an SLO attainment of no less than
+ing load and additional tokens generated during the prefill
+                                                                      90%. For a fair comparison, When evaluating the TTFT and
+stage. In contrast, TPOT requires only minor adjustments
+                                                                      TPOT, we maintain the same request rate of 1.25 r/s, which
+since it is not directly impacted by changes in #I/R.
+                                                                      is same as the goodput of the EPD system.
+   #I/R   MiniCPM-V 2.6     InternVL 8B     InternVL 26B
+          TTFT TPOT         TTFT TPOT       TTFT TPOT                 F. Extending EPD to NPU
+    2     1.40     0.04      1.20    0.05     3.50   0.07
+    4     2.60     0.04      2.40    0.06     7.05   0.08             We extend our EPD framework to a cluster of Neural Pro-
+    6     3.90     0.06      3.55    0.09    11.00   0.95             cessing Units (NPUs) for two purposes: (1) to investigate
+    8     5.10     0.06      5.00    0.18    15.00   0.15             the impact of disaggregating (E) from (P) on NPUs which
+                                                                      tend to have higher encode-to-decode latency ratio and (2)
+Table 9: TTFT and TPOT values (in seconds) used as SLO                to demonstrate the generalizability of EPD.
+thresholds for different models and image counts per request
+(#I/R). Respective values are shown for MiniCPM-V 2.6,                F.1. NPUs having higher encode-to-prefill latency ratios
+InternVL2-8B, and InternVL2-26B models.
+                                                                      When investigating architectures and potential benefits of
+                                                                      an EPD-NPU framework, we first profiled the LMMs tested
+E.4. Details for the Ablation Experiment of Offline                   in this paper for their encoding and prefilling latencies to
+     Optimizer                                                        understand the impact of the characteristics described above.
+                                                                      We calculated the average encode and prefill stage latencies
+In this experiment, 100 User requests arrive in real-time
+                                                                      of 10 requests. Across the different LMMs, NPUs spent
+with each request containing 6 images, and they all request
+                                                                      more time on encode than prefill across these models when
+for the MiniCPMv model. For simplicity, we limit the con-
+                                                                      compared to GPUs. Figure 12 shows the latency breakdown
+figuration space to a restricted search space, where each
+                                                                      between encode and prefill for InternVL2-8B across a range
+data-parallel (DP) worker uses the same batch size configu-
+                                                                      of #I/R. Across the models and different #I/R, we found
+ration, and both TP and PP are fixed to 1. We explore the
+                                                                      a ∼10-20% larger encode-to-prefill latency ratios in NPU
+batch size configurations for workers across different stages,
+                                                                      than in GPU. This trend was consistent across different large
+the number of DP workers in each stage, and the decision
+                                                                      multimodal models (LMMs), indicating that NPUs tend to
+to enable IRP. The config identified by the optimizer is as
+
+                                                                 16
+                                      Efficiently serving LMMs using EPD Disaggregation
+
+spend a greater proportion of time in the encoding phase                 request-specific information (e.g., request ID, sampling
+compared to GPUs.                                                        parameters, block IDs to pull) and the remaining imple-
+                                                                         mentation mirrors that of EPD-GPU. This container-based
+Since the encode in NPU is a larger portion of the TTFT
+                                                                         deployment allows our framework to be easily scalable
+when compared to GPU, we hypothesized that we would
+                                                                         and portable to the cloud, providing intriguing future
+see more benefit from EPD and IRP towards NPU. Thus,
+                                                                         works regarding efficient utilization and scheduling of
+we were motivated to adapt EPD for NPU.
+                                                                         resources for users.
+F.2. Implementation Details for NPU
+                                                                       F.3. Experimental Settings for NPU
+The EPD-NPU system was implemented in a similar man-
+                                                                       For EPD-NPU, We use eight 910B3 NPUs and evaluate
+ner to our EPD-GPU system as described in Appendix E.
+                                                                       the system by running the controlled experimental setup (as
+All EPD-NPU experiments utilize IRP. The EPD-NPU dis-
+                                                                       described in the experiments section of the main paper) in an
+tributed serving system was developed and deployed on a
+                                                                       online setting. The number of input tokens was 22, length
+cluster of 910B3 NPUs, each with 64GB of high bandwidth
+                                                                       of output tokens was 10 with the end-of-sequence token
+memory. There are two major differences between the NPU
+                                                                       ignored. The SLO requirements (8.5 and 0.12 for TTFT and
+and GPU implementations:
+                                                                       TPOT, respectively) were also selected in a similar manner
+• Ascend-vLLM: EPD-NPU leverages Ascend-vLLM                           as the GPU experiments. The maximum model length was
+   rather than vLLM which is an adaptation of vLLM on                  set to 27000, and KV Cache utilization was set to 83%.
+   Ascend NPU hardware that utilizes the Compute Architec-             EPD-NPU also used a version of Ascend-vLLM (version
+   ture for Neural Networks (CANN) software stack rather               0.6.3.post1) with CANN version 7.6. Unless otherwise
+   than CUDA.                                                          stated, the hyper-parameters are identical to those described
+• Container-based deployment: Each encode, prefill, and                in E.1.
+   decode instance is deployed separately as an API for the
+   scheduler engine to call. These instances run in data paral-        We evaluate EPD-NPU using InternVL2-8B LMM against
+   lel mode. The scheduler engine simply sends a POST                  two baselines: (1) Ascend-vLLM and (2) Ascend-vLLM
+   request to the corresponding API with some minimal                  PD disaggregation for the heavy workload of 8 images
+                                                                       (4032x3024 resolution) per request.
+
+
+
+
+                                                                  17
+

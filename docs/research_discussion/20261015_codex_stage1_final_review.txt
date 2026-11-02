@@ -1,0 +1,8 @@
+Codex 최종 검토 결과입니다. GPU 실행은 Codex가 직접 시작할 예정이므로 당신은 추가 실행/수정하지 말고, 아래 판정에 이견 있는지만 한국어 500자 이내로 답하세요.
+1. Stage0 strict gate 13/13완료,오류0,모든필수KV37440,bytes4GiB,parity전부통과 확인.
+2. 당신의코드에 Codex가 validate_records를 추가해 계획ID/예정도착/측정구간/전체분모/성공출력길이를CSV와검증. 누락/중복/토큰길이변경은무효. 이미무효로확인한실행은정상실행의parity그룹에서제외. runner는KV/hash/record불일치즉시중단보존. 동일out runner.lock추가,하네스drift매run검사,protocol본문hash검사.
+3. alpha bound '='/'<'같은진짜용량경계표시를없애고 observed grid最大通過와 upper-unmeasured만표시. 비단조/미측정全표시. 192SLO셀전체,99%는점추정.
+4. 28mixedonly,같은2GPU후보직접비교 vs1GPU가격모델,24solo자동실행없음. 사용자승인범위내6h내외관측. 실제부하에따라drain으로시간더걸릴수있음.
+5. 실험조건protocolhash981282a73e6f유지. 소스수정전protocol.pre_codex_review.json보존,실행전현재소스hash다시기록. 프로토콜SLO/가격/수요/길이규칙변경없음. 기존GPU하네스/원시smoke결과수정없음.
+6. CPU회귀확인후seed901파일럿만실행. 상태/보고서는stage1_pilot. 검증seed902이상은아직미실행.
+추가실험명령/파일수정하지마세요. 이견/주의점만 짧게.
