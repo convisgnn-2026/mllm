@@ -1,0 +1,1 @@
+{"capped": true, "note": "loadgen 900 s 상한에 걸림 = 포화 (3090 디코더 KV 초과). SAR 0 으로 채점.", "ok": 0, "errors": 0, "req_per_s": 0.0, "makespan_s": 900}

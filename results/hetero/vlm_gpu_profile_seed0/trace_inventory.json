@@ -1,0 +1,38 @@
+[
+  {
+    "file": "traces/encoder/rank0.1791877913826550820.pt.trace.json.gz",
+    "bytes": 1408,
+    "events": 58,
+    "gpu_kernel_events": 0
+  },
+  {
+    "file": "traces/encoder/rank0.1791877980636219480.pt.trace.json.gz",
+    "bytes": 4069050,
+    "events": 251393,
+    "gpu_kernel_events": 16195
+  },
+  {
+    "file": "traces/encoder/rank0.1791878017040150354.pt.trace.json.gz",
+    "bytes": 1393831,
+    "events": 85870,
+    "gpu_kernel_events": 5530
+  },
+  {
+    "file": "traces/llm/rank0.1791877890177713917.pt.trace.json.gz",
+    "bytes": 34180947,
+    "events": 2110450,
+    "gpu_kernel_events": 153448
+  },
+  {
+    "file": "traces/llm/rank0.1791877955490102700.pt.trace.json.gz",
+    "bytes": 35077800,
+    "events": 2157290,
+    "gpu_kernel_events": 157365
+  },
+  {
+    "file": "traces/llm/rank0.1791878016851594746.pt.trace.json.gz",
+    "bytes": 1457,
+    "events": 66,
+    "gpu_kernel_events": 0
+  }
+]

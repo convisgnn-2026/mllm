@@ -1,0 +1,702 @@
+{
+  "stage": "stage1_seed_validation",
+  "purpose": "boundary re-validation on an unseen seed: 4 winner candidates x alpha {0.5,0.6,0.75,1,1.1,1.25}; same rules as the pilot",
+  "parent_protocol": "results/hetero/stage1_pilot",
+  "parent_protocol_sha256": "981282a73e6fd6254562efafb1875a7d9e93fffa59d1867d7b3361a34ad44af0",
+  "seed": 902,
+  "candidates": [
+    "S4_4090",
+    "S4_3090",
+    "S3_4090",
+    "C_4090"
+  ],
+  "alphas": [
+    0.5,
+    0.6,
+    0.75,
+    1.0,
+    1.1,
+    1.25
+  ],
+  "lambda0": {
+    "llm": 2.0,
+    "dit": 0.3
+  },
+  "warmup_s": 60.0,
+  "duration_s": 600.0,
+  "drain_timeout_s": 300.0,
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+  "dit": {
+    "size": 512,
+    "steps": 28,
+    "text_encoder_3": false
+  },
+  "max_model_len": 8192,
+  "kv_bytes": 4294967296,
+  "kv_tokens_expected": 37440,
+  "kv_note": "4 GiB fixed per vLLM engine (pilot: 4 GiB); PD candidates run two engines. Expected tokens = floor(bytes / 1835008) * 16.",
+  "min_dit_measured": 60,
+  "slo_grid": {
+    "ttft_s": [
+      0.3,
+      0.5,
+      1.0,
+      2.0
+    ],
+    "tpot_s": [
+      0.012,
+      0.02,
+      0.03,
+      0.05
+    ],
+    "dit_e2e_s": [
+      3.0,
+      5.0,
+      10.0,
+      20.0
+    ],
+    "target": [
+      0.9,
+      0.95,
+      0.99
+    ]
+  },
+  "definitions": {
+    "ttft": "first content chunk - planned arrival (send lag included, recorded separately)",
+    "tpot": "(end - first) / (completion_tokens - 1); undefined when completion_tokens == 1 (no inter-token gap): only TTFT applies, count reported",
+    "dit_e2e": "image completion - planned arrival",
+    "denominator": "all measured requests incl. errors, drain timeouts, unfinished",
+    "cell_pass": "both services >= target attainment; alpha_max = largest tested passing alpha, full pass/fail list reported, non-monotone flagged",
+    "stability": "3 x 200 s windows: planned arrivals, ok completions, failed ends, in-flight at window end; backlog at observation end; drain usage; timeouts kept as valid results separate from infra failures"
+  },
+  "price_model": {
+    "ratio_3090_over_4090": [
+      0.5,
+      0.75,
+      0.94,
+      1.0
+    ],
+    "ratio_note": "all ratios are research assumptions; 0.94 ≈ launch MSRP 1499/1599 amortisation example, others span a sensitivity range; not rental quotes",
+    "energy_scenario": {
+      "electricity_usd_per_kwh": 0.12,
+      "pue": 1.3,
+      "amortisation_years": 4,
+      "msrp_usd": {
+        "gpu4090": 1599,
+        "gpu3090": 1499
+      },
+      "note": "assumption, reported alongside measured Wh"
+    },
+    "idle_card_billing": "reported both ways: occupied cards only, and both cards billed (1-GPU candidates then cost the same as 2-GPU ones)"
+  },
+  "order_rule": "alpha ascending; candidates shuffled within alpha with random.Random(1002+i)",
+  "env": {
+    "MODEL": "meta-llama/Llama-3.2-3B-Instruct",
+    "DMODEL": "stabilityai/stable-diffusion-3.5-medium",
+    "GPU_UTIL": "0.5",
+    "SIZE": "512",
+    "STEPS": "28",
+    "KV_BYTES": "4294967296",
+    "DRAIN_TIMEOUT": "300"
+  },
+  "env_stripped": [
+    "REPLAY_ONLY",
+    "ONLY",
+    "CONTROLLED_PLAN",
+    "CONTROLLED_OUT",
+    "DRAIN_TIMEOUT",
+    "KV_BYTES",
+    "GPU_UTIL",
+    "SIZE",
+    "STEPS",
+    "MODEL",
+    "DMODEL",
+    "N",
+    "LRATES",
+    "DRATES",
+    "WORK",
+    "TRACE",
+    "ND"
+  ],
+  "plans": [
+    {
+      "alpha": 0.5,
+      "plan_stem": "alpha0.5_seed902",
+      "path": "results/hetero/stage1_plans/alpha0.5_seed902.json",
+      "plan_sha256": "f7f5b6bdabe4689f605e50e2a2a753f4f8fcefff9c5e8915391071885771c289",
+      "rates": {
+        "llm": 1.0,
+        "dit": 0.15
+      },
+      "n_llm": 628,
+      "n_dit": 77,
+      "n_llm_measured": 565,
+      "n_dit_measured": 65,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7436,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 2,
+      "trace_rows_clamped_by_prepare": 1,
+      "violations": [],
+      "prompt_sha256": "de5cff69ca399b7d4fdad8a8b668d12fc3d43dccef7537bf8499aa1dc70d08bb",
+      "ok": true
+    },
+    {
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed902",
+      "path": "results/hetero/stage1_plans/alpha0.6_seed902.json",
+      "plan_sha256": "d3d97baa259195745e18459092db52fee08b565eda50e790326a2160f9537f63",
+      "rates": {
+        "llm": 1.2,
+        "dit": 0.18
+      },
+      "n_llm": 782,
+      "n_dit": 91,
+      "n_llm_measured": 710,
+      "n_dit_measured": 77,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7436,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 2,
+      "trace_rows_clamped_by_prepare": 2,
+      "violations": [],
+      "prompt_sha256": "e9fc841a6e967c07323d23923d23af23ad8e72276c60044ad233d499bb590cb9",
+      "ok": true
+    },
+    {
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed902",
+      "path": "results/hetero/stage1_plans/alpha0.75_seed902.json",
+      "plan_sha256": "bd860698d6006579a0e7c783541d5a147f2f4dbdfd551f5a742c9695025cc130",
+      "rates": {
+        "llm": 1.5,
+        "dit": 0.22499999999999998
+      },
+      "n_llm": 997,
+      "n_dit": 124,
+      "n_llm_measured": 899,
+      "n_dit_measured": 108,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7437,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 3,
+      "trace_rows_clamped_by_prepare": 2,
+      "violations": [],
+      "prompt_sha256": "5326ac88a3549c98939b6858a83b6582b19afa5e41840374b8f2b84c09569a9e",
+      "ok": true
+    },
+    {
+      "alpha": 1.0,
+      "plan_stem": "alpha1_seed902",
+      "path": "results/hetero/stage1_plans/alpha1_seed902.json",
+      "plan_sha256": "9d87d7ec4673714f14c06dc8e12b6904a1d2614d3701768aff749ffcfb4fbf55",
+      "rates": {
+        "llm": 2.0,
+        "dit": 0.3
+      },
+      "n_llm": 1346,
+      "n_dit": 169,
+      "n_llm_measured": 1217,
+      "n_dit_measured": 151,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7437,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 5,
+      "trace_rows_clamped_by_prepare": 2,
+      "violations": [],
+      "prompt_sha256": "f32c459352ebd70ffc14e0e5a41a495c3017109b2534212d82cc5d4d1eae94de",
+      "ok": true
+    },
+    {
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed902",
+      "path": "results/hetero/stage1_plans/alpha1.1_seed902.json",
+      "plan_sha256": "4446897d0aacd1b9af11ef0e28562e0bd5a95b5e2119800cf8883e0ce9f368ba",
+      "rates": {
+        "llm": 2.2,
+        "dit": 0.33
+      },
+      "n_llm": 1489,
+      "n_dit": 188,
+      "n_llm_measured": 1347,
+      "n_dit_measured": 170,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7437,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 5,
+      "trace_rows_clamped_by_prepare": 2,
+      "violations": [],
+      "prompt_sha256": "915240bd1551c51207e85c8332e1cf6cc77c4598e64b33901882913eff41f205",
+      "ok": true
+    },
+    {
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed902",
+      "path": "results/hetero/stage1_plans/alpha1.25_seed902.json",
+      "plan_sha256": "5ccfd5fc9b83ac4e2dd09e86889061c3607defe7c3b5140d4ea0985dfa146c73",
+      "rates": {
+        "llm": 2.5,
+        "dit": 0.375
+      },
+      "n_llm": 1663,
+      "n_dit": 214,
+      "n_llm_measured": 1499,
+      "n_dit_measured": 194,
+      "max_in_plus_out_actual": 7733,
+      "max_in_actual": 7437,
+      "max_out": 1276,
+      "n_actual_in_below_planned": 5,
+      "trace_rows_clamped_by_prepare": 3,
+      "violations": [],
+      "prompt_sha256": "a3ef51487e10f5fa9a34f3aebefa8e583f0cf6934e97129652b5dcc50d993962",
+      "ok": true
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "S4_3090__alpha0.5_seed902",
+      "candidate": "S4_3090",
+      "alpha": 0.5,
+      "plan_stem": "alpha0.5_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.5_seed902.json",
+      "plan_sha256": "f7f5b6bdabe4689f605e50e2a2a753f4f8fcefff9c5e8915391071885771c289",
+      "prompt_sha256": "de5cff69ca399b7d4fdad8a8b668d12fc3d43dccef7537bf8499aa1dc70d08bb",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha0.5_seed902",
+      "candidate": "S3_4090",
+      "alpha": 0.5,
+      "plan_stem": "alpha0.5_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.5_seed902.json",
+      "plan_sha256": "f7f5b6bdabe4689f605e50e2a2a753f4f8fcefff9c5e8915391071885771c289",
+      "prompt_sha256": "de5cff69ca399b7d4fdad8a8b668d12fc3d43dccef7537bf8499aa1dc70d08bb",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha0.5_seed902",
+      "candidate": "S4_4090",
+      "alpha": 0.5,
+      "plan_stem": "alpha0.5_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.5_seed902.json",
+      "plan_sha256": "f7f5b6bdabe4689f605e50e2a2a753f4f8fcefff9c5e8915391071885771c289",
+      "prompt_sha256": "de5cff69ca399b7d4fdad8a8b668d12fc3d43dccef7537bf8499aa1dc70d08bb",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha0.5_seed902",
+      "candidate": "C_4090",
+      "alpha": 0.5,
+      "plan_stem": "alpha0.5_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.5_seed902.json",
+      "plan_sha256": "f7f5b6bdabe4689f605e50e2a2a753f4f8fcefff9c5e8915391071885771c289",
+      "prompt_sha256": "de5cff69ca399b7d4fdad8a8b668d12fc3d43dccef7537bf8499aa1dc70d08bb",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha0.6_seed902",
+      "candidate": "S4_4090",
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.6_seed902.json",
+      "plan_sha256": "d3d97baa259195745e18459092db52fee08b565eda50e790326a2160f9537f63",
+      "prompt_sha256": "e9fc841a6e967c07323d23923d23af23ad8e72276c60044ad233d499bb590cb9",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_3090__alpha0.6_seed902",
+      "candidate": "S4_3090",
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.6_seed902.json",
+      "plan_sha256": "d3d97baa259195745e18459092db52fee08b565eda50e790326a2160f9537f63",
+      "prompt_sha256": "e9fc841a6e967c07323d23923d23af23ad8e72276c60044ad233d499bb590cb9",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha0.6_seed902",
+      "candidate": "S3_4090",
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.6_seed902.json",
+      "plan_sha256": "d3d97baa259195745e18459092db52fee08b565eda50e790326a2160f9537f63",
+      "prompt_sha256": "e9fc841a6e967c07323d23923d23af23ad8e72276c60044ad233d499bb590cb9",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha0.6_seed902",
+      "candidate": "C_4090",
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.6_seed902.json",
+      "plan_sha256": "d3d97baa259195745e18459092db52fee08b565eda50e790326a2160f9537f63",
+      "prompt_sha256": "e9fc841a6e967c07323d23923d23af23ad8e72276c60044ad233d499bb590cb9",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_3090__alpha0.75_seed902",
+      "candidate": "S4_3090",
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.75_seed902.json",
+      "plan_sha256": "bd860698d6006579a0e7c783541d5a147f2f4dbdfd551f5a742c9695025cc130",
+      "prompt_sha256": "5326ac88a3549c98939b6858a83b6582b19afa5e41840374b8f2b84c09569a9e",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha0.75_seed902",
+      "candidate": "S3_4090",
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.75_seed902.json",
+      "plan_sha256": "bd860698d6006579a0e7c783541d5a147f2f4dbdfd551f5a742c9695025cc130",
+      "prompt_sha256": "5326ac88a3549c98939b6858a83b6582b19afa5e41840374b8f2b84c09569a9e",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha0.75_seed902",
+      "candidate": "S4_4090",
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.75_seed902.json",
+      "plan_sha256": "bd860698d6006579a0e7c783541d5a147f2f4dbdfd551f5a742c9695025cc130",
+      "prompt_sha256": "5326ac88a3549c98939b6858a83b6582b19afa5e41840374b8f2b84c09569a9e",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha0.75_seed902",
+      "candidate": "C_4090",
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed902",
+      "plan": "results/hetero/stage1_plans/alpha0.75_seed902.json",
+      "plan_sha256": "bd860698d6006579a0e7c783541d5a147f2f4dbdfd551f5a742c9695025cc130",
+      "prompt_sha256": "5326ac88a3549c98939b6858a83b6582b19afa5e41840374b8f2b84c09569a9e",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha1_seed902",
+      "candidate": "S4_4090",
+      "alpha": 1.0,
+      "plan_stem": "alpha1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1_seed902.json",
+      "plan_sha256": "9d87d7ec4673714f14c06dc8e12b6904a1d2614d3701768aff749ffcfb4fbf55",
+      "prompt_sha256": "f32c459352ebd70ffc14e0e5a41a495c3017109b2534212d82cc5d4d1eae94de",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha1_seed902",
+      "candidate": "S3_4090",
+      "alpha": 1.0,
+      "plan_stem": "alpha1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1_seed902.json",
+      "plan_sha256": "9d87d7ec4673714f14c06dc8e12b6904a1d2614d3701768aff749ffcfb4fbf55",
+      "prompt_sha256": "f32c459352ebd70ffc14e0e5a41a495c3017109b2534212d82cc5d4d1eae94de",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_3090__alpha1_seed902",
+      "candidate": "S4_3090",
+      "alpha": 1.0,
+      "plan_stem": "alpha1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1_seed902.json",
+      "plan_sha256": "9d87d7ec4673714f14c06dc8e12b6904a1d2614d3701768aff749ffcfb4fbf55",
+      "prompt_sha256": "f32c459352ebd70ffc14e0e5a41a495c3017109b2534212d82cc5d4d1eae94de",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1_seed902",
+      "candidate": "C_4090",
+      "alpha": 1.0,
+      "plan_stem": "alpha1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1_seed902.json",
+      "plan_sha256": "9d87d7ec4673714f14c06dc8e12b6904a1d2614d3701768aff749ffcfb4fbf55",
+      "prompt_sha256": "f32c459352ebd70ffc14e0e5a41a495c3017109b2534212d82cc5d4d1eae94de",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_3090__alpha1.1_seed902",
+      "candidate": "S4_3090",
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.1_seed902.json",
+      "plan_sha256": "4446897d0aacd1b9af11ef0e28562e0bd5a95b5e2119800cf8883e0ce9f368ba",
+      "prompt_sha256": "915240bd1551c51207e85c8332e1cf6cc77c4598e64b33901882913eff41f205",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.1_seed902",
+      "candidate": "C_4090",
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.1_seed902.json",
+      "plan_sha256": "4446897d0aacd1b9af11ef0e28562e0bd5a95b5e2119800cf8883e0ce9f368ba",
+      "prompt_sha256": "915240bd1551c51207e85c8332e1cf6cc77c4598e64b33901882913eff41f205",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha1.1_seed902",
+      "candidate": "S4_4090",
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.1_seed902.json",
+      "plan_sha256": "4446897d0aacd1b9af11ef0e28562e0bd5a95b5e2119800cf8883e0ce9f368ba",
+      "prompt_sha256": "915240bd1551c51207e85c8332e1cf6cc77c4598e64b33901882913eff41f205",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha1.1_seed902",
+      "candidate": "S3_4090",
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.1_seed902.json",
+      "plan_sha256": "4446897d0aacd1b9af11ef0e28562e0bd5a95b5e2119800cf8883e0ce9f368ba",
+      "prompt_sha256": "915240bd1551c51207e85c8332e1cf6cc77c4598e64b33901882913eff41f205",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_3090__alpha1.25_seed902",
+      "candidate": "S4_3090",
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.25_seed902.json",
+      "plan_sha256": "5ccfd5fc9b83ac4e2dd09e86889061c3607defe7c3b5140d4ea0985dfa146c73",
+      "prompt_sha256": "a3ef51487e10f5fa9a34f3aebefa8e583f0cf6934e97129652b5dcc50d993962",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.25_seed902",
+      "candidate": "C_4090",
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.25_seed902.json",
+      "plan_sha256": "5ccfd5fc9b83ac4e2dd09e86889061c3607defe7c3b5140d4ea0985dfa146c73",
+      "prompt_sha256": "a3ef51487e10f5fa9a34f3aebefa8e583f0cf6934e97129652b5dcc50d993962",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S3_4090__alpha1.25_seed902",
+      "candidate": "S3_4090",
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.25_seed902.json",
+      "plan_sha256": "5ccfd5fc9b83ac4e2dd09e86889061c3607defe7c3b5140d4ea0985dfa146c73",
+      "prompt_sha256": "a3ef51487e10f5fa9a34f3aebefa8e583f0cf6934e97129652b5dcc50d993962",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha1.25_seed902",
+      "candidate": "S4_4090",
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed902",
+      "plan": "results/hetero/stage1_plans/alpha1.25_seed902.json",
+      "plan_sha256": "5ccfd5fc9b83ac4e2dd09e86889061c3607defe7c3b5140d4ea0985dfa146c73",
+      "prompt_sha256": "a3ef51487e10f5fa9a34f3aebefa8e583f0cf6934e97129652b5dcc50d993962",
+      "replay": "both",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    }
+  ],
+  "harness": {
+    "run_mixed_modal_sh": "9231cc3fa4c1a1708cb838c2052efb72bc275e229d34964394790e64c55f6771",
+    "controlled_mixed_py": "a3577e54c150603a9f9b24e4e57c9fa446f3c00214228807bfbaf53dd1cd11f0",
+    "run_stage1_pilot_py": "b6ea451796d00b748a2480be3eccc098bd2805b85da9a6c690d160c165d42f49",
+    "stage1_report_py": "772e51f5234428724948fbb6f711c3589455ef8724833b7dcb73ec28e2aeed89",
+    "dit_server_py": "8e4fb1542dad1a83ed622d195c28690263c3f35efb820bd030deaee1f6248aa9",
+    "toy_proxy_server_py": "0ba88d1e77d0bd5f4f2f6e69f1bf6e29fbc258e64dbed695c0d968ff14720fd8",
+    "rr_proxy_server_py": "baf7f15219d2eb2f58dc8c60c7e6585780b546086bea5e08a402c0166a71b1ba",
+    "loadgen_py": "65827308506db9b7a2bd5f2b9e14bed54307365bf43562504822dc75666a837c",
+    "run_stage1_refine_py": "0d563667361a8cdd54eddbce4a7cfedad7e2f9780800eeb675c5fbe42f316725",
+    "trace_sha256": "54e9a6d2a4bd06ba1e060304b900abbc74cbea53de96506e60fe5bb4f2277fb6"
+  },
+  "smoke_gate": {
+    "dir": "results/hetero/stage0_smoke_kvfix",
+    "expected_runs": [
+      "S4_4090",
+      "S3_3090",
+      "S4_3090",
+      "S3_4090",
+      "C_4090",
+      "C_4090_only_llm",
+      "C_4090_only_dit",
+      "C_3090",
+      "C_3090_only_llm",
+      "C_3090_only_dit",
+      "C_split",
+      "C_split_only_llm",
+      "C_split_only_dit"
+    ],
+    "plan": "smoke_seed900",
+    "require": "13/13 done, 0 request errors, strict KV per server, strict parity per replay kind",
+    "note": "evaluated and passed before the pilot batch (results/hetero/stage1_pilot/smoke_gate.json); not re-run"
+  },
+  "protocol_sha256": "718ccfd05c5ce894f2b699cf1253c81f2cbd2a509330ea9315a093fa3141910b",
+  "created_unix_s": 1793063751.5682638,
+  "git_head": "8403aee62b9fbf3d82fc86c704b3f51d4356b5af"
+}

@@ -1,0 +1,196 @@
+== chain start 13:36:26
+== mixed_modal LLM=none DIT=4090  13:36:26
+  dit ready (15s)
+0, 8646 MiB
+1, 18 MiB
+-- cell results/hetero/mixed_modal/none_4090/code_L0_D0.1  (LLM n=300 @0, DiT n=60 @0.1)  13:36:38
+[none_4090] rate 0.1 n 60 ok 60 | 0.100 rps | e2e p50/p90 1.31/1.37 s | queue p50 0.00 s | denoise 1.24 s vae 0.039 s
+-- cell results/hetero/mixed_modal/none_4090/code_L0_D0.3  (LLM n=300 @0, DiT n=60 @0.3)  13:46:45
+[none_4090] rate 0.3 n 60 ok 60 | 0.298 rps | e2e p50/p90 1.32/2.57 s | queue p50 0.00 s | denoise 1.24 s vae 0.039 s
+-- cell results/hetero/mixed_modal/none_4090/code_L0_D0.5  (LLM n=300 @0, DiT n=60 @0.5)  13:50:12
+[none_4090] rate 0.5 n 60 ok 60 | 0.480 rps | e2e p50/p90 1.49/3.97 s | queue p50 0.19 s | denoise 1.25 s vae 0.039 s
+== done LLM=none DIT=4090  13:52:23
+cleanup
+== mixed_modal LLM=none DIT=3090  13:52:27
+  dit ready (18s)
+0, 251 MiB
+1, 8261 MiB
+-- cell results/hetero/mixed_modal/none_3090/code_L0_D0.1  (LLM n=300 @0, DiT n=60 @0.1)  13:52:42
+[none_3090] rate 0.1 n 60 ok 60 | 0.100 rps | e2e p50/p90 2.89/5.07 s | queue p50 0.00 s | denoise 2.78 s vae 0.068 s
+-- cell results/hetero/mixed_modal/none_3090/code_L0_D0.3  (LLM n=300 @0, DiT n=60 @0.3)  14:02:51
+[none_3090] rate 0.3 n 60 ok 60 | 0.280 rps | e2e p50/p90 5.44/11.66 s | queue p50 2.49 s | denoise 2.85 s vae 0.069 s
+-- cell results/hetero/mixed_modal/none_3090/code_L0_D0.5  (LLM n=300 @0, DiT n=60 @0.5)  14:06:31
+[none_3090] rate 0.5 n 60 ok 60 | 0.334 rps | e2e p50/p90 19.62/49.34 s | queue p50 16.62 s | denoise 2.89 s vae 0.070 s
+== done LLM=none DIT=3090  14:09:36
+cleanup
+== mixed_modal LLM=none DIT=split  14:09:40
+  dit ready (15s)
+0, 5784 MiB
+1, 3291 MiB
+-- cell results/hetero/mixed_modal/none_split/code_L0_D0.1  (LLM n=300 @0, DiT n=60 @0.1)  14:09:52
+[none_split] rate 0.1 n 60 ok 60 | 0.100 rps | e2e p50/p90 1.35/1.50 s | queue p50 0.00 s | denoise 1.25 s vae 0.071 s
+-- cell results/hetero/mixed_modal/none_split/code_L0_D0.3  (LLM n=300 @0, DiT n=60 @0.3)  14:19:59
+[none_split] rate 0.3 n 60 ok 60 | 0.297 rps | e2e p50/p90 1.35/2.73 s | queue p50 0.00 s | denoise 1.25 s vae 0.071 s
+-- cell results/hetero/mixed_modal/none_split/code_L0_D0.5  (LLM n=300 @0, DiT n=60 @0.5)  14:23:26
+[none_split] rate 0.5 n 60 ok 60 | 0.479 rps | e2e p50/p90 1.58/4.23 s | queue p50 0.23 s | denoise 1.25 s vae 0.071 s
+== done LLM=none DIT=split  14:25:38
+cleanup
+== mixed_modal LLM=S4 DIT=none  14:25:42
+  :8100 ready (30s)
+0, 13398 MiB
+1, 15 MiB
+-- cell results/hetero/mixed_modal/S4_none/code_L1.0_D0  (LLM n=300 @1.0, DiT n=20 @0)  14:26:17
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.8s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 94/309 ms | TPOT p50/p90 7.7/10.2 ms | errors 0
+-- cell results/hetero/mixed_modal/S4_none/code_L2.0_D0  (LLM n=300 @2.0, DiT n=20 @0)  14:32:17
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.0s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 115/332 ms | TPOT p50/p90 7.8/14.7 ms | errors 0
+-- cell results/hetero/mixed_modal/S4_none/code_L3.0_D0  (LLM n=300 @3.0, DiT n=20 @0)  14:35:23
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 118.3s | 2.54 req/s | 75 out tok/s | TTFT p50/p90 137/369 ms | TPOT p50/p90 8.3/20.5 ms | errors 0
+== done LLM=S4 DIT=none  14:37:33
+cleanup
+== mixed_modal LLM=C DIT=none  14:37:37
+  :8100 ready (48s)
+  :8200 ready (3s)
+0, 12018 MiB
+1, 11677 MiB
+-- cell results/hetero/mixed_modal/C_none/code_L1.0_D0  (LLM n=300 @1.0, DiT n=20 @0)  14:38:31
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 212/650 ms | TPOT p50/p90 9.3/10.0 ms | errors 0
+-- cell results/hetero/mixed_modal/C_none/code_L2.0_D0  (LLM n=300 @2.0, DiT n=20 @0)  14:44:31
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.4s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 267/739 ms | TPOT p50/p90 9.4/10.4 ms | errors 0
+-- cell results/hetero/mixed_modal/C_none/code_L3.0_D0  (LLM n=300 @3.0, DiT n=20 @0)  14:47:37
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_none] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 119.1s | 2.52 req/s | 74 out tok/s | TTFT p50/p90 335/847 ms | TPOT p50/p90 9.6/10.8 ms | errors 0
+== done LLM=C DIT=none  14:49:48
+cleanup
+== mixed_modal LLM=C DIT=4090  14:49:52
+  :8100 ready (33s)
+  :8200 ready (6s)
+  dit ready (3s)
+0, 21670 MiB
+1, 13043 MiB
+-- cell results/hetero/mixed_modal/C_4090/code_L1.0_D0.1  (LLM n=300 @1.0, DiT n=30 @0.1)  14:50:34
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 221/683 ms | TPOT p50/p90 9.3/10.0 ms | errors 0
+[C_4090] rate 0.1 n 30 ok 30 | 0.084 rps | e2e p50/p90 1.39/1.97 s | queue p50 0.00 s | denoise 1.36 s vae 0.045 s
+-- cell results/hetero/mixed_modal/C_4090/code_L1.0_D0.3  (LLM n=300 @1.0, DiT n=90 @0.3)  14:56:36
+[C_4090] rate 0.3 n 90 ok 90 | 0.316 rps | e2e p50/p90 1.70/3.63 s | queue p50 0.00 s | denoise 1.38 s vae 0.041 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 266/785 ms | TPOT p50/p90 9.3/10.2 ms | errors 0
+-- cell results/hetero/mixed_modal/C_4090/code_L2.0_D0.1  (LLM n=300 @2.0, DiT n=20 @0.1)  15:02:36
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.7s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 312/825 ms | TPOT p50/p90 9.4/10.5 ms | errors 0
+[C_4090] rate 0.1 n 20 ok 20 | 0.089 rps | e2e p50/p90 1.55/2.77 s | queue p50 0.00 s | denoise 1.55 s vae 0.049 s
+-- cell results/hetero/mixed_modal/C_4090/code_L2.0_D0.3  (LLM n=300 @2.0, DiT n=45 @0.3)  15:06:27
+[C_4090] rate 0.3 n 45 ok 45 | 0.273 rps | e2e p50/p90 1.55/2.81 s | queue p50 0.00 s | denoise 1.48 s vae 0.043 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.4s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 369/912 ms | TPOT p50/p90 9.4/10.5 ms | errors 0
+-- cell results/hetero/mixed_modal/C_4090/code_L3.0_D0.1  (LLM n=300 @3.0, DiT n=20 @0.1)  15:09:34
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 119.2s | 2.52 req/s | 74 out tok/s | TTFT p50/p90 338/938 ms | TPOT p50/p90 9.6/10.8 ms | errors 0
+[C_4090] rate 0.1 n 20 ok 20 | 0.089 rps | e2e p50/p90 1.39/2.31 s | queue p50 0.00 s | denoise 1.45 s vae 0.043 s
+-- cell results/hetero/mixed_modal/C_4090/code_L3.0_D0.3  (LLM n=300 @3.0, DiT n=30 @0.3)  15:13:25
+[C_4090] rate 0.3 n 30 ok 30 | 0.249 rps | e2e p50/p90 1.94/3.46 s | queue p50 0.00 s | denoise 1.71 s vae 0.053 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_4090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 119.4s | 2.51 req/s | 74 out tok/s | TTFT p50/p90 458/1108 ms | TPOT p50/p90 9.6/10.7 ms | errors 0
+== done LLM=C DIT=4090  15:15:37
+cleanup
+== mixed_modal LLM=C DIT=3090  15:15:41
+  :8100 ready (33s)
+  :8200 ready (3s)
+  dit ready (3s)
+0, 13397 MiB
+1, 21287 MiB
+-- cell results/hetero/mixed_modal/C_3090/code_L1.0_D0.1  (LLM n=300 @1.0, DiT n=30 @0.1)  15:16:19
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 289/1180 ms | TPOT p50/p90 9.4/21.7 ms | errors 0
+[C_3090] rate 0.1 n 30 ok 30 | 0.084 rps | e2e p50/p90 3.32/5.57 s | queue p50 0.00 s | denoise 3.24 s vae 0.080 s
+-- cell results/hetero/mixed_modal/C_3090/code_L1.0_D0.3  (LLM n=300 @1.0, DiT n=90 @0.3)  15:22:23
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 356.1s | 0.84 req/s | 25 out tok/s | TTFT p50/p90 926/2840 ms | TPOT p50/p90 24.6/28.3 ms | errors 0
+[C_3090] rate 0.3 n 90 ok 90 | 0.240 rps | e2e p50/p90 25.98/74.93 s | queue p50 22.30 s | denoise 3.84 s vae 0.093 s
+-- cell results/hetero/mixed_modal/C_3090/code_L2.0_D0.1  (LLM n=300 @2.0, DiT n=20 @0.1)  15:28:44
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 186.9s | 1.61 req/s | 47 out tok/s | TTFT p50/p90 416/1679 ms | TPOT p50/p90 9.9/25.7 ms | errors 0
+[C_3090] rate 0.1 n 20 ok 20 | 0.088 rps | e2e p50/p90 3.55/6.96 s | queue p50 0.00 s | denoise 3.84 s vae 0.090 s
+-- cell results/hetero/mixed_modal/C_3090/code_L2.0_D0.3  (LLM n=300 @2.0, DiT n=45 @0.3)  15:32:37
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 189.5s | 1.58 req/s | 47 out tok/s | TTFT p50/p90 876/3361 ms | TPOT p50/p90 26.1/29.8 ms | errors 0
+[C_3090] rate 0.3 n 45 ok 45 | 0.218 rps | e2e p50/p90 14.36/34.21 s | queue p50 8.75 s | denoise 4.32 s vae 0.101 s
+-- cell results/hetero/mixed_modal/C_3090/code_L3.0_D0.1  (LLM n=300 @3.0, DiT n=20 @0.1)  15:36:09
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 121.8s | 2.46 req/s | 73 out tok/s | TTFT p50/p90 522/2509 ms | TPOT p50/p90 10.6/24.4 ms | errors 0
+[C_3090] rate 0.1 n 20 ok 20 | 0.088 rps | e2e p50/p90 3.67/5.70 s | queue p50 0.00 s | denoise 3.46 s vae 0.079 s
+-- cell results/hetero/mixed_modal/C_3090/code_L3.0_D0.3  (LLM n=300 @3.0, DiT n=30 @0.3)  15:40:02
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 137.6s | 2.18 req/s | 64 out tok/s | TTFT p50/p90 1311/5118 ms | TPOT p50/p90 26.9/29.9 ms | errors 0
+[C_3090] rate 0.3 n 30 ok 30 | 0.207 rps | e2e p50/p90 12.01/22.54 s | queue p50 6.48 s | denoise 4.59 s vae 0.106 s
+== done LLM=C DIT=3090  15:42:33
+cleanup
+== mixed_modal LLM=C DIT=split  15:42:37
+  :8100 ready (33s)
+  :8200 ready (3s)
+  dit ready (3s)
+0, 18928 MiB
+1, 16317 MiB
+-- cell results/hetero/mixed_modal/C_split/code_L1.0_D0.1  (LLM n=300 @1.0, DiT n=30 @0.1)  15:43:16
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 229/702 ms | TPOT p50/p90 9.3/10.2 ms | errors 0
+[C_split] rate 0.1 n 30 ok 30 | 0.084 rps | e2e p50/p90 1.46/2.03 s | queue p50 0.00 s | denoise 1.36 s vae 0.078 s
+-- cell results/hetero/mixed_modal/C_split/code_L1.0_D0.3  (LLM n=300 @1.0, DiT n=90 @0.3)  15:49:18
+[C_split] rate 0.3 n 90 ok 90 | 0.316 rps | e2e p50/p90 1.82/4.03 s | queue p50 0.00 s | denoise 1.38 s vae 0.079 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.9s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 265/814 ms | TPOT p50/p90 9.4/10.6 ms | errors 0
+-- cell results/hetero/mixed_modal/C_split/code_L2.0_D0.1  (LLM n=300 @2.0, DiT n=20 @0.1)  15:55:18
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 175.0s | 1.71 req/s | 51 out tok/s | TTFT p50/p90 319/827 ms | TPOT p50/p90 9.4/10.6 ms | errors 0
+[C_split] rate 0.1 n 20 ok 20 | 0.089 rps | e2e p50/p90 1.61/2.97 s | queue p50 0.00 s | denoise 1.54 s vae 0.092 s
+-- cell results/hetero/mixed_modal/C_split/code_L2.0_D0.3  (LLM n=300 @2.0, DiT n=45 @0.3)  15:59:09
+[C_split] rate 0.3 n 45 ok 45 | 0.273 rps | e2e p50/p90 1.60/2.89 s | queue p50 0.00 s | denoise 1.48 s vae 0.087 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.4s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 369/904 ms | TPOT p50/p90 9.5/10.8 ms | errors 0
+-- cell results/hetero/mixed_modal/C_split/code_L3.0_D0.1  (LLM n=300 @3.0, DiT n=20 @0.1)  16:02:15
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 119.2s | 2.52 req/s | 74 out tok/s | TTFT p50/p90 379/963 ms | TPOT p50/p90 9.7/10.8 ms | errors 0
+[C_split] rate 0.1 n 20 ok 20 | 0.089 rps | e2e p50/p90 1.43/2.42 s | queue p50 0.00 s | denoise 1.46 s vae 0.079 s
+-- cell results/hetero/mixed_modal/C_split/code_L3.0_D0.3  (LLM n=300 @3.0, DiT n=30 @0.3)  16:06:07
+[C_split] rate 0.3 n 30 ok 30 | 0.249 rps | e2e p50/p90 1.96/3.45 s | queue p50 0.00 s | denoise 1.69 s vae 0.088 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[C_split] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 119.4s | 2.51 req/s | 74 out tok/s | TTFT p50/p90 461/1130 ms | TPOT p50/p90 9.8/11.1 ms | errors 0
+== done LLM=C DIT=split  16:08:18
+cleanup
+== mixed_modal LLM=S4 DIT=3090  16:08:22
+  :8100 ready (30s)
+  dit ready (3s)
+0, 13398 MiB
+1, 8261 MiB
+-- cell results/hetero/mixed_modal/S4_3090/code_L1.0_D0.1  (LLM n=300 @1.0, DiT n=30 @0.1)  16:08:57
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.8s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 95/307 ms | TPOT p50/p90 7.7/10.2 ms | errors 0
+[S4_3090] rate 0.1 n 30 ok 30 | 0.084 rps | e2e p50/p90 2.91/4.60 s | queue p50 0.00 s | denoise 2.80 s vae 0.069 s
+-- cell results/hetero/mixed_modal/S4_3090/code_L1.0_D0.3  (LLM n=300 @1.0, DiT n=90 @0.3)  16:15:00
+[S4_3090] rate 0.3 n 90 ok 90 | 0.295 rps | e2e p50/p90 7.84/22.77 s | queue p50 4.85 s | denoise 2.88 s vae 0.070 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=1.0: makespan 347.8s | 0.86 req/s | 25 out tok/s | TTFT p50/p90 91/305 ms | TPOT p50/p90 7.7/9.8 ms | errors 0
+-- cell results/hetero/mixed_modal/S4_3090/code_L2.0_D0.1  (LLM n=300 @2.0, DiT n=20 @0.1)  16:21:01
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.0s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 115/336 ms | TPOT p50/p90 7.8/14.9 ms | errors 0
+[S4_3090] rate 0.1 n 20 ok 20 | 0.088 rps | e2e p50/p90 2.92/5.31 s | queue p50 0.00 s | denoise 2.81 s vae 0.069 s
+-- cell results/hetero/mixed_modal/S4_3090/code_L2.0_D0.3  (LLM n=300 @2.0, DiT n=45 @0.3)  16:24:54
+[S4_3090] rate 0.3 n 45 ok 45 | 0.265 rps | e2e p50/p90 4.47/8.21 s | queue p50 1.49 s | denoise 2.85 s vae 0.070 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=2.0: makespan 174.0s | 1.72 req/s | 51 out tok/s | TTFT p50/p90 113/332 ms | TPOT p50/p90 7.8/14.9 ms | errors 0
+-- cell results/hetero/mixed_modal/S4_3090/code_L3.0_D0.1  (LLM n=300 @3.0, DiT n=20 @0.1)  16:28:00
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 118.3s | 2.54 req/s | 75 out tok/s | TTFT p50/p90 140/373 ms | TPOT p50/p90 8.3/20.9 ms | errors 0
+[S4_3090] rate 0.1 n 20 ok 20 | 0.088 rps | e2e p50/p90 2.93/5.32 s | queue p50 0.00 s | denoise 2.82 s vae 0.069 s
+-- cell results/hetero/mixed_modal/S4_3090/code_L3.0_D0.3  (LLM n=300 @3.0, DiT n=30 @0.3)  16:31:53
+[S4_3090] rate 0.3 n 30 ok 30 | 0.244 rps | e2e p50/p90 3.48/7.51 s | queue p50 0.53 s | denoise 2.84 s vae 0.070 s
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+[S4_3090] mix=trace:AzureLLMInferenceTrace_code.csv:poisson n=300 rate=3.0: makespan 118.3s | 2.54 req/s | 75 out tok/s | TTFT p50/p90 138/366 ms | TPOT p50/p90 8.3/19.2 ms | errors 0
+== done LLM=S4 DIT=3090  16:34:03
+cleanup
+== chain end 16:34:07

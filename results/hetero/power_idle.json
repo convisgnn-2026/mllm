@@ -1,0 +1,13 @@
+{
+ "4090_loaded_idle_w": 23.4,
+ "3090_loaded_idle_w": 32.9,
+ "4090_loaded_idle_p95_w": 23.7,
+ "3090_loaded_idle_p95_w": 42.2,
+ "4090_empty_idle_w": 23.3,
+ "3090_empty_idle_w": 27.5,
+ "power_limit_w": {
+  "4090": 450,
+  "3090": 370
+ },
+ "note": "loaded = vLLM 서버(Llama-3.1-8B, mem 0.85) 적재 후 요청 없음 30 s 평균 (2026-09-30); empty = GPU 프로세스 없음"
+}

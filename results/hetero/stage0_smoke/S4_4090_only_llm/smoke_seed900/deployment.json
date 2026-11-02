@@ -1,0 +1,21 @@
+{
+  "llm": "S4",
+  "dit": "4090",
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+  "gpu_util": 0.5,
+  "size": 512,
+  "steps": 28,
+  "gpu_uuids": [
+    "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+    "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+  ],
+  "python": "3.12.14",
+  "versions": {
+    "torch": "2.13.0+cu129",
+    "vllm": "0.28.0+cu129",
+    "diffusers": "0.40.0",
+    "transformers": "5.14.1",
+    "httpx": "0.28.1"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "plan_sha256": "6ed3dd060b193757c1ffcdf0f4c1d1957b16bff509b45dd0eba643bcfc871522",
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "only": "both",
+  "start_unix_s": 1793088980.2252657,
+  "warmup_s": 60.0,
+  "duration_s": 600.0,
+  "drain_timeout_s": 300.0,
+  "requests": 1203,
+  "prompt_sha256": "c6c2cb6d987110fe76950db4ccdc3dcface3225eda8ea9a4146938b51dbe2f0f",
+  "errors": 1,
+  "measured": {
+    "llm": {
+      "n": 989,
+      "errors": 1,
+      "attainment": {
+        "A": 0.7381193124368048,
+        "B": 0.916076845298281
+      }
+    },
+    "dit": {
+      "n": 114,
+      "errors": 0,
+      "attainment": {
+        "A": 1.0,
+        "B": 0.9210526315789473
+      }
+    }
+  }
+}

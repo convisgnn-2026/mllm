@@ -1,0 +1,1922 @@
+{
+  "limitations": [
+    "Single seed; profiler perturbs CPU launch timing and GPU execution.",
+    "Window excludes profiler start (1s guard) and all stop/export; full encoder trace is much longer due to sequential stop.",
+    "Matched kernel name/grid/block/shared memory is not exact tensor/batch equivalence.",
+    "Launch-end to GPU-start includes own stream queue and cross-process GPU scheduling, not uniquely contention.",
+    "No explicit preprocessing or file-transfer spans; cannot quantify their causal share."
+  ],
+  "cases": {
+    "llm_only": {
+      "window_unix_s": [
+        1791877877.8952374,
+        1791877884.8955297
+      ],
+      "window_s": 7.0002923011779785,
+      "services": {
+        "llm": {
+          "trace_file": "traces/llm/rank0.1791877890177713917.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 149388,
+            "p50": 3.168,
+            "p90": 69.12,
+            "mean": 30.291160066404263
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 149388,
+            "p50": 27.7559814453125,
+            "p90": 118.39111328125,
+            "mean": 1848.1922985347273
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 149387,
+            "p50": 0.7359619140625,
+            "p90": 50.591064453125,
+            "mean": 14.890168402593286
+          },
+          "kernel_busy_fraction": 0.6464209391891124,
+          "cpu_execute_ms": {
+            "execute_context_1(1058)_generation_0(0)": {
+              "n": 1,
+              "p50": 17.684415,
+              "p90": 17.684415,
+              "mean": 17.684415
+            },
+            "execute_context_0(0)_generation_1(1)": {
+              "n": 100,
+              "p50": 15.1168815,
+              "p90": 15.3661408,
+              "mean": 15.280845150000003
+            },
+            "execute_context_1(1059)_generation_1(1)": {
+              "n": 1,
+              "p50": 13.820574,
+              "p90": 13.820574,
+              "mean": 13.820574
+            },
+            "execute_context_0(0)_generation_2(2)": {
+              "n": 147,
+              "p50": 15.212007,
+              "p90": 15.614952800000001,
+              "mean": 15.36614575510204
+            },
+            "execute_context_1(1058)_generation_2(2)": {
+              "n": 2,
+              "p50": 13.687887500000002,
+              "p90": 13.901295100000002,
+              "mean": 13.687887500000002
+            },
+            "execute_context_0(0)_generation_3(3)": {
+              "n": 130,
+              "p50": 15.24788,
+              "p90": 15.738827800000001,
+              "mean": 15.465444707692308
+            },
+            "execute_context_1(1058)_generation_3(3)": {
+              "n": 1,
+              "p50": 14.081377,
+              "p90": 14.081377,
+              "mean": 14.081377
+            },
+            "execute_context_0(0)_generation_4(4)": {
+              "n": 18,
+              "p50": 15.3096815,
+              "p90": 16.1492723,
+              "mean": 15.60851822222222
+            }
+          }
+        },
+        "encoder": {
+          "trace_file": "traces/encoder/rank0.1791877913826550820.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 0
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 0
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 0
+          },
+          "kernel_busy_fraction": 0.0,
+          "cpu_execute_ms": {}
+        }
+      }
+    },
+    "mixed_high": {
+      "window_unix_s": [
+        1791877943.4740374,
+        1791877950.4750755
+      ],
+      "window_s": 7.001038074493408,
+      "services": {
+        "llm": {
+          "trace_file": "traces/llm/rank0.1791877955490102700.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 137779,
+            "p50": 3.168,
+            "p90": 69.311,
+            "mean": 35.16238165467887
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 137779,
+            "p50": 1.135986328125,
+            "p90": 22005.07180175781,
+            "mean": 5743.277147826524
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 137778,
+            "p50": 0.7349853515625,
+            "p90": 45.26904296875,
+            "mean": 15.65121287856841
+          },
+          "kernel_busy_fraction": 0.6919884604841999,
+          "cpu_execute_ms": {
+            "execute_context_0(0)_generation_2(2)": {
+              "n": 147,
+              "p50": 15.815399,
+              "p90": 18.8511594,
+              "mean": 16.440003156462584
+            },
+            "execute_context_0(0)_generation_1(1)": {
+              "n": 49,
+              "p50": 15.093032,
+              "p90": 15.780499400000002,
+              "mean": 15.255356551020409
+            },
+            "execute_context_1(1059)_generation_1(1)": {
+              "n": 1,
+              "p50": 14.613955,
+              "p90": 14.613955,
+              "mean": 14.613955
+            },
+            "execute_context_1(1058)_generation_2(2)": {
+              "n": 1,
+              "p50": 19.972635999999998,
+              "p90": 19.972635999999998,
+              "mean": 19.972635999999998
+            },
+            "execute_context_0(0)_generation_3(3)": {
+              "n": 93,
+              "p50": 16.437316,
+              "p90": 21.400512,
+              "mean": 17.482152032258067
+            },
+            "execute_context_1(1058)_generation_3(3)": {
+              "n": 2,
+              "p50": 18.3805735,
+              "p90": 20.708410699999998,
+              "mean": 18.3805735
+            },
+            "execute_context_0(0)_generation_4(4)": {
+              "n": 72,
+              "p50": 15.920217000000001,
+              "p90": 21.7486138,
+              "mean": 17.424913819444445
+            }
+          }
+        },
+        "encoder": {
+          "trace_file": "traces/encoder/rank0.1791877980636219480.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 5135,
+            "p50": 52.928,
+            "p90": 512.057,
+            "mean": 329.8069988315481
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 5135,
+            "p50": 54003.98486328125,
+            "p90": 99909.7434326172,
+            "mean": 54664.40961559857
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 5134,
+            "p50": 0.7039794921875,
+            "p90": 1.3759765625,
+            "mean": 732.8686281389237
+          },
+          "kernel_busy_fraction": 0.2419011175288568,
+          "cpu_execute_ms": {
+            "execute_context_1(597)_generation_0(0)": {
+              "n": 11,
+              "p50": 133.607776,
+              "p90": 152.616538,
+              "mean": 136.305259
+            },
+            "execute_context_0(0)_generation_1(1)": {
+              "n": 11,
+              "p50": 0.103916,
+              "p90": 0.135005,
+              "mean": 0.12067009090909092
+            },
+            "execute_context_0(0)_generation_0(0)": {
+              "n": 11,
+              "p50": 0.13766,
+              "p90": 0.16983199999999998,
+              "mean": 0.15294781818181818
+            },
+            "execute_context_1(597)_generation_1(1)": {
+              "n": 2,
+              "p50": 134.65621549999997,
+              "p90": 134.7220959,
+              "mean": 134.65621549999997
+            }
+          }
+        }
+      }
+    },
+    "vlm_only_high": {
+      "window_unix_s": [
+        1791878009.833172,
+        1791878016.833561
+      ],
+      "window_s": 7.000388860702515,
+      "services": {
+        "llm": {
+          "trace_file": "traces/llm/rank0.1791878016851594746.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 0
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 0
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 0
+          },
+          "kernel_busy_fraction": 0.0,
+          "cpu_execute_ms": {}
+        },
+        "encoder": {
+          "trace_file": "traces/encoder/rank0.1791878017040150354.pt.trace.json.gz",
+          "kernel_us": {
+            "n": 5135,
+            "p50": 53.183,
+            "p90": 506.81,
+            "mean": 182.57064615384613
+          },
+          "launch_end_to_kernel_start_us": {
+            "n": 5135,
+            "p50": 23668.190063476562,
+            "p90": 45059.59995117188,
+            "mean": 24116.667966990855
+          },
+          "between_kernel_busy_intervals_us": {
+            "n": 5134,
+            "p50": 0.7359619140625,
+            "p90": 2.68807373046875,
+            "mean": 868.088068380679
+          },
+          "kernel_busy_fraction": 0.13392117004107282,
+          "cpu_execute_ms": {
+            "execute_context_1(597)_generation_0(0)": {
+              "n": 13,
+              "p50": 75.873581,
+              "p90": 78.7113038,
+              "mean": 75.53193553846154
+            },
+            "execute_context_0(0)_generation_1(1)": {
+              "n": 13,
+              "p50": 0.08875799999999999,
+              "p90": 0.0970418,
+              "mean": 0.0923146923076923
+            },
+            "execute_context_0(0)_generation_0(0)": {
+              "n": 13,
+              "p50": 0.122822,
+              "p90": 0.144205,
+              "mean": 0.12819569230769232
+            }
+          }
+        }
+      }
+    }
+  },
+  "matched_kernels": {
+    "llm": [
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_sliced1x2_ldg8_f2f_stages_64x6_tn",
+        "grid": "[256, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 98304,
+        "solo_us": {
+          "n": 8275,
+          "p50": 139.103,
+          "p90": 139.87,
+          "mean": 139.1276404833837
+        },
+        "mixed_us": {
+          "n": 8767,
+          "p50": 139.516,
+          "p90": 140.383,
+          "mean": 155.40011520474508
+        },
+        "median_ratio": 1.0029690229542136
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_128x64_ldg8_f2f_stages_64x3_tn",
+        "grid": "[24, 1, 3]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 8274,
+          "p50": 68.831,
+          "p90": 69.951,
+          "mean": 68.9552991298042
+        },
+        "mixed_us": {
+          "n": 8767,
+          "p50": 68.927,
+          "p90": 70.0464,
+          "mean": 80.42737162085092
+        },
+        "median_ratio": 1.0013947204021445
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_sliced1x2_ldg8_f2f_stages_64x6_tn",
+        "grid": "[80, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 98304,
+        "solo_us": {
+          "n": 8275,
+          "p50": 41.439,
+          "p90": 42.015,
+          "mean": 41.54222392749244
+        },
+        "mixed_us": {
+          "n": 8767,
+          "p50": 41.504,
+          "p90": 42.111,
+          "mean": 50.35503604425688
+        },
+        "median_ratio": 1.0015685706701416
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_ldg8_f2f_stages_64x5_tn",
+        "grid": "[2004, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 299,
+          "p50": 907.607,
+          "p90": 909.8206,
+          "mean": 907.5895986622073
+        },
+        "mixed_us": {
+          "n": 317,
+          "p50": 908.469,
+          "p90": 3261.3808,
+          "mean": 1279.749457413249
+        },
+        "median_ratio": 1.0009497502773779
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_ldg8_f2f_stages_64x5_tn",
+        "grid": "[48, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 8275,
+          "p50": 29.6,
+          "p90": 29.823,
+          "mean": 29.617686283987915
+        },
+        "mixed_us": {
+          "n": 8767,
+          "p50": 29.823,
+          "p90": 30.084,
+          "mean": 34.89343173263374
+        },
+        "median_ratio": 1.0075337837837837
+      },
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8>(cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8::Params)",
+        "grid": "[72, 8, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 140,
+          "p50": 1643.4875,
+          "p90": 1656.3382000000001,
+          "mean": 1645.9881928571426
+        },
+        "mixed_us": {
+          "n": 112,
+          "p50": 1681.5315,
+          "p90": 4059.7494,
+          "mean": 2273.875321428571
+        },
+        "median_ratio": 1.0231483354756274
+      },
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8>(cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8::Params)",
+        "grid": "[72, 2, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 280,
+          "p50": 747.0005000000001,
+          "p90": 1090.9361999999999,
+          "mean": 750.6257928571429
+        },
+        "mixed_us": {
+          "n": 224,
+          "p50": 1105.62,
+          "p90": 2820.2037,
+          "mean": 1067.7664687499998
+        },
+        "median_ratio": 1.4800793306028575
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_ldg8_f2f_stages_64x5_tn",
+        "grid": "[256, 1, 2]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 2800,
+          "p50": 130.335,
+          "p90": 131.167,
+          "mean": 130.34869107142856
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 130.692,
+          "p90": 131.523,
+          "mean": 130.69681705539358
+        },
+        "median_ratio": 1.0027390954079871
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 10, 16]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 3528,
+          "p50": 21.568,
+          "p90": 22.048,
+          "mean": 21.59132823129252
+        },
+        "mixed_us": {
+          "n": 3472,
+          "p50": 21.899,
+          "p90": 22.411,
+          "mean": 27.337146313364055
+        },
+        "median_ratio": 1.0153468100890208
+      },
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_wmma_tensorop_bf16_s161616gemm_bf16_16x16_128x2_tn_align8>(cutlass_80_wmma_tensorop_bf16_s161616gemm_bf16_16x16_128x2_tn_align8::Params)",
+        "grid": "[8, 24, 3]",
+        "block": "[32, 1, 1]",
+        "shared_memory": 16896,
+        "solo_us": {
+          "n": 2800,
+          "p50": 63.68,
+          "p90": 65.248,
+          "mean": 63.94864714285714
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 63.843,
+          "p90": 65.474,
+          "mean": 64.10701822157434
+        },
+        "median_ratio": 1.0025596733668343
+      },
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8>(cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8::Params)",
+        "grid": "[72, 3, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 140,
+          "p50": 620.2335,
+          "p90": 624.89,
+          "mean": 621.1020857142857
+        },
+        "mixed_us": {
+          "n": 112,
+          "p50": 633.9925000000001,
+          "p90": 634.8089,
+          "mean": 741.6992857142858
+        },
+        "median_ratio": 1.0221835808610789
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 5, 24]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 2927,
+          "p50": 29.952,
+          "p90": 30.399,
+          "mean": 29.97317697300991
+        },
+        "mixed_us": {
+          "n": 2338,
+          "p50": 30.176,
+          "p90": 30.624,
+          "mean": 34.24200727117194
+        },
+        "median_ratio": 1.0074786324786325
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 4, 32]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 504,
+          "p50": 40.159,
+          "p90": 40.447,
+          "mean": 40.16015079365079
+        },
+        "mixed_us": {
+          "n": 1568,
+          "p50": 40.384,
+          "p90": 40.863,
+          "mean": 46.399892219387745
+        },
+        "median_ratio": 1.0056027291516223
+      },
+      {
+        "kernel": "void gemv2T_kernel_val<int, int, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, float, 128, 16, 4, 4, false, false, cublasGemvParamsEx<int, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16>, float> >(cublasGemvParamsEx<int, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16>, float>, float, float)",
+        "grid": "[640, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 2560,
+        "solo_us": {
+          "n": 2800,
+          "p50": 39.232,
+          "p90": 39.807,
+          "mean": 39.27147392857143
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 39.259,
+          "p90": 39.835,
+          "mean": 39.29835495626822
+        },
+        "median_ratio": 1.0006882137030995
+      },
+      {
+        "kernel": "void gemv2T_kernel_val<int, int, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, float, 128, 16, 4, 4, false, false, cublasGemvParamsEx<int, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16>, float> >(cublasGemvParamsEx<int, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16 const>, cublasGemvTensorStridedBatched<__nv_bfloat16>, float>, float, float)",
+        "grid": "[16032, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 2560,
+        "solo_us": {
+          "n": 101,
+          "p50": 889.271,
+          "p90": 889.975,
+          "mean": 889.343673267327
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 888.467,
+          "p90": 889.1827999999999,
+          "mean": 888.5856326530613
+        },
+        "median_ratio": 0.9990958886548645
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_64x64_sliced1x2_ldg8_f2f_stages_64x5_tn",
+        "grid": "[48, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 2800,
+          "p50": 29.663,
+          "p90": 29.856,
+          "mean": 29.673034642857143
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 29.988,
+          "p90": 30.18,
+          "mean": 30.02162099125364
+        },
+        "median_ratio": 1.0109564103428514
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[2, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 8232,
+          "p50": 2.72,
+          "p90": 2.753,
+          "mean": 2.700345116618076
+        },
+        "mixed_us": {
+          "n": 8266,
+          "p50": 2.749,
+          "p90": 2.814,
+          "mean": 2.729089644326155
+        },
+        "median_ratio": 1.0106617647058824
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_combine_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, 4, 4, true>(flash::Flash_fwd_params)",
+        "grid": "[12, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 320,
+        "solo_us": {
+          "n": 3528,
+          "p50": 5.664,
+          "p90": 5.856,
+          "mean": 5.636354024943311
+        },
+        "mixed_us": {
+          "n": 3472,
+          "p50": 5.723,
+          "p90": 5.9195,
+          "mean": 6.443321428571428
+        },
+        "median_ratio": 1.0104166666666667
+      },
+      {
+        "kernel": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1})",
+        "grid": "[12, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 8232,
+          "p50": 2.368,
+          "p90": 2.432,
+          "mean": 2.352325680272109
+        },
+        "mixed_us": {
+          "n": 8264,
+          "p50": 2.366,
+          "p90": 2.462,
+          "mean": 2.371351161665053
+        },
+        "median_ratio": 0.9991554054054055
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 9, 8]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 2632,
+          "p50": 11.872,
+          "p90": 12.064,
+          "mean": 11.888788753799393
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 12.116,
+          "p90": 12.308,
+          "mean": 12.125879008746354
+        },
+        "median_ratio": 1.0205525606469001
+      },
+      {
+        "kernel": "void vllm::rotary_embedding_kernel<c10::BFloat16, c10::BFloat16, true>(long const*, c10::BFloat16*, c10::BFloat16*, c10::BFloat16 const*, int, long, long, long, int, int, int, long, bool)",
+        "grid": "[2, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 4116,
+          "p50": 3.168,
+          "p90": 3.232,
+          "mean": 3.171499271137026
+        },
+        "mixed_us": {
+          "n": 4132,
+          "p50": 3.197,
+          "p90": 3.229,
+          "mean": 3.7503030009680542
+        },
+        "median_ratio": 1.0091540404040404
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 6, 16]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 588,
+          "p50": 23.679499999999997,
+          "p90": 25.161300000000004,
+          "mean": 23.913068027210883
+        },
+        "mixed_us": {
+          "n": 660,
+          "p50": 23.21,
+          "p90": 24.3322,
+          "mean": 23.402410606060606
+        },
+        "median_ratio": 0.9801727232416226
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[3, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 7309,
+          "p50": 2.688,
+          "p90": 2.751,
+          "mean": 2.6775296210151867
+        },
+        "mixed_us": {
+          "n": 5236,
+          "p50": 2.72,
+          "p90": 2.816,
+          "mean": 2.7122326203208553
+        },
+        "median_ratio": 1.0119047619047619
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_combine_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, 4, 3, true>(flash::Flash_fwd_params)",
+        "grid": "[18, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 160,
+        "solo_us": {
+          "n": 3655,
+          "p50": 5.216,
+          "p90": 5.664,
+          "mean": 5.295562243502052
+        },
+        "mixed_us": {
+          "n": 2618,
+          "p50": 5.248,
+          "p90": 5.44,
+          "mean": 5.282472498090145
+        },
+        "median_ratio": 1.0061349693251533
+      },
+      {
+        "kernel": "void vllm::act_and_mul_kernel<c10::BFloat16, __nv_bfloat162, &(c10::BFloat16 vllm::silu_kernel<c10::BFloat16>(c10::BFloat16 const&, float)), &(__nv_bfloat162 vllm::packed_silu_kernel<__nv_bfloat162>(__nv_bfloat162 const&, float)), true, true, false, false>(c10::BFloat16*, c10::BFloat16 const*, int, float, float, float)",
+        "grid": "[2, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 4116,
+          "p50": 3.072,
+          "p90": 3.104,
+          "mean": 3.0616375121477164
+        },
+        "mixed_us": {
+          "n": 4133,
+          "p50": 3.069,
+          "p90": 3.133,
+          "mean": 3.0788584563271226
+        },
+        "median_ratio": 0.9990234375
+      },
+      {
+        "kernel": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1})",
+        "grid": "[18, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 7310,
+          "p50": 2.4,
+          "p90": 2.464,
+          "mean": 2.3678123119015044
+        },
+        "mixed_us": {
+          "n": 5236,
+          "p50": 2.432,
+          "p90": 2.496,
+          "mean": 2.3891182200152787
+        },
+        "median_ratio": 1.0133333333333334
+      },
+      {
+        "kernel": "void at::native::elementwise_kernel<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int)#1})",
+        "grid": "[24, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 1008,
+          "p50": 2.464,
+          "p90": 2.528,
+          "mean": 2.3992926587301584
+        },
+        "mixed_us": {
+          "n": 4032,
+          "p50": 2.464,
+          "p90": 2.528,
+          "mean": 2.8870788690476186
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[4, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 1008,
+          "p50": 2.688,
+          "p90": 2.7523,
+          "mean": 2.6954623015873014
+        },
+        "mixed_us": {
+          "n": 4032,
+          "p50": 2.72,
+          "p90": 2.848,
+          "mean": 2.7376537698412693
+        },
+        "median_ratio": 1.0119047619047619
+      },
+      {
+        "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, long const*, long, long, long, long, long, int, int, int, float const*, float const*, int)",
+        "grid": "[2, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 4116,
+          "p50": 2.528,
+          "p90": 2.56,
+          "mean": 2.530351068999028
+        },
+        "mixed_us": {
+          "n": 4132,
+          "p50": 2.557,
+          "p90": 2.59,
+          "mean": 2.546442400774443
+        },
+        "median_ratio": 1.0114715189873418
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_combine_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, 4, 2, true>(flash::Flash_fwd_params)",
+        "grid": "[24, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 80,
+        "solo_us": {
+          "n": 504,
+          "p50": 5.152,
+          "p90": 5.248,
+          "mean": 5.157299603174602
+        },
+        "mixed_us": {
+          "n": 1568,
+          "p50": 5.216,
+          "p90": 5.312,
+          "mean": 6.6912627551020405
+        },
+        "median_ratio": 1.0124223602484472
+      },
+      {
+        "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, long const*, long, long, long, long, long, int, int, int, float const*, float const*, int)",
+        "grid": "[4, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 504,
+          "p50": 2.528,
+          "p90": 2.56,
+          "mean": 2.5195813492063492
+        },
+        "mixed_us": {
+          "n": 2016,
+          "p50": 2.528,
+          "p90": 2.592,
+          "mean": 4.8191686507936495
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, false, false, false, false, true, false, true, false>(flash::Flash_fwd_params)",
+        "grid": "[1, 6, 24]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 728,
+          "p50": 30.304,
+          "p90": 30.72,
+          "mean": 30.354285714285712
+        },
+        "mixed_us": {
+          "n": 280,
+          "p50": 30.688,
+          "p90": 31.008,
+          "mean": 30.703203571428574
+        },
+        "median_ratio": 1.0126715945089757
+      },
+      {
+        "kernel": "void vllm::rotary_embedding_kernel<c10::BFloat16, c10::BFloat16, true>(long const*, c10::BFloat16*, c10::BFloat16*, c10::BFloat16 const*, int, long, long, long, int, int, int, long, bool)",
+        "grid": "[3, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 3655,
+          "p50": 3.136,
+          "p90": 3.2,
+          "mean": 3.144280984952121
+        },
+        "mixed_us": {
+          "n": 2619,
+          "p50": 3.168,
+          "p90": 3.232,
+          "mean": 3.167283314242076
+        },
+        "median_ratio": 1.010204081632653
+      },
+      {
+        "kernel": "void vllm::act_and_mul_kernel<c10::BFloat16, __nv_bfloat162, &(c10::BFloat16 vllm::silu_kernel<c10::BFloat16>(c10::BFloat16 const&, float)), &(__nv_bfloat162 vllm::packed_silu_kernel<__nv_bfloat162>(__nv_bfloat162 const&, float)), true, true, false, false>(c10::BFloat16*, c10::BFloat16 const*, int, float, float, float)",
+        "grid": "[3, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 3655,
+          "p50": 3.04,
+          "p90": 3.072,
+          "mean": 3.034175102599179
+        },
+        "mixed_us": {
+          "n": 2618,
+          "p50": 3.041,
+          "p90": 3.104,
+          "mean": 3.0589125286478227
+        },
+        "median_ratio": 1.000328947368421
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_combine_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, 4, 4, true>(flash::Flash_fwd_params)",
+        "grid": "[6, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 320,
+        "solo_us": {
+          "n": 2800,
+          "p50": 5.248,
+          "p90": 5.28,
+          "mean": 5.254086071428571
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 5.307,
+          "p90": 5.339,
+          "mean": 5.310836734693878
+        },
+        "median_ratio": 1.0112423780487805
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[1, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 5600,
+          "p50": 2.624,
+          "p90": 2.656,
+          "mean": 2.6161271428571427
+        },
+        "mixed_us": {
+          "n": 2744,
+          "p50": 2.653,
+          "p90": 2.685,
+          "mean": 2.639469752186589
+        },
+        "median_ratio": 1.0110518292682926
+      },
+      {
+        "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, long const*, long, long, long, long, long, int, int, int, float const*, float const*, int)",
+        "grid": "[3, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 3655,
+          "p50": 2.496,
+          "p90": 2.528,
+          "mean": 2.511255540355677
+        },
+        "mixed_us": {
+          "n": 2619,
+          "p50": 2.528,
+          "p90": 2.56,
+          "mean": 2.5292806414662086
+        },
+        "median_ratio": 1.0128205128205128
+      },
+      {
+        "kernel": "void vllm::rotary_embedding_kernel<c10::BFloat16, c10::BFloat16, true>(long const*, c10::BFloat16*, c10::BFloat16*, c10::BFloat16 const*, int, long, long, long, int, int, int, long, bool)",
+        "grid": "[4, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 504,
+          "p50": 3.168,
+          "p90": 3.2,
+          "mean": 3.1612936507936507
+        },
+        "mixed_us": {
+          "n": 2016,
+          "p50": 3.168,
+          "p90": 3.232,
+          "mean": 3.1799816468253974
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "void vllm::act_and_mul_kernel<c10::BFloat16, __nv_bfloat162, &(c10::BFloat16 vllm::silu_kernel<c10::BFloat16>(c10::BFloat16 const&, float)), &(__nv_bfloat162 vllm::packed_silu_kernel<__nv_bfloat162>(__nv_bfloat162 const&, float)), true, true, false, false>(c10::BFloat16*, c10::BFloat16 const*, int, float, float, float)",
+        "grid": "[4, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 504,
+          "p50": 3.04,
+          "p90": 3.104,
+          "mean": 3.0523650793650794
+        },
+        "mixed_us": {
+          "n": 2016,
+          "p50": 3.072,
+          "p90": 3.136,
+          "mean": 3.0858814484126986
+        },
+        "median_ratio": 1.0105263157894737
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[1061, 1, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 56,
+          "p50": 30.784,
+          "p90": 30.976,
+          "mean": 30.792339285714288
+        },
+        "mixed_us": {
+          "n": 112,
+          "p50": 30.783,
+          "p90": 31.1008,
+          "mean": 52.616214285714285
+        },
+        "median_ratio": 0.9999675155925156
+      },
+      {
+        "kernel": "void vllm::rotary_embedding_kernel<c10::BFloat16, c10::BFloat16, true>(long const*, c10::BFloat16*, c10::BFloat16*, c10::BFloat16 const*, int, long, long, long, int, int, int, long, bool)",
+        "grid": "[1, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 2800,
+          "p50": 3.1365,
+          "p90": 3.2,
+          "mean": 3.152288571428571
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 3.166,
+          "p90": 3.229,
+          "mean": 3.1821209912536443
+        },
+        "median_ratio": 1.0094053881715288
+      },
+      {
+        "kernel": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4> >(at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4>)",
+        "grid": "[2, 1, 1]",
+        "block": "[256, 2, 1]",
+        "shared_memory": 8208,
+        "solo_us": {
+          "n": 148,
+          "p50": 28.639,
+          "p90": 28.768,
+          "mean": 28.611797297297294
+        },
+        "mixed_us": {
+          "n": 149,
+          "p50": 28.804,
+          "p90": 29.156,
+          "mean": 28.825362416107378
+        },
+        "median_ratio": 1.005761374349663
+      },
+      {
+        "kernel": "void vllm::act_and_mul_kernel<c10::BFloat16, __nv_bfloat162, &(c10::BFloat16 vllm::silu_kernel<c10::BFloat16>(c10::BFloat16 const&, float)), &(__nv_bfloat162 vllm::packed_silu_kernel<__nv_bfloat162>(__nv_bfloat162 const&, float)), true, true, false, false>(c10::BFloat16*, c10::BFloat16 const*, int, float, float, float)",
+        "grid": "[1, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 2800,
+          "p50": 3.041,
+          "p90": 3.073,
+          "mean": 3.0579982142857145
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 3.101,
+          "p90": 3.133,
+          "mean": 3.092121720116618
+        },
+        "median_ratio": 1.0197303518579415
+      },
+      {
+        "kernel": "void vllm::act_and_mul_kernel<c10::BFloat16, __nv_bfloat162, &(c10::BFloat16 vllm::silu_kernel<c10::BFloat16>(c10::BFloat16 const&, float)), &(__nv_bfloat162 vllm::packed_silu_kernel<__nv_bfloat162>(__nv_bfloat162 const&, float)), true, true, false, false>(c10::BFloat16*, c10::BFloat16 const*, int, float, float, float)",
+        "grid": "[1060, 1, 1]",
+        "block": "[1024, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 84,
+          "p50": 63.552,
+          "p90": 63.967,
+          "mean": 63.542535714285705
+        },
+        "mixed_us": {
+          "n": 56,
+          "p50": 63.476,
+          "p90": 63.8755,
+          "mean": 63.504875000000006
+        },
+        "median_ratio": 0.9988041289023162
+      },
+      {
+        "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, long const*, long, long, long, long, long, int, int, int, float const*, float const*, int)",
+        "grid": "[1, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 2800,
+          "p50": 2.496,
+          "p90": 2.528,
+          "mean": 2.497017857142857
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 2.526,
+          "p90": 2.558,
+          "mean": 2.5253702623906706
+        },
+        "median_ratio": 1.0120192307692306
+      },
+      {
+        "kernel": "std::enable_if<(((8)>(0)))&&vllm::_typeConvert<c10::BFloat16>::exists, void>::type vllm::fused_add_rms_norm_kernel<c10::BFloat16, 8, true>(c10::BFloat16*, long, c10::BFloat16*, c10::BFloat16 const*, float, int, int, long)",
+        "grid": "[1060, 1, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 168,
+          "p50": 30.7195,
+          "p90": 31.04,
+          "mean": 30.736630952380953
+        },
+        "mixed_us": {
+          "n": 112,
+          "p50": 30.723,
+          "p90": 31.1002,
+          "mean": 30.781625
+        },
+        "median_ratio": 1.0001139341460636
+      },
+      {
+        "kernel": "void flash::flash_fwd_splitkv_combine_kernel<Flash_fwd_kernel_traits<128, 64, 128, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 4, cutlass::bfloat16_t> >, 4, 3, true>(flash::Flash_fwd_params)",
+        "grid": "[12, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 160,
+        "solo_us": {
+          "n": 588,
+          "p50": 5.28,
+          "p90": 5.344,
+          "mean": 5.2462057823129244
+        },
+        "mixed_us": {
+          "n": 660,
+          "p50": 5.275,
+          "p90": 5.371,
+          "mean": 5.1851166666666675
+        },
+        "median_ratio": 0.9990530303030303
+      },
+      {
+        "kernel": "void cublasLt::splitKreduce_kernel<32, 16, int, __nv_bfloat16, __nv_bfloat16, float, __nv_bfloat16, false, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, true, false, false, false>(cublasLt::cublasSplitKParams<float>, __nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, float const*, float const*, __nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, void*, long, float*, int*, float*, float*, float const*, float const*, float const*, float const*, float const*)",
+        "grid": "[96, 1, 1]",
+        "block": "[32, 16, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 2800,
+          "p50": 2.368,
+          "p90": 2.401,
+          "mean": 2.375833571428571
+        },
+        "mixed_us": {
+          "n": 1372,
+          "p50": 2.398,
+          "p90": 2.43,
+          "mean": 2.3960524781341106
+        },
+        "median_ratio": 1.012668918918919
+      },
+      {
+        "kernel": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4> >(at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4>)",
+        "grid": "[3, 1, 1]",
+        "block": "[256, 2, 1]",
+        "shared_memory": 8208,
+        "solo_us": {
+          "n": 132,
+          "p50": 28.48,
+          "p90": 28.704,
+          "mean": 28.504219696969695
+        },
+        "mixed_us": {
+          "n": 94,
+          "p50": 28.736,
+          "p90": 29.12,
+          "mean": 28.78709574468085
+        },
+        "median_ratio": 1.0089887640449438
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#4}::operator()() const::{lambda(long)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#4}::operator()() const::{lambda(long)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 1192,
+          "p50": 1.92,
+          "p90": 2.08,
+          "mean": 1.8452055369127514
+        },
+        "mixed_us": {
+          "n": 1090,
+          "p50": 1.95,
+          "p90": 2.112,
+          "mean": 1.8752440366972476
+        },
+        "median_ratio": 1.015625
+      },
+      {
+        "kernel": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4> >(at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, 4, 4>)",
+        "grid": "[1, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 8208,
+        "solo_us": {
+          "n": 101,
+          "p50": 28.448,
+          "p90": 28.703,
+          "mean": 28.438514851485152
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 28.901,
+          "p90": 29.092,
+          "mean": 28.892673469387756
+        },
+        "median_ratio": 1.015923790776153
+      },
+      {
+        "kernel": "void vllm::rotary_embedding_kernel<c10::BFloat16, c10::BFloat16, true>(long const*, c10::BFloat16*, c10::BFloat16*, c10::BFloat16 const*, int, long, long, long, int, int, int, long, bool)",
+        "grid": "[1060, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 84,
+          "p50": 24.096,
+          "p90": 24.32,
+          "mean": 24.088869047619045
+        },
+        "mixed_us": {
+          "n": 56,
+          "p50": 24.212,
+          "p90": 24.536,
+          "mean": 24.23573214285714
+        },
+        "median_ratio": 1.0048140770252323
+      },
+      {
+        "kernel": "void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1}>(long, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<4> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1})",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 398,
+          "p50": 2.912,
+          "p90": 2.944,
+          "mean": 2.8985603015075374
+        },
+        "mixed_us": {
+          "n": 365,
+          "p50": 2.912,
+          "p90": 3.488,
+          "mean": 2.9978246575342458
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "void at::native::(anonymous namespace)::indexSelectSmallIndex<c10::BFloat16, long, unsigned int, 2, 2, -2>(at::cuda::detail::TensorInfo<c10::BFloat16, unsigned int>, at::cuda::detail::TensorInfo<c10::BFloat16 const, unsigned int>, at::cuda::detail::TensorInfo<long const, unsigned int>, int, int, unsigned int, long)",
+        "grid": "[24, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 396,
+          "p50": 2.688,
+          "p90": 3.168,
+          "mean": 2.751871212121212
+        },
+        "mixed_us": {
+          "n": 362,
+          "p50": 2.749,
+          "p90": 3.616,
+          "mean": 2.9389558011049726
+        },
+        "median_ratio": 1.0226934523809523
+      },
+      {
+        "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(__nv_bfloat16 const*, __nv_bfloat16 const*, __nv_bfloat16*, __nv_bfloat16*, long const*, long, long, long, long, long, int, int, int, float const*, float const*, int)",
+        "grid": "[1060, 1, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 84,
+          "p50": 13.2635,
+          "p90": 13.5257,
+          "mean": 13.290880952380952
+        },
+        "mixed_us": {
+          "n": 56,
+          "p50": 13.363,
+          "p90": 13.68,
+          "mean": 13.399857142857144
+        },
+        "median_ratio": 1.0075017906284163
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#3}::operator()() const::{lambda(int)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#3}::operator()() const::{lambda(int)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 400,
+          "p50": 1.728,
+          "p90": 1.76,
+          "mean": 1.7248
+        },
+        "mixed_us": {
+          "n": 366,
+          "p50": 1.728,
+          "p90": 1.76,
+          "mean": 1.736590163934426
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)",
+        "grid": "[501, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 148,
+          "p50": 3.84,
+          "p90": 3.904,
+          "mean": 3.8635337837837844
+        },
+        "mixed_us": {
+          "n": 149,
+          "p50": 3.869,
+          "p90": 3.964,
+          "mean": 3.895758389261745
+        },
+        "median_ratio": 1.0075520833333333
+      },
+      {
+        "kernel": "void at::native::vectorized_elementwise_kernel<2, at::native::CUDAFunctor_add<long>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<long>, std::array<char*, 3ul>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 396,
+          "p50": 1.441,
+          "p90": 1.472,
+          "mean": 1.4512853535353534
+        },
+        "mixed_us": {
+          "n": 362,
+          "p50": 1.471,
+          "p90": 1.503,
+          "mean": 1.4524696132596684
+        },
+        "median_ratio": 1.020818875780708
+      },
+      {
+        "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 420,
+          "p50": 1.088,
+          "p90": 1.088,
+          "mean": 1.0742309523809528
+        },
+        "mixed_us": {
+          "n": 440,
+          "p50": 1.087,
+          "p90": 1.504,
+          "mean": 1.1304704545454547
+        },
+        "median_ratio": 0.9990808823529411
+      },
+      {
+        "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctor_add<int>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<int>, std::array<char*, 3ul>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 401,
+          "p50": 1.312,
+          "p90": 1.344,
+          "mean": 1.3159850374064836
+        },
+        "mixed_us": {
+          "n": 366,
+          "p50": 1.342,
+          "p90": 1.344,
+          "mean": 1.3305874316939892
+        },
+        "median_ratio": 1.0228658536585367
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, at::native::CUDAFunctorOnSelf_add<int>, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 401,
+          "p50": 1.12,
+          "p90": 1.152,
+          "mean": 1.131563591022444
+        },
+        "mixed_us": {
+          "n": 366,
+          "p50": 1.151,
+          "p90": 1.152,
+          "mean": 1.1425191256830598
+        },
+        "median_ratio": 1.0276785714285714
+      },
+      {
+        "kernel": "_compute_slot_mapping_kernel",
+        "grid": "[3, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 148,
+          "p50": 2.752,
+          "p90": 2.784,
+          "mean": 2.76581081081081
+        },
+        "mixed_us": {
+          "n": 148,
+          "p50": 2.781,
+          "p90": 2.941,
+          "mean": 2.8058445945945945
+        },
+        "median_ratio": 1.0105377906976745
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)",
+        "grid": "[752, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 132,
+          "p50": 4.032500000000001,
+          "p90": 4.1279,
+          "mean": 4.055704545454545
+        },
+        "mixed_us": {
+          "n": 94,
+          "p50": 4.096,
+          "p90": 4.16,
+          "mean": 4.088138297872339
+        },
+        "median_ratio": 1.0157470551766892
+      },
+      {
+        "kernel": "void vllm::rms_norm_kernel<c10::BFloat16, 8, 2, true>(c10::BFloat16*, c10::BFloat16 const*, long, long, long, long, long, c10::BFloat16 const*, long, float, int, int)",
+        "grid": "[2, 1, 1]",
+        "block": "[384, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 147,
+          "p50": 2.144,
+          "p90": 2.176,
+          "mean": 2.14791156462585
+        },
+        "mixed_us": {
+          "n": 147,
+          "p50": 2.144,
+          "p90": 2.1744,
+          "mean": 2.160088435374149
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "_compute_slot_mapping_kernel",
+        "grid": "[4, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 133,
+          "p50": 2.72,
+          "p90": 2.752,
+          "mean": 2.7548421052631573
+        },
+        "mixed_us": {
+          "n": 95,
+          "p50": 2.752,
+          "p90": 2.976,
+          "mean": 2.804494736842106
+        },
+        "median_ratio": 1.0117647058823527
+      },
+      {
+        "kernel": "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)",
+        "grid": "[2, 2, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 148,
+          "p50": 1.536,
+          "p90": 1.568,
+          "mean": 1.5439527027027027
+        },
+        "mixed_us": {
+          "n": 149,
+          "p50": 1.536,
+          "p90": 1.567,
+          "mean": 1.5546107382550336
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "void vllm::rms_norm_kernel<c10::BFloat16, 8, 2, true>(c10::BFloat16*, c10::BFloat16 const*, long, long, long, long, long, c10::BFloat16 const*, long, float, int, int)",
+        "grid": "[3, 1, 1]",
+        "block": "[384, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 131,
+          "p50": 2.112,
+          "p90": 2.144,
+          "mean": 2.1154122137404583
+        },
+        "mixed_us": {
+          "n": 94,
+          "p50": 2.144,
+          "p90": 2.176,
+          "mean": 2.135457446808511
+        },
+        "median_ratio": 1.0151515151515151
+      },
+      {
+        "kernel": "void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<2> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<2> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1}>(long, at::native::gpu_index_kernel<at::native::index_kernel_impl<at::native::OpaqueType<2> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1}>(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>, at::native::index_kernel_impl<at::native::OpaqueType<2> >(at::TensorIteratorBase&, c10::ArrayRef<long>, c10::ArrayRef<long>)::{lambda(char*, char const*, long)#1} const&, bool)::{lambda(int)#1})",
+        "grid": "[6, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 101,
+          "p50": 4.001,
+          "p90": 4.064,
+          "mean": 4.0180198019801985
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 4.06,
+          "p90": 4.092,
+          "mean": 4.060795918367346
+        },
+        "median_ratio": 1.0147463134216443
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, 4, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1> >(int, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#7}::operator()() const::{lambda(float)#1}, std::array<char*, 2ul>, TrivialOffsetCalculator<1, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithCast<1>, at::native::memory::StoreWithCast<1>)",
+        "grid": "[251, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 101,
+          "p50": 3.744,
+          "p90": 3.776,
+          "mean": 3.755980198019803
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 3.773,
+          "p90": 3.836,
+          "mean": 3.7828775510204076
+        },
+        "median_ratio": 1.0077457264957266
+      },
+      {
+        "kernel": "void at::native::vectorized_elementwise_kernel<2, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char*, 1ul>)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 148,
+          "p50": 1.056,
+          "p90": 1.088,
+          "mean": 1.0649054054054055
+        },
+        "mixed_us": {
+          "n": 148,
+          "p50": 1.055,
+          "p90": 1.087,
+          "mean": 1.0693243243243242
+        },
+        "median_ratio": 0.9990530303030302
+      },
+      {
+        "kernel": "void at::native::unrolled_elementwise_kernel<at::native::FillFunctor<int>, std::array<char*, 1ul>, 4, TrivialOffsetCalculator<0, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, at::native::FillFunctor<int>, std::array<char*, 1ul>, TrivialOffsetCalculator<0, unsigned int>, TrivialOffsetCalculator<1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast)",
+        "grid": "[1, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 234,
+          "p50": 0.992,
+          "p90": 1.024,
+          "mean": 0.9985811965811968
+        },
+        "mixed_us": {
+          "n": 144,
+          "p50": 1.023,
+          "p90": 1.024,
+          "mean": 1.0094652777777777
+        },
+        "median_ratio": 1.03125
+      },
+      {
+        "kernel": "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)",
+        "grid": "[3, 2, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 132,
+          "p50": 1.536,
+          "p90": 1.5369,
+          "mean": 1.5367121212121213
+        },
+        "mixed_us": {
+          "n": 94,
+          "p50": 1.536,
+          "p90": 1.568,
+          "mean": 1.5444680851063828
+        },
+        "median_ratio": 1.0
+      },
+      {
+        "kernel": "_compute_slot_mapping_kernel",
+        "grid": "[2, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 101,
+          "p50": 2.752,
+          "p90": 2.784,
+          "mean": 2.774534653465346
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 2.782,
+          "p90": 2.814,
+          "mean": 2.7911836734693884
+        },
+        "median_ratio": 1.0109011627906979
+      },
+      {
+        "kernel": "void vllm::rms_norm_kernel<c10::BFloat16, 8, 2, true>(c10::BFloat16*, c10::BFloat16 const*, long, long, long, long, long, c10::BFloat16 const*, long, float, int, int)",
+        "grid": "[1, 1, 1]",
+        "block": "[384, 1, 1]",
+        "shared_memory": 168,
+        "solo_us": {
+          "n": 100,
+          "p50": 2.144,
+          "p90": 2.176,
+          "mean": 2.1526300000000003
+        },
+        "mixed_us": {
+          "n": 49,
+          "p50": 2.174,
+          "p90": 2.206,
+          "mean": 2.183734693877551
+        },
+        "median_ratio": 1.0139925373134326
+      }
+    ],
+    "encoder": [
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8>(cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_256x128_32x3_tn_align8::Params)",
+        "grid": "[144, 3, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 416,
+          "p50": 506.6335,
+          "p90": 507.30550000000005,
+          "mean": 485.66663701923073
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 464.666,
+          "p90": 2831.309,
+          "mean": 917.6109807692308
+        },
+        "median_ratio": 0.9171639854056235
+      },
+      {
+        "kernel": "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<96, 128, 64, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<96, 128, 64, 4, cutlass::bfloat16_t> >, false, false, false, false, false, false, false, false>(flash::Flash_fwd_params)",
+        "grid": "[18, 1, 16]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 49152,
+        "solo_us": {
+          "n": 416,
+          "p50": 558.457,
+          "p90": 560.137,
+          "mean": 535.7140817307693
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 511.49800000000005,
+          "p90": 2853.6445000000003,
+          "mean": 887.0003581730768
+        },
+        "median_ratio": 0.9159129530116017
+      },
+      {
+        "kernel": "ampere_bf16_s1688gemm_bf16_128x128_ldg8_relu_f2f_stages_32x1_tn",
+        "grid": "[10, 18, 3]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 32768,
+        "solo_us": {
+          "n": 416,
+          "p50": 452.442,
+          "p90": 453.40250000000003,
+          "mean": 433.5379278846154
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 414.267,
+          "p90": 2782.638,
+          "mean": 877.3194278846154
+        },
+        "median_ratio": 0.9156245441404643
+      },
+      {
+        "kernel": "ampere_bf16_s16816gemm_bf16_256x128_ldg8_relu_f2f_stages_32x3_tn",
+        "grid": "[15, 18, 1]",
+        "block": "[256, 1, 1]",
+        "shared_memory": 73728,
+        "solo_us": {
+          "n": 416,
+          "p50": 405.00300000000004,
+          "p90": 405.851,
+          "mean": 388.57972596153854
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 369.564,
+          "p90": 2669.2799999999997,
+          "mean": 638.6424086538461
+        },
+        "median_ratio": 0.912496944467078
+      },
+      {
+        "kernel": "void cutlass::Kernel2<cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_128x128_32x5_tn_align8>(cutlass_80_tensorop_bf16_s16816gemm_relu_bf16_128x128_32x5_tn_align8::Params)",
+        "grid": "[144, 2, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 81920,
+        "solo_us": {
+          "n": 416,
+          "p50": 158.974,
+          "p90": 159.422,
+          "mean": 152.53090625000002
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 145.086,
+          "p90": 146.206,
+          "mean": 293.7356971153846
+        },
+        "median_ratio": 0.9126398027350385
+      },
+      {
+        "kernel": "void vllm::activation_kernel<c10::BFloat16, &(c10::BFloat16 vllm::gelu_quick_kernel<c10::BFloat16>(c10::BFloat16 const&)), true, false>(c10::BFloat16*, c10::BFloat16 const*, int)",
+        "grid": "[2304, 1, 1]",
+        "block": "[640, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 416,
+          "p50": 57.5355,
+          "p90": 58.143,
+          "mean": 57.60462019230769
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 57.535,
+          "p90": 58.144,
+          "mean": 131.75216346153846
+        },
+        "median_ratio": 0.9999913097131335
+      },
+      {
+        "kernel": "void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native::(anonymous namespace)::OpaqueType<2u>, unsigned int, 4, 64, 64>(at::native::(anonymous namespace)::OpaqueType<2u>*, at::native::(anonymous namespace)::CatArrInputTensorMetadata<at::native::(anonymous namespace)::OpaqueType<2u>, unsigned int, 64, 64>, at::native::(anonymous namespace)::TensorSizeStride<unsigned int, 4u>, int, unsigned int)",
+        "grid": "[164, 2, 1]",
+        "block": "[512, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 416,
+          "p50": 52.6075,
+          "p90": 53.1195,
+          "mean": 51.40413221153846
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 49.599,
+          "p90": 50.016,
+          "mean": 79.04433894230769
+        },
+        "median_ratio": 0.9428123366440145
+      },
+      {
+        "kernel": "void at::native::(anonymous namespace)::vectorized_layer_norm_kernel<c10::BFloat16, float, false>(int, float, c10::BFloat16 const*, c10::BFloat16 const*, c10::BFloat16 const*, float*, float*, c10::BFloat16*)",
+        "grid": "[2304, 1, 1]",
+        "block": "[32, 4, 1]",
+        "shared_memory": 24,
+        "solo_us": {
+          "n": 845,
+          "p50": 18.272,
+          "p90": 18.752,
+          "mean": 18.10166153846154
+        },
+        "mixed_us": {
+          "n": 845,
+          "p50": 17.599,
+          "p90": 17.875200000000003,
+          "mean": 38.319317159763315
+        },
+        "median_ratio": 0.9631676882661997
+      },
+      {
+        "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*, 3ul> >(int, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*, 3ul>)",
+        "grid": "[2880, 1, 1]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 832,
+          "p50": 21.344,
+          "p90": 21.6639,
+          "mean": 21.36304086538462
+        },
+        "mixed_us": {
+          "n": 832,
+          "p50": 21.311,
+          "p90": 21.568,
+          "mean": 33.226248798076924
+        },
+        "median_ratio": 0.9984538980509745
+      },
+      {
+        "kernel": "rotary_kernel",
+        "grid": "[288, 16, 2]",
+        "block": "[128, 1, 1]",
+        "shared_memory": 0,
+        "solo_us": {
+          "n": 416,
+          "p50": 30.879,
+          "p90": 31.072,
+          "mean": 30.87352403846154
+        },
+        "mixed_us": {
+          "n": 416,
+          "p50": 30.751,
+          "p90": 31.008,
+          "mean": 63.61776201923077
+        },
+        "median_ratio": 0.9958547880436542
+      }
+    ]
+  },
+  "mixed_llm_overlap": {
+    "queue_with_encoder_us": {
+      "n": 24584,
+      "p50": 22555.693481445312,
+      "p90": 29285.76417236328,
+      "mean": 27778.077950728046
+    },
+    "queue_without_encoder_us": {
+      "n": 113195,
+      "p50": 0.0,
+      "p90": 109.226611328125,
+      "mean": 957.6987836007985
+    },
+    "kernel_with_encoder_us": {
+      "n": 19796,
+      "p50": 3.2,
+      "p90": 69.887,
+      "mean": 68.93170024247323
+    },
+    "kernel_without_encoder_us": {
+      "n": 117983,
+      "p50": 3.168,
+      "p90": 69.215,
+      "mean": 29.49633289541714
+    }
+  }
+}

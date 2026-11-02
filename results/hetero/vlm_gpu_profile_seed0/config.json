@@ -1,0 +1,31 @@
+{
+  "seed": 0,
+  "cases": [
+    [
+      "llm_only",
+      1.0,
+      0.0,
+      0
+    ],
+    [
+      "mixed_high",
+      1.0,
+      2.0,
+      0
+    ],
+    [
+      "vlm_only_high",
+      0.0,
+      2.0,
+      0
+    ]
+  ],
+  "models": [
+    "meta-llama/Llama-3.2-3B-Instruct",
+    "Qwen/Qwen2-VL-2B-Instruct"
+  ],
+  "image_size": 672,
+  "max_pixels": 451584,
+  "baseline": "all models resident; only selected service receives requests",
+  "payload_sha256": "1c466fd7dcaa79d892d6d19bd9476b76d8637c0f427b9aa450e328a03d0abaa0"
+}

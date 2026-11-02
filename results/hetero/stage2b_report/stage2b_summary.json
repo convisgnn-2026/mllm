@@ -1,0 +1,1722 @@
+{
+  "candidates": [
+    "S4_4090",
+    "S4_3090",
+    "S3_4090",
+    "C_4090"
+  ],
+  "shared": [
+    "S4_4090",
+    "C_4090"
+  ],
+  "anchors": [
+    0.5,
+    1.0
+  ],
+  "eval_alphas": [
+    0.5,
+    0.6,
+    0.75,
+    1.0,
+    1.1,
+    1.25
+  ],
+  "held_out_alphas": [
+    0.6,
+    0.75,
+    1.1,
+    1.25
+  ],
+  "r_price": 0.75,
+  "solo_alphas": {
+    "S4_4090": [
+      0.5,
+      0.6,
+      0.75,
+      0.85,
+      1.0,
+      1.5
+    ],
+    "C_4090": [
+      0.5,
+      1.0,
+      1.1,
+      1.25,
+      1.4,
+      1.5
+    ]
+  },
+  "mixed901_alphas": {
+    "S4_4090": [
+      0.5,
+      0.6,
+      0.75,
+      0.85,
+      1.0,
+      1.5,
+      2.0
+    ],
+    "S4_3090": [
+      0.5,
+      0.6,
+      0.75,
+      0.85,
+      1.0,
+      1.5,
+      2.0
+    ],
+    "S3_4090": [
+      0.5,
+      0.6,
+      0.75,
+      0.85,
+      1.0,
+      1.5,
+      2.0
+    ],
+    "C_4090": [
+      0.5,
+      1.0,
+      1.1,
+      1.25,
+      1.4,
+      1.5,
+      2.0
+    ]
+  },
+  "k_measured": [
+    {
+      "candidate": "C_4090",
+      "alpha": 0.5,
+      "k": {
+        "ttft": 1.1004827726133495,
+        "tpot": 0.9982755888392324,
+        "dit": 1.1570183051957994
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.0,
+      "k": {
+        "ttft": 1.2624152689194166,
+        "tpot": 1.0033184096069554,
+        "dit": 1.454267606230917
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.1,
+      "k": {
+        "ttft": 1.296613268499088,
+        "tpot": 1.0032477872893883,
+        "dit": 1.6652546213883748
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.25,
+      "k": {
+        "ttft": 1.4420624800663102,
+        "tpot": 1.0011223832364018,
+        "dit": 2.0759282980691953
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.4,
+      "k": {
+        "ttft": 2.1640891936061952,
+        "tpot": 0.9984243276865439,
+        "dit": 3.893625525738511
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.5,
+      "k": {
+        "ttft": 2.531714102817076,
+        "tpot": 0.9962365021786258,
+        "dit": 6.326444516590652
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.5,
+      "k": {
+        "ttft": 1.3410484859432212,
+        "tpot": 2.306938535357133,
+        "dit": 2.024673616283109
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.6,
+      "k": {
+        "ttft": 1.4693438896535085,
+        "tpot": 2.4903468502122963,
+        "dit": 2.161828939543108
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.75,
+      "k": {
+        "ttft": 1.6200233405605144,
+        "tpot": 2.8013882027334556,
+        "dit": 2.1477693831442948
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.85,
+      "k": {
+        "ttft": 1.7076922213950827,
+        "tpot": 2.9893991973102967,
+        "dit": 2.3325250237305264
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 1.0,
+      "k": {
+        "ttft": 1.9737241080893335,
+        "tpot": 3.6207228623699788,
+        "dit": 3.2922143906689882
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 1.5,
+      "k": {
+        "ttft": 10.534700886784076,
+        "tpot": 7.293412667315289,
+        "dit": 20.804364895823863
+      }
+    }
+  ],
+  "k_model_error": [
+    {
+      "candidate": "C_4090",
+      "alpha": 1.1,
+      "linear": {
+        "ttft": -0.001397101481581231,
+        "tpot": 0.0010756928495476714,
+        "dit": -0.09099939012575331
+      },
+      "const": {
+        "ttft": -0.026374864742251036,
+        "tpot": 7.039369382288996e-05,
+        "dit": -0.12669955239730923
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.25,
+      "linear": {
+        "ttft": -0.0684304351288042,
+        "tpot": 0.0047121479185838755,
+        "dit": -0.22786723499105754
+      },
+      "const": {
+        "ttft": -0.12457657946875711,
+        "tpot": 0.002193564350698507,
+        "dit": -0.29946154326066077
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.4,
+      "linear": {
+        "ttft": -0.3567911756701979,
+        "tpot": 0.008942428872178887,
+        "dit": -0.5654263524127494
+      },
+      "const": {
+        "ttft": -0.41665284746616527,
+        "tpot": 0.0049018055597178645,
+        "dit": -0.6265003923418949
+      }
+    },
+    {
+      "candidate": "C_4090",
+      "alpha": 1.5,
+      "linear": {
+        "ttft": -0.43739786272052184,
+        "tpot": 0.012170531966593678,
+        "dit": -0.7231435599138181
+      },
+      "const": {
+        "ttft": -0.5013594672815906,
+        "tpot": 0.0071086608579815636,
+        "dit": -0.7701287662576977
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.6,
+      "linear": {
+        "ttft": -0.00119800360790967,
+        "tpot": 0.031862449417695116,
+        "dit": 0.053821479345062206
+      },
+      "const": {
+        "ttft": -0.08731475634375907,
+        "tpot": -0.07364769884947076,
+        "dit": -0.06344411472675826
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.75,
+      "linear": {
+        "ttft": 0.023063221078552854,
+        "tpot": 0.057986428289944714,
+        "dit": 0.2377697644540102
+      },
+      "const": {
+        "ttft": -0.1722042193051183,
+        "tpot": -0.17650165974635834,
+        "dit": -0.057313307391027246
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 0.85,
+      "linear": {
+        "ttft": 0.04463872300603566,
+        "tpot": 0.07934315603256925,
+        "dit": 0.2484119693155491
+      },
+      "const": {
+        "ttft": 0.15578444602676633,
+        "tpot": 0.2111874739337971,
+        "dit": 0.41143797265830906
+      }
+    },
+    {
+      "candidate": "S4_4090",
+      "alpha": 1.5,
+      "linear": {
+        "ttft": -0.7525891092451225,
+        "tpot": -0.32342959126715365,
+        "dit": -0.780826995301829
+      },
+      "const": {
+        "ttft": -0.8126454534114588,
+        "tpot": -0.5035625944222392,
+        "dit": -0.8417536700997853
+      }
+    }
+  ],
+  "confusion_901_heldout": {
+    "solo only": {
+      "S4_4090": {
+        "tp": 24,
+        "fp": 261,
+        "fn": 0,
+        "tn": 483
+      },
+      "C_4090": {
+        "tp": 56,
+        "fp": 156,
+        "fn": 0,
+        "tn": 556
+      }
+    },
+    "solo+k-linear": {
+      "S4_4090": {
+        "tp": 24,
+        "fp": 2,
+        "fn": 0,
+        "tn": 742
+      },
+      "C_4090": {
+        "tp": 56,
+        "fp": 52,
+        "fn": 0,
+        "tn": 660
+      }
+    },
+    "solo+k-const": {
+      "S4_4090": {
+        "tp": 24,
+        "fp": 18,
+        "fn": 0,
+        "tn": 726
+      },
+      "C_4090": {
+        "tp": 56,
+        "fp": 56,
+        "fn": 0,
+        "tn": 656
+      }
+    },
+    "solo+k-measured": {
+      "S4_4090": {
+        "tp": 24,
+        "fp": 4,
+        "fn": 0,
+        "tn": 740
+      },
+      "C_4090": {
+        "tp": 56,
+        "fp": 0,
+        "fn": 0,
+        "tn": 712
+      }
+    }
+  },
+  "unseen": {
+    "stage1_seed902": {
+      "candidates": [
+        "S4_4090",
+        "S4_3090",
+        "S3_4090",
+        "C_4090"
+      ],
+      "result": {
+        "all": {
+          "solo only": {
+            "cells": 123,
+            "exact": 73,
+            "regret_sum": 25.849999999999998,
+            "overpromise": 105,
+            "mc_cases": 377,
+            "mc_ok": 174,
+            "mc_violation": 195,
+            "mc_overpay": 0,
+            "mc_missed": 8,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 193,
+            "picks": {
+              "S4_4090": 276,
+              "C_4090": 93
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 105,
+            "exact": 91,
+            "regret_sum": 4.05,
+            "overpromise": 23,
+            "mc_cases": 377,
+            "mc_ok": 293,
+            "mc_violation": 18,
+            "mc_overpay": 31,
+            "mc_missed": 66,
+            "mc_cost_regret": 23.25,
+            "mc_false_feasible": 21,
+            "picks": {
+              "S4_3090": 84,
+              "S4_4090": 58,
+              "C_4090": 162,
+              "S3_4090": 7
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 105,
+            "exact": 94,
+            "regret_sum": 2.9,
+            "overpromise": 18,
+            "mc_cases": 377,
+            "mc_ok": 300,
+            "mc_violation": 9,
+            "mc_overpay": 34,
+            "mc_missed": 68,
+            "mc_cost_regret": 25.5,
+            "mc_false_feasible": 20,
+            "picks": {
+              "S4_3090": 93,
+              "S4_4090": 43,
+              "C_4090": 165,
+              "S3_4090": 8
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 105,
+            "exact": 93,
+            "regret_sum": 3.4,
+            "overpromise": 16,
+            "mc_cases": 377,
+            "mc_ok": 295,
+            "mc_violation": 11,
+            "mc_overpay": 34,
+            "mc_missed": 71,
+            "mc_cost_regret": 25.5,
+            "mc_false_feasible": 16,
+            "picks": {
+              "S4_3090": 92,
+              "S4_4090": 45,
+              "C_4090": 161,
+              "S3_4090": 8
+            }
+          },
+          "mixed seed 901": {
+            "cells": 105,
+            "exact": 94,
+            "regret_sum": 2.9,
+            "overpromise": 14,
+            "mc_cases": 377,
+            "mc_ok": 298,
+            "mc_violation": 7,
+            "mc_overpay": 34,
+            "mc_missed": 72,
+            "mc_cost_regret": 25.5,
+            "mc_false_feasible": 16,
+            "picks": {
+              "S4_3090": 94,
+              "S4_4090": 41,
+              "C_4090": 162,
+              "S3_4090": 8
+            }
+          },
+          "oracle": {
+            "cells": 105,
+            "exact": 105,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 377,
+            "mc_ok": 377,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 113,
+              "S4_4090": 83,
+              "C_4090": 175,
+              "S3_4090": 6
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 105,
+            "exact": 6,
+            "regret_sum": 63.250000000000014,
+            "overpromise": 0,
+            "mc_cases": 377,
+            "mc_ok": 83,
+            "mc_violation": 294,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 775,
+            "picks": {
+              "S4_4090": 377
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 105,
+            "exact": 33,
+            "regret_sum": 49.4,
+            "overpromise": 0,
+            "mc_cases": 377,
+            "mc_ok": 163,
+            "mc_violation": 214,
+            "mc_overpay": 50,
+            "mc_missed": 0,
+            "mc_cost_regret": 37.5,
+            "mc_false_feasible": 775,
+            "picks": {
+              "S4_3090": 377
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 105,
+            "exact": 1,
+            "regret_sum": 78.25000000000006,
+            "overpromise": 0,
+            "mc_cases": 377,
+            "mc_ok": 40,
+            "mc_violation": 337,
+            "mc_overpay": 34,
+            "mc_missed": 0,
+            "mc_cost_regret": 25.5,
+            "mc_false_feasible": 775,
+            "picks": {
+              "S3_4090": 377
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 105,
+            "exact": 69,
+            "regret_sum": 21.250000000000004,
+            "overpromise": 0,
+            "mc_cases": 377,
+            "mc_ok": 298,
+            "mc_violation": 79,
+            "mc_overpay": 66,
+            "mc_missed": 0,
+            "mc_cost_regret": 49.5,
+            "mc_false_feasible": 775,
+            "picks": {
+              "C_4090": 377
+            }
+          }
+        },
+        "held_out": {
+          "solo only": {
+            "cells": 113,
+            "exact": 69,
+            "regret_sum": 23.799999999999997,
+            "overpromise": 99,
+            "mc_cases": 221,
+            "mc_ok": 92,
+            "mc_violation": 125,
+            "mc_overpay": 0,
+            "mc_missed": 4,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 137,
+            "picks": {
+              "S4_4090": 156,
+              "C_4090": 61
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 98,
+            "exact": 65,
+            "regret_sum": 18.049999999999997,
+            "overpromise": 26,
+            "mc_cases": 221,
+            "mc_ok": 155,
+            "mc_violation": 18,
+            "mc_overpay": 6,
+            "mc_missed": 48,
+            "mc_cost_regret": 4.5,
+            "mc_false_feasible": 21,
+            "picks": {
+              "S4_3090": 51,
+              "S4_4090": 37,
+              "C_4090": 82,
+              "S3_4090": 3
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 98,
+            "exact": 71,
+            "regret_sum": 16.099999999999998,
+            "overpromise": 18,
+            "mc_cases": 221,
+            "mc_ok": 162,
+            "mc_violation": 9,
+            "mc_overpay": 9,
+            "mc_missed": 50,
+            "mc_cost_regret": 6.75,
+            "mc_false_feasible": 20,
+            "picks": {
+              "S4_3090": 60,
+              "C_4090": 85,
+              "S4_4090": 22,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 98,
+            "exact": 70,
+            "regret_sum": 16.599999999999998,
+            "overpromise": 16,
+            "mc_cases": 221,
+            "mc_ok": 157,
+            "mc_violation": 11,
+            "mc_overpay": 9,
+            "mc_missed": 53,
+            "mc_cost_regret": 6.75,
+            "mc_false_feasible": 16,
+            "picks": {
+              "S4_3090": 59,
+              "C_4090": 81,
+              "S4_4090": 24,
+              "S3_4090": 4
+            }
+          },
+          "mixed seed 901": {
+            "cells": 98,
+            "exact": 71,
+            "regret_sum": 16.099999999999998,
+            "overpromise": 14,
+            "mc_cases": 221,
+            "mc_ok": 160,
+            "mc_violation": 7,
+            "mc_overpay": 9,
+            "mc_missed": 54,
+            "mc_cost_regret": 6.75,
+            "mc_false_feasible": 16,
+            "picks": {
+              "S4_3090": 61,
+              "C_4090": 82,
+              "S4_4090": 20,
+              "S3_4090": 4
+            }
+          },
+          "oracle": {
+            "cells": 96,
+            "exact": 96,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 221,
+            "mc_ok": 221,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 70,
+              "S4_4090": 33,
+              "C_4090": 114,
+              "S3_4090": 4
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 96,
+            "exact": 5,
+            "regret_sum": 66.25000000000001,
+            "overpromise": 0,
+            "mc_cases": 221,
+            "mc_ok": 33,
+            "mc_violation": 188,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 547,
+            "picks": {
+              "S4_4090": 221
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 96,
+            "exact": 30,
+            "regret_sum": 45.14999999999999,
+            "overpromise": 0,
+            "mc_cases": 221,
+            "mc_ok": 92,
+            "mc_violation": 129,
+            "mc_overpay": 22,
+            "mc_missed": 0,
+            "mc_cost_regret": 16.5,
+            "mc_false_feasible": 547,
+            "picks": {
+              "S4_3090": 221
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 96,
+            "exact": 1,
+            "regret_sum": 73.75000000000004,
+            "overpromise": 0,
+            "mc_cases": 221,
+            "mc_ok": 16,
+            "mc_violation": 205,
+            "mc_overpay": 12,
+            "mc_missed": 0,
+            "mc_cost_regret": 9.0,
+            "mc_false_feasible": 547,
+            "picks": {
+              "S3_4090": 221
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 96,
+            "exact": 69,
+            "regret_sum": 17.25,
+            "overpromise": 0,
+            "mc_cases": 221,
+            "mc_ok": 178,
+            "mc_violation": 43,
+            "mc_overpay": 27,
+            "mc_missed": 0,
+            "mc_cost_regret": 20.25,
+            "mc_false_feasible": 547,
+            "picks": {
+              "C_4090": 221
+            }
+          }
+        },
+        "anchors": {
+          "solo only": {
+            "cells": 123,
+            "exact": 68,
+            "regret_sum": 28.5,
+            "overpromise": 99,
+            "mc_cases": 156,
+            "mc_ok": 82,
+            "mc_violation": 70,
+            "mc_overpay": 0,
+            "mc_missed": 4,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 56,
+            "picks": {
+              "S4_4090": 120,
+              "C_4090": 32
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 105,
+            "exact": 96,
+            "regret_sum": 4.5,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 138,
+            "mc_violation": 0,
+            "mc_overpay": 25,
+            "mc_missed": 18,
+            "mc_cost_regret": 18.75,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 33,
+              "S4_4090": 21,
+              "C_4090": 80,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 105,
+            "exact": 96,
+            "regret_sum": 4.5,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 138,
+            "mc_violation": 0,
+            "mc_overpay": 25,
+            "mc_missed": 18,
+            "mc_cost_regret": 18.75,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 33,
+              "S4_4090": 21,
+              "C_4090": 80,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 105,
+            "exact": 96,
+            "regret_sum": 4.5,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 138,
+            "mc_violation": 0,
+            "mc_overpay": 25,
+            "mc_missed": 18,
+            "mc_cost_regret": 18.75,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 33,
+              "S4_4090": 21,
+              "C_4090": 80,
+              "S3_4090": 4
+            }
+          },
+          "mixed seed 901": {
+            "cells": 105,
+            "exact": 96,
+            "regret_sum": 4.5,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 138,
+            "mc_violation": 0,
+            "mc_overpay": 25,
+            "mc_missed": 18,
+            "mc_cost_regret": 18.75,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 33,
+              "S4_4090": 21,
+              "C_4090": 80,
+              "S3_4090": 4
+            }
+          },
+          "oracle": {
+            "cells": 105,
+            "exact": 105,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 156,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 43,
+              "S4_4090": 50,
+              "C_4090": 61,
+              "S3_4090": 2
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 105,
+            "exact": 19,
+            "regret_sum": 53.0,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 50,
+            "mc_violation": 106,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 228,
+            "picks": {
+              "S4_4090": 156
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 105,
+            "exact": 38,
+            "regret_sum": 42.5,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 71,
+            "mc_violation": 85,
+            "mc_overpay": 28,
+            "mc_missed": 0,
+            "mc_cost_regret": 21.0,
+            "mc_false_feasible": 228,
+            "picks": {
+              "S4_3090": 156
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 105,
+            "exact": 8,
+            "regret_sum": 66.0,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 24,
+            "mc_violation": 132,
+            "mc_overpay": 22,
+            "mc_missed": 0,
+            "mc_cost_regret": 16.5,
+            "mc_false_feasible": 228,
+            "picks": {
+              "S3_4090": 156
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 105,
+            "exact": 74,
+            "regret_sum": 18.0,
+            "overpromise": 0,
+            "mc_cases": 156,
+            "mc_ok": 120,
+            "mc_violation": 36,
+            "mc_overpay": 39,
+            "mc_missed": 0,
+            "mc_cost_regret": 29.25,
+            "mc_false_feasible": 228,
+            "picks": {
+              "C_4090": 156
+            }
+          }
+        }
+      }
+    },
+    "stage1_seed903": {
+      "candidates": [
+        "S4_4090",
+        "S4_3090",
+        "S3_4090",
+        "C_4090"
+      ],
+      "result": {
+        "all": {
+          "solo only": {
+            "cells": 119,
+            "exact": 84,
+            "regret_sum": 16.4,
+            "overpromise": 112,
+            "mc_cases": 268,
+            "mc_ok": 96,
+            "mc_violation": 172,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 294,
+            "picks": {
+              "S4_4090": 210,
+              "C_4090": 58
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 98,
+            "exact": 90,
+            "regret_sum": 3.25,
+            "overpromise": 56,
+            "mc_cases": 268,
+            "mc_ok": 200,
+            "mc_violation": 43,
+            "mc_overpay": 2,
+            "mc_missed": 25,
+            "mc_cost_regret": 1.5,
+            "mc_false_feasible": 89,
+            "picks": {
+              "S4_3090": 71,
+              "S4_4090": 57,
+              "C_4090": 108,
+              "S3_4090": 7
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 98,
+            "exact": 93,
+            "regret_sum": 2.5,
+            "overpromise": 52,
+            "mc_cases": 268,
+            "mc_ok": 210,
+            "mc_violation": 32,
+            "mc_overpay": 3,
+            "mc_missed": 26,
+            "mc_cost_regret": 2.25,
+            "mc_false_feasible": 87,
+            "picks": {
+              "S4_3090": 80,
+              "S4_4090": 43,
+              "C_4090": 111,
+              "S3_4090": 8
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 98,
+            "exact": 92,
+            "regret_sum": 2.75,
+            "overpromise": 53,
+            "mc_cases": 268,
+            "mc_ok": 209,
+            "mc_violation": 34,
+            "mc_overpay": 3,
+            "mc_missed": 25,
+            "mc_cost_regret": 2.25,
+            "mc_false_feasible": 79,
+            "picks": {
+              "S4_3090": 79,
+              "S4_4090": 45,
+              "C_4090": 111,
+              "S3_4090": 8
+            }
+          },
+          "mixed seed 901": {
+            "cells": 98,
+            "exact": 93,
+            "regret_sum": 2.5,
+            "overpromise": 52,
+            "mc_cases": 268,
+            "mc_ok": 212,
+            "mc_violation": 30,
+            "mc_overpay": 3,
+            "mc_missed": 26,
+            "mc_cost_regret": 2.25,
+            "mc_false_feasible": 79,
+            "picks": {
+              "S4_3090": 81,
+              "S4_4090": 41,
+              "C_4090": 112,
+              "S3_4090": 8
+            }
+          },
+          "oracle": {
+            "cells": 90,
+            "exact": 90,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 268,
+            "mc_ok": 268,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 82,
+              "S4_4090": 38,
+              "C_4090": 148
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 90,
+            "exact": 7,
+            "regret_sum": 54.60000000000001,
+            "overpromise": 0,
+            "mc_cases": 268,
+            "mc_ok": 38,
+            "mc_violation": 230,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 884,
+            "picks": {
+              "S4_4090": 268
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 90,
+            "exact": 24,
+            "regret_sum": 41.2,
+            "overpromise": 0,
+            "mc_cases": 268,
+            "mc_ok": 104,
+            "mc_violation": 164,
+            "mc_overpay": 22,
+            "mc_missed": 0,
+            "mc_cost_regret": 16.5,
+            "mc_false_feasible": 884,
+            "picks": {
+              "S4_3090": 268
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 90,
+            "exact": 0,
+            "regret_sum": 67.10000000000001,
+            "overpromise": 0,
+            "mc_cases": 268,
+            "mc_ok": 4,
+            "mc_violation": 264,
+            "mc_overpay": 4,
+            "mc_missed": 0,
+            "mc_cost_regret": 3.0,
+            "mc_false_feasible": 884,
+            "picks": {
+              "S3_4090": 268
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 90,
+            "exact": 70,
+            "regret_sum": 10.7,
+            "overpromise": 0,
+            "mc_cases": 268,
+            "mc_ok": 224,
+            "mc_violation": 44,
+            "mc_overpay": 34,
+            "mc_missed": 0,
+            "mc_cost_regret": 25.5,
+            "mc_false_feasible": 884,
+            "picks": {
+              "C_4090": 268
+            }
+          }
+        },
+        "held_out": {
+          "solo only": {
+            "cells": 111,
+            "exact": 84,
+            "regret_sum": 20.65,
+            "overpromise": 106,
+            "mc_cases": 162,
+            "mc_ok": 50,
+            "mc_violation": 112,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 192,
+            "picks": {
+              "S4_4090": 124,
+              "C_4090": 38
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 83,
+            "exact": 64,
+            "regret_sum": 14.25,
+            "overpromise": 45,
+            "mc_cases": 162,
+            "mc_ok": 100,
+            "mc_violation": 38,
+            "mc_overpay": 0,
+            "mc_missed": 24,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 56,
+            "picks": {
+              "S4_3090": 43,
+              "S4_4090": 36,
+              "C_4090": 56,
+              "S3_4090": 3
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 82,
+            "exact": 69,
+            "regret_sum": 9.75,
+            "overpromise": 38,
+            "mc_cases": 162,
+            "mc_ok": 110,
+            "mc_violation": 27,
+            "mc_overpay": 1,
+            "mc_missed": 25,
+            "mc_cost_regret": 0.75,
+            "mc_false_feasible": 54,
+            "picks": {
+              "S4_3090": 52,
+              "C_4090": 59,
+              "S4_4090": 22,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 82,
+            "exact": 68,
+            "regret_sum": 10.5,
+            "overpromise": 35,
+            "mc_cases": 162,
+            "mc_ok": 109,
+            "mc_violation": 29,
+            "mc_overpay": 1,
+            "mc_missed": 24,
+            "mc_cost_regret": 0.75,
+            "mc_false_feasible": 46,
+            "picks": {
+              "S4_3090": 51,
+              "C_4090": 59,
+              "S4_4090": 24,
+              "S3_4090": 4
+            }
+          },
+          "mixed seed 901": {
+            "cells": 82,
+            "exact": 69,
+            "regret_sum": 9.75,
+            "overpromise": 34,
+            "mc_cases": 162,
+            "mc_ok": 112,
+            "mc_violation": 25,
+            "mc_overpay": 1,
+            "mc_missed": 25,
+            "mc_cost_regret": 0.75,
+            "mc_false_feasible": 46,
+            "picks": {
+              "S4_3090": 53,
+              "C_4090": 60,
+              "S4_4090": 20,
+              "S3_4090": 4
+            }
+          },
+          "oracle": {
+            "cells": 72,
+            "exact": 72,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 162,
+            "mc_ok": 162,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 56,
+              "C_4090": 94,
+              "S4_4090": 12
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 72,
+            "exact": 4,
+            "regret_sum": 54.6,
+            "overpromise": 0,
+            "mc_cases": 162,
+            "mc_ok": 12,
+            "mc_violation": 150,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 606,
+            "picks": {
+              "S4_4090": 162
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 72,
+            "exact": 24,
+            "regret_sum": 34.2,
+            "overpromise": 0,
+            "mc_cases": 162,
+            "mc_ok": 64,
+            "mc_violation": 98,
+            "mc_overpay": 8,
+            "mc_missed": 0,
+            "mc_cost_regret": 6.0,
+            "mc_false_feasible": 606,
+            "picks": {
+              "S4_3090": 162
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 72,
+            "exact": 0,
+            "regret_sum": 59.1,
+            "overpromise": 0,
+            "mc_cases": 162,
+            "mc_ok": 0,
+            "mc_violation": 162,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 606,
+            "picks": {
+              "S3_4090": 162
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 72,
+            "exact": 56,
+            "regret_sum": 11.7,
+            "overpromise": 0,
+            "mc_cases": 162,
+            "mc_ok": 132,
+            "mc_violation": 30,
+            "mc_overpay": 12,
+            "mc_missed": 0,
+            "mc_cost_regret": 9.0,
+            "mc_false_feasible": 606,
+            "picks": {
+              "C_4090": 162
+            }
+          }
+        },
+        "anchors": {
+          "solo only": {
+            "cells": 119,
+            "exact": 80,
+            "regret_sum": 21.5,
+            "overpromise": 111,
+            "mc_cases": 106,
+            "mc_ok": 46,
+            "mc_violation": 60,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 102,
+            "picks": {
+              "S4_4090": 86,
+              "C_4090": 20
+            }
+          },
+          "solo+k-const (2 anchors)": {
+            "cells": 95,
+            "exact": 92,
+            "regret_sum": 1.5,
+            "overpromise": 36,
+            "mc_cases": 106,
+            "mc_ok": 100,
+            "mc_violation": 5,
+            "mc_overpay": 2,
+            "mc_missed": 1,
+            "mc_cost_regret": 1.5,
+            "mc_false_feasible": 33,
+            "picks": {
+              "S4_3090": 28,
+              "S4_4090": 21,
+              "C_4090": 52,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-linear (2 anchors)": {
+            "cells": 95,
+            "exact": 92,
+            "regret_sum": 1.5,
+            "overpromise": 36,
+            "mc_cases": 106,
+            "mc_ok": 100,
+            "mc_violation": 5,
+            "mc_overpay": 2,
+            "mc_missed": 1,
+            "mc_cost_regret": 1.5,
+            "mc_false_feasible": 33,
+            "picks": {
+              "S4_3090": 28,
+              "S4_4090": 21,
+              "C_4090": 52,
+              "S3_4090": 4
+            }
+          },
+          "solo+k-measured (same alpha)": {
+            "cells": 95,
+            "exact": 92,
+            "regret_sum": 1.5,
+            "overpromise": 36,
+            "mc_cases": 106,
+            "mc_ok": 100,
+            "mc_violation": 5,
+            "mc_overpay": 2,
+            "mc_missed": 1,
+            "mc_cost_regret": 1.5,
+            "mc_false_feasible": 33,
+            "picks": {
+              "S4_3090": 28,
+              "S4_4090": 21,
+              "C_4090": 52,
+              "S3_4090": 4
+            }
+          },
+          "mixed seed 901": {
+            "cells": 95,
+            "exact": 92,
+            "regret_sum": 1.5,
+            "overpromise": 36,
+            "mc_cases": 106,
+            "mc_ok": 100,
+            "mc_violation": 5,
+            "mc_overpay": 2,
+            "mc_missed": 1,
+            "mc_cost_regret": 1.5,
+            "mc_false_feasible": 33,
+            "picks": {
+              "S4_3090": 28,
+              "S4_4090": 21,
+              "C_4090": 52,
+              "S3_4090": 4
+            }
+          },
+          "oracle": {
+            "cells": 90,
+            "exact": 90,
+            "regret_sum": 0.0,
+            "overpromise": 0,
+            "mc_cases": 106,
+            "mc_ok": 106,
+            "mc_violation": 0,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 0,
+            "picks": {
+              "S4_3090": 26,
+              "S4_4090": 26,
+              "C_4090": 54
+            }
+          },
+          "fixed:S4_4090": {
+            "cells": 90,
+            "exact": 20,
+            "regret_sum": 40.0,
+            "overpromise": 0,
+            "mc_cases": 106,
+            "mc_ok": 26,
+            "mc_violation": 80,
+            "mc_overpay": 0,
+            "mc_missed": 0,
+            "mc_cost_regret": 0.0,
+            "mc_false_feasible": 278,
+            "picks": {
+              "S4_4090": 106
+            }
+          },
+          "fixed:S4_3090": {
+            "cells": 90,
+            "exact": 26,
+            "regret_sum": 33.0,
+            "overpromise": 0,
+            "mc_cases": 106,
+            "mc_ok": 40,
+            "mc_violation": 66,
+            "mc_overpay": 14,
+            "mc_missed": 0,
+            "mc_cost_regret": 10.5,
+            "mc_false_feasible": 278,
+            "picks": {
+              "S4_3090": 106
+            }
+          },
+          "fixed:S3_4090": {
+            "cells": 90,
+            "exact": 2,
+            "regret_sum": 51.0,
+            "overpromise": 0,
+            "mc_cases": 106,
+            "mc_ok": 4,
+            "mc_violation": 102,
+            "mc_overpay": 4,
+            "mc_missed": 0,
+            "mc_cost_regret": 3.0,
+            "mc_false_feasible": 278,
+            "picks": {
+              "S3_4090": 106
+            }
+          },
+          "fixed:C_4090": {
+            "cells": 90,
+            "exact": 76,
+            "regret_sum": 7.0,
+            "overpromise": 0,
+            "mc_cases": 106,
+            "mc_ok": 92,
+            "mc_violation": 14,
+            "mc_overpay": 22,
+            "mc_missed": 0,
+            "mc_cost_regret": 16.5,
+            "mc_false_feasible": 278,
+            "picks": {
+              "C_4090": 106
+            }
+          }
+        }
+      }
+    }
+  },
+  "pooled": {
+    "all": {
+      "solo only": {
+        "cells": 242,
+        "exact": 157,
+        "regret_sum": 42.25,
+        "overpromise": 217,
+        "mc_cases": 645,
+        "mc_ok": 270,
+        "mc_violation": 367,
+        "mc_overpay": 0,
+        "mc_missed": 8,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 487
+      },
+      "solo+k-const (2 anchors)": {
+        "cells": 203,
+        "exact": 181,
+        "regret_sum": 7.3,
+        "overpromise": 79,
+        "mc_cases": 645,
+        "mc_ok": 493,
+        "mc_violation": 61,
+        "mc_overpay": 33,
+        "mc_missed": 91,
+        "mc_cost_regret": 24.75,
+        "mc_false_feasible": 110
+      },
+      "solo+k-linear (2 anchors)": {
+        "cells": 203,
+        "exact": 187,
+        "regret_sum": 5.4,
+        "overpromise": 70,
+        "mc_cases": 645,
+        "mc_ok": 510,
+        "mc_violation": 41,
+        "mc_overpay": 37,
+        "mc_missed": 94,
+        "mc_cost_regret": 27.75,
+        "mc_false_feasible": 107
+      },
+      "solo+k-measured (same alpha)": {
+        "cells": 203,
+        "exact": 185,
+        "regret_sum": 6.15,
+        "overpromise": 69,
+        "mc_cases": 645,
+        "mc_ok": 504,
+        "mc_violation": 45,
+        "mc_overpay": 37,
+        "mc_missed": 96,
+        "mc_cost_regret": 27.75,
+        "mc_false_feasible": 95
+      },
+      "mixed seed 901": {
+        "cells": 203,
+        "exact": 187,
+        "regret_sum": 5.4,
+        "overpromise": 66,
+        "mc_cases": 645,
+        "mc_ok": 510,
+        "mc_violation": 37,
+        "mc_overpay": 37,
+        "mc_missed": 98,
+        "mc_cost_regret": 27.75,
+        "mc_false_feasible": 95
+      },
+      "oracle": {
+        "cells": 195,
+        "exact": 195,
+        "regret_sum": 0.0,
+        "overpromise": 0,
+        "mc_cases": 645,
+        "mc_ok": 645,
+        "mc_violation": 0,
+        "mc_overpay": 0,
+        "mc_missed": 0,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 0
+      },
+      "fixed:S4_4090": {
+        "cells": 195,
+        "exact": 13,
+        "regret_sum": 117.85000000000002,
+        "overpromise": 0,
+        "mc_cases": 645,
+        "mc_ok": 121,
+        "mc_violation": 524,
+        "mc_overpay": 0,
+        "mc_missed": 0,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 1659
+      },
+      "fixed:S4_3090": {
+        "cells": 195,
+        "exact": 57,
+        "regret_sum": 90.6,
+        "overpromise": 0,
+        "mc_cases": 645,
+        "mc_ok": 267,
+        "mc_violation": 378,
+        "mc_overpay": 72,
+        "mc_missed": 0,
+        "mc_cost_regret": 54.0,
+        "mc_false_feasible": 1659
+      },
+      "fixed:S3_4090": {
+        "cells": 195,
+        "exact": 1,
+        "regret_sum": 145.35000000000008,
+        "overpromise": 0,
+        "mc_cases": 645,
+        "mc_ok": 44,
+        "mc_violation": 601,
+        "mc_overpay": 38,
+        "mc_missed": 0,
+        "mc_cost_regret": 28.5,
+        "mc_false_feasible": 1659
+      },
+      "fixed:C_4090": {
+        "cells": 195,
+        "exact": 139,
+        "regret_sum": 31.950000000000003,
+        "overpromise": 0,
+        "mc_cases": 645,
+        "mc_ok": 522,
+        "mc_violation": 123,
+        "mc_overpay": 100,
+        "mc_missed": 0,
+        "mc_cost_regret": 75.0,
+        "mc_false_feasible": 1659
+      }
+    },
+    "held_out": {
+      "solo only": {
+        "cells": 224,
+        "exact": 153,
+        "regret_sum": 44.449999999999996,
+        "overpromise": 205,
+        "mc_cases": 383,
+        "mc_ok": 142,
+        "mc_violation": 237,
+        "mc_overpay": 0,
+        "mc_missed": 4,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 329
+      },
+      "solo+k-const (2 anchors)": {
+        "cells": 181,
+        "exact": 129,
+        "regret_sum": 32.3,
+        "overpromise": 71,
+        "mc_cases": 383,
+        "mc_ok": 255,
+        "mc_violation": 56,
+        "mc_overpay": 6,
+        "mc_missed": 72,
+        "mc_cost_regret": 4.5,
+        "mc_false_feasible": 77
+      },
+      "solo+k-linear (2 anchors)": {
+        "cells": 180,
+        "exact": 140,
+        "regret_sum": 25.849999999999998,
+        "overpromise": 56,
+        "mc_cases": 383,
+        "mc_ok": 272,
+        "mc_violation": 36,
+        "mc_overpay": 10,
+        "mc_missed": 75,
+        "mc_cost_regret": 7.5,
+        "mc_false_feasible": 74
+      },
+      "solo+k-measured (same alpha)": {
+        "cells": 180,
+        "exact": 138,
+        "regret_sum": 27.099999999999998,
+        "overpromise": 51,
+        "mc_cases": 383,
+        "mc_ok": 266,
+        "mc_violation": 40,
+        "mc_overpay": 10,
+        "mc_missed": 77,
+        "mc_cost_regret": 7.5,
+        "mc_false_feasible": 62
+      },
+      "mixed seed 901": {
+        "cells": 180,
+        "exact": 140,
+        "regret_sum": 25.849999999999998,
+        "overpromise": 48,
+        "mc_cases": 383,
+        "mc_ok": 272,
+        "mc_violation": 32,
+        "mc_overpay": 10,
+        "mc_missed": 79,
+        "mc_cost_regret": 7.5,
+        "mc_false_feasible": 62
+      },
+      "oracle": {
+        "cells": 168,
+        "exact": 168,
+        "regret_sum": 0.0,
+        "overpromise": 0,
+        "mc_cases": 383,
+        "mc_ok": 383,
+        "mc_violation": 0,
+        "mc_overpay": 0,
+        "mc_missed": 0,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 0
+      },
+      "fixed:S4_4090": {
+        "cells": 168,
+        "exact": 9,
+        "regret_sum": 120.85000000000002,
+        "overpromise": 0,
+        "mc_cases": 383,
+        "mc_ok": 45,
+        "mc_violation": 338,
+        "mc_overpay": 0,
+        "mc_missed": 0,
+        "mc_cost_regret": 0.0,
+        "mc_false_feasible": 1153
+      },
+      "fixed:S4_3090": {
+        "cells": 168,
+        "exact": 54,
+        "regret_sum": 79.35,
+        "overpromise": 0,
+        "mc_cases": 383,
+        "mc_ok": 156,
+        "mc_violation": 227,
+        "mc_overpay": 30,
+        "mc_missed": 0,
+        "mc_cost_regret": 22.5,
+        "mc_false_feasible": 1153
+      },
+      "fixed:S3_4090": {
+        "cells": 168,
+        "exact": 1,
+        "regret_sum": 132.85000000000005,
+        "overpromise": 0,
+        "mc_cases": 383,
+        "mc_ok": 16,
+        "mc_violation": 367,
+        "mc_overpay": 12,
+        "mc_missed": 0,
+        "mc_cost_regret": 9.0,
+        "mc_false_feasible": 1153
+      },
+      "fixed:C_4090": {
+        "cells": 168,
+        "exact": 125,
+        "regret_sum": 28.95,
+        "overpromise": 0,
+        "mc_cases": 383,
+        "mc_ok": 310,
+        "mc_violation": 73,
+        "mc_overpay": 39,
+        "mc_missed": 0,
+        "mc_cost_regret": 29.25,
+        "mc_false_feasible": 1153
+      }
+    }
+  }
+}

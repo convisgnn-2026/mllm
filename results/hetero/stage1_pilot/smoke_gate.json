@@ -1,0 +1,93 @@
+{
+  "ok": true,
+  "problems": [],
+  "parity": {
+    "both": {
+      "n": 7,
+      "ok": true,
+      "fields": {
+        "plan_sha256": true,
+        "prompt_sha256": true,
+        "columns": true,
+        "denominators": true
+      }
+    },
+    "llm": {
+      "n": 3,
+      "ok": true,
+      "fields": {
+        "plan_sha256": true,
+        "prompt_sha256": true,
+        "columns": true,
+        "denominators": true
+      }
+    },
+    "dit": {
+      "n": 3,
+      "ok": true,
+      "fields": {
+        "plan_sha256": true,
+        "prompt_sha256": true,
+        "columns": true,
+        "denominators": true
+      }
+    }
+  },
+  "kv": {
+    "S4_4090": {
+      "serve_8100": 37440
+    },
+    "S3_3090": {
+      "serve_8100": 37440
+    },
+    "S4_3090": {
+      "serve_8100": 37440
+    },
+    "S3_4090": {
+      "serve_8100": 37440
+    },
+    "C_4090": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_4090_only_llm": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_4090_only_dit": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_3090": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_3090_only_llm": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_3090_only_dit": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_split": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_split_only_llm": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    },
+    "C_split_only_dit": {
+      "serve_8100": 37440,
+      "serve_8200": 37440
+    }
+  },
+  "batch_status": {
+    "status": "complete",
+    "updated_unix_s": 1792036441.6211772,
+    "total_jobs": 13,
+    "completed_jobs": 13,
+    "failures": []
+  }
+}

@@ -1,0 +1,53 @@
+== mixed_modal LLM=C DIT=4090  12:37:12
+  :8100 ready (33s)
+  :8200 ready (3s)
+  dit ready (3s)
+0, 21788 MiB
+1, 13043 MiB
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+progress: completed=100/1533 elapsed=54.5s errors=0
+progress: completed=200/1533 elapsed=91.9s errors=0
+progress: completed=300/1533 elapsed=135.5s errors=0
+progress: completed=400/1533 elapsed=174.0s errors=0
+progress: completed=500/1533 elapsed=216.9s errors=0
+progress: completed=600/1533 elapsed=255.9s errors=0
+progress: completed=700/1533 elapsed=294.0s errors=0
+progress: completed=800/1533 elapsed=336.5s errors=0
+progress: completed=900/1533 elapsed=381.0s errors=0
+progress: completed=1000/1533 elapsed=422.4s errors=0
+progress: completed=1100/1533 elapsed=469.9s errors=0
+progress: completed=1200/1533 elapsed=518.6s errors=0
+progress: completed=1300/1533 elapsed=561.9s errors=0
+progress: completed=1400/1533 elapsed=602.9s errors=0
+progress: completed=1500/1533 elapsed=646.6s errors=0
+{
+  "plan_sha256": "34493e129d78c912aed70472a2e7dfffcf8a7e7c1a494557e030fd4ca7a1416d",
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "only": "both",
+  "start_unix_s": 1791862685.7074075,
+  "warmup_s": 60,
+  "duration_s": 600,
+  "drain_timeout_s": 300.0,
+  "requests": 1533,
+  "prompt_sha256": "99a5e6b066f56bf3082322c7a7e418946e1e0b69dd4db0dc098c915902620e50",
+  "errors": 0,
+  "measured": {
+    "llm": {
+      "n": 1230,
+      "errors": 0,
+      "attainment": {
+        "A": 0.6073170731707317,
+        "B": 0.8455284552845529
+      }
+    },
+    "dit": {
+      "n": 188,
+      "errors": 0,
+      "attainment": {
+        "A": 1.0,
+        "B": 0.6968085106382979
+      }
+    }
+  }
+}
+cleanup

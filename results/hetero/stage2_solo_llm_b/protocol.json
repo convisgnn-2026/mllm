@@ -1,0 +1,325 @@
+{
+  "stage": "stage2_resident_solo",
+  "purpose": "resident-solo profiles at refined alphas for the two interfering winners (S4_4090, C_4090), to fit k(alpha) from two anchors and test extrapolation",
+  "replay": "llm",
+  "parent_protocol_sha256": "981282a73e6fd6254562efafb1875a7d9e93fffa59d1867d7b3361a34ad44af0",
+  "seed": 901,
+  "candidates": [
+    "S4_4090",
+    "C_4090"
+  ],
+  "alphas": [
+    0.6,
+    0.75,
+    0.85,
+    1.1,
+    1.25,
+    1.4,
+    1.5
+  ],
+  "lambda0": {
+    "llm": 2.0,
+    "dit": 0.3
+  },
+  "warmup_s": 60.0,
+  "duration_s": 600.0,
+  "drain_timeout_s": 300.0,
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+  "dit": {
+    "size": 512,
+    "steps": 28,
+    "text_encoder_3": false
+  },
+  "kv_bytes": 4294967296,
+  "kv_tokens_expected": 37440,
+  "slo_grid": {
+    "ttft_s": [
+      0.3,
+      0.5,
+      1.0,
+      2.0
+    ],
+    "tpot_s": [
+      0.012,
+      0.02,
+      0.03,
+      0.05
+    ],
+    "dit_e2e_s": [
+      3.0,
+      5.0,
+      10.0,
+      20.0
+    ],
+    "target": [
+      0.9,
+      0.95,
+      0.99
+    ]
+  },
+  "definitions": {
+    "ttft": "first content chunk - planned arrival (send lag included, recorded separately)",
+    "tpot": "(end - first) / (completion_tokens - 1); undefined when completion_tokens == 1 (no inter-token gap): only TTFT applies, count reported",
+    "dit_e2e": "image completion - planned arrival",
+    "denominator": "all measured requests incl. errors, drain timeouts, unfinished",
+    "cell_pass": "both services >= target attainment; alpha_max = largest tested passing alpha, full pass/fail list reported, non-monotone flagged",
+    "stability": "3 x 200 s windows: planned arrivals, ok completions, failed ends, in-flight at window end; backlog at observation end; drain usage; timeouts kept as valid results separate from infra failures"
+  },
+  "env": {
+    "MODEL": "meta-llama/Llama-3.2-3B-Instruct",
+    "DMODEL": "stabilityai/stable-diffusion-3.5-medium",
+    "GPU_UTIL": "0.5",
+    "SIZE": "512",
+    "STEPS": "28",
+    "KV_BYTES": "4294967296",
+    "DRAIN_TIMEOUT": "300",
+    "REPLAY_ONLY": "llm"
+  },
+  "order_rule": "alpha ascending; candidates shuffled within alpha with random.Random(1101+i)",
+  "plans": [
+    {
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed901",
+      "path": "results/hetero/stage1_plans/alpha0.6_seed901.json",
+      "plan_sha256": "5df28016428a55a3f5a31cc67035351c10dbb6919aec6e2854eefaff34e68dbb",
+      "rates": {
+        "llm": 1.2,
+        "dit": 0.18
+      },
+      "replay": "llm",
+      "n_measured": 721,
+      "prompt_sha256": "e66ab7fba1fe79b69b1c178c5f905eb88d4cb88a3712b5e4ed375b00d241f199"
+    },
+    {
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed901",
+      "path": "results/hetero/stage1_plans/alpha0.75_seed901.json",
+      "plan_sha256": "655e0ecaf82a619f65107a4175b0a80c57622572200b78943547b0753631ce57",
+      "rates": {
+        "llm": 1.5,
+        "dit": 0.22499999999999998
+      },
+      "replay": "llm",
+      "n_measured": 884,
+      "prompt_sha256": "d9756ade0f163cfcaaf80e78685190bfff3890aff5857ec5fe24046d92215da4"
+    },
+    {
+      "alpha": 0.85,
+      "plan_stem": "alpha0.85_seed901",
+      "path": "results/hetero/stage1_plans/alpha0.85_seed901.json",
+      "plan_sha256": "fba4dcdf9eb4a848bd5b61bbb97adc30e16f93f8419c71213731a2e69fa5bdf2",
+      "rates": {
+        "llm": 1.7,
+        "dit": 0.255
+      },
+      "replay": "llm",
+      "n_measured": 986,
+      "prompt_sha256": "5b1fabb62df5fc5c16d89b0b4271c71ac44fb30444b0006f89eb9b4fcd30a8b1"
+    },
+    {
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed901",
+      "path": "results/hetero/stage1_plans/alpha1.1_seed901.json",
+      "plan_sha256": "c4d5adde4dcf43f0f6e50725de9ae68f1552805041cf180c86c0cfd72db60b4b",
+      "rates": {
+        "llm": 2.2,
+        "dit": 0.33
+      },
+      "replay": "llm",
+      "n_measured": 1261,
+      "prompt_sha256": "cce513140c5e12380c8e8c23216df8259e87acd8e02d27615cec8d70812efafc"
+    },
+    {
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed901",
+      "path": "results/hetero/stage1_plans/alpha1.25_seed901.json",
+      "plan_sha256": "4aab7695230c155b6e27bfe8e9b5fd00491dc2a4339424a2ae35e8fad7f3d97c",
+      "rates": {
+        "llm": 2.5,
+        "dit": 0.375
+      },
+      "replay": "llm",
+      "n_measured": 1431,
+      "prompt_sha256": "d7b12d6693d57ca0957d872225f7d6f06bcbaa4222611beeb61491e9939b6070"
+    },
+    {
+      "alpha": 1.4,
+      "plan_stem": "alpha1.4_seed901",
+      "path": "results/hetero/stage1_plans/alpha1.4_seed901.json",
+      "plan_sha256": "70718544d963d761e1768ff9f7a7ce9d7810c54bc2b76c35d83f7aca022eea76",
+      "rates": {
+        "llm": 2.8,
+        "dit": 0.42
+      },
+      "replay": "llm",
+      "n_measured": 1635,
+      "prompt_sha256": "42f7e09036aaaba24020e94c5675ab986a4edc95a0013c06c62292758ce664f7"
+    },
+    {
+      "alpha": 1.5,
+      "plan_stem": "alpha1.5_seed901",
+      "path": "results/hetero/stage1_plans/alpha1.5_seed901.json",
+      "plan_sha256": "6266ddbda4b6496af300002374e9417f48a69b92b346375e588b49f0952a19bd",
+      "rates": {
+        "llm": 3.0,
+        "dit": 0.44999999999999996
+      },
+      "replay": "llm",
+      "n_measured": 1749,
+      "prompt_sha256": "e9bb0c334301626a485c2212c3a38715383416b907c046c4f987005004375668"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "S4_4090__alpha0.6_seed901__only_llm",
+      "candidate": "S4_4090",
+      "alpha": 0.6,
+      "plan_stem": "alpha0.6_seed901",
+      "plan": "results/hetero/stage1_plans/alpha0.6_seed901.json",
+      "plan_sha256": "5df28016428a55a3f5a31cc67035351c10dbb6919aec6e2854eefaff34e68dbb",
+      "prompt_sha256": "e66ab7fba1fe79b69b1c178c5f905eb88d4cb88a3712b5e4ed375b00d241f199",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha0.75_seed901__only_llm",
+      "candidate": "S4_4090",
+      "alpha": 0.75,
+      "plan_stem": "alpha0.75_seed901",
+      "plan": "results/hetero/stage1_plans/alpha0.75_seed901.json",
+      "plan_sha256": "655e0ecaf82a619f65107a4175b0a80c57622572200b78943547b0753631ce57",
+      "prompt_sha256": "d9756ade0f163cfcaaf80e78685190bfff3890aff5857ec5fe24046d92215da4",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha0.85_seed901__only_llm",
+      "candidate": "S4_4090",
+      "alpha": 0.85,
+      "plan_stem": "alpha0.85_seed901",
+      "plan": "results/hetero/stage1_plans/alpha0.85_seed901.json",
+      "plan_sha256": "fba4dcdf9eb4a848bd5b61bbb97adc30e16f93f8419c71213731a2e69fa5bdf2",
+      "prompt_sha256": "5b1fabb62df5fc5c16d89b0b4271c71ac44fb30444b0006f89eb9b4fcd30a8b1",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.1_seed901__only_llm",
+      "candidate": "C_4090",
+      "alpha": 1.1,
+      "plan_stem": "alpha1.1_seed901",
+      "plan": "results/hetero/stage1_plans/alpha1.1_seed901.json",
+      "plan_sha256": "c4d5adde4dcf43f0f6e50725de9ae68f1552805041cf180c86c0cfd72db60b4b",
+      "prompt_sha256": "cce513140c5e12380c8e8c23216df8259e87acd8e02d27615cec8d70812efafc",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.25_seed901__only_llm",
+      "candidate": "C_4090",
+      "alpha": 1.25,
+      "plan_stem": "alpha1.25_seed901",
+      "plan": "results/hetero/stage1_plans/alpha1.25_seed901.json",
+      "plan_sha256": "4aab7695230c155b6e27bfe8e9b5fd00491dc2a4339424a2ae35e8fad7f3d97c",
+      "prompt_sha256": "d7b12d6693d57ca0957d872225f7d6f06bcbaa4222611beeb61491e9939b6070",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.4_seed901__only_llm",
+      "candidate": "C_4090",
+      "alpha": 1.4,
+      "plan_stem": "alpha1.4_seed901",
+      "plan": "results/hetero/stage1_plans/alpha1.4_seed901.json",
+      "plan_sha256": "70718544d963d761e1768ff9f7a7ce9d7810c54bc2b76c35d83f7aca022eea76",
+      "prompt_sha256": "42f7e09036aaaba24020e94c5675ab986a4edc95a0013c06c62292758ce664f7",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "C_4090__alpha1.5_seed901__only_llm",
+      "candidate": "C_4090",
+      "alpha": 1.5,
+      "plan_stem": "alpha1.5_seed901",
+      "plan": "results/hetero/stage1_plans/alpha1.5_seed901.json",
+      "plan_sha256": "6266ddbda4b6496af300002374e9417f48a69b92b346375e588b49f0952a19bd",
+      "prompt_sha256": "e9bb0c334301626a485c2212c3a38715383416b907c046c4f987005004375668",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100",
+        "serve_8200"
+      ],
+      "cards": [
+        "3090",
+        "4090"
+      ]
+    },
+    {
+      "run_id": "S4_4090__alpha1.5_seed901__only_llm",
+      "candidate": "S4_4090",
+      "alpha": 1.5,
+      "plan_stem": "alpha1.5_seed901",
+      "plan": "results/hetero/stage1_plans/alpha1.5_seed901.json",
+      "plan_sha256": "6266ddbda4b6496af300002374e9417f48a69b92b346375e588b49f0952a19bd",
+      "prompt_sha256": "e9bb0c334301626a485c2212c3a38715383416b907c046c4f987005004375668",
+      "replay": "llm",
+      "expected_servers": [
+        "serve_8100"
+      ],
+      "cards": [
+        "4090"
+      ]
+    }
+  ],
+  "harness": {
+    "run_mixed_modal_sh": "9231cc3fa4c1a1708cb838c2052efb72bc275e229d34964394790e64c55f6771",
+    "controlled_mixed_py": "a3577e54c150603a9f9b24e4e57c9fa446f3c00214228807bfbaf53dd1cd11f0",
+    "run_stage1_pilot_py": "b6ea451796d00b748a2480be3eccc098bd2805b85da9a6c690d160c165d42f49",
+    "stage1_report_py": "772e51f5234428724948fbb6f711c3589455ef8724833b7dcb73ec28e2aeed89",
+    "dit_server_py": "8e4fb1542dad1a83ed622d195c28690263c3f35efb820bd030deaee1f6248aa9",
+    "toy_proxy_server_py": "0ba88d1e77d0bd5f4f2f6e69f1bf6e29fbc258e64dbed695c0d968ff14720fd8",
+    "rr_proxy_server_py": "baf7f15219d2eb2f58dc8c60c7e6585780b546086bea5e08a402c0166a71b1ba",
+    "loadgen_py": "65827308506db9b7a2bd5f2b9e14bed54307365bf43562504822dc75666a837c",
+    "run_stage2_solo_py": "d392f0819b10f4b6e213a6ce83e7044aaea1af2ea04f85d1a111d423512edc99"
+  },
+  "protocol_sha256": "cd8c20a8fbb50fde4762e5f13404f8f86cbcc429dda1fbf84e24499f5f5e3f30",
+  "created_unix_s": 1793576348.2168694,
+  "git_head": "8403aee62b9fbf3d82fc86c704b3f51d4356b5af"
+}

@@ -1,0 +1,6495 @@
+{
+  "version": 1,
+  "seed": 903,
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "warmup_s": 60.0,
+  "duration_s": 600.0,
+  "trace_sha256": "54e9a6d2a4bd06ba1e060304b900abbc74cbea53de96506e60fe5bb4f2277fb6",
+  "trace_offset": 5873,
+  "rates": {
+    "llm": 1.0,
+    "dit": 0.15
+  },
+  "requests": [
+    {
+      "kind": "llm",
+      "idx": 0,
+      "at_s": 0.043041807882500005,
+      "measured": false,
+      "in_len": 2297,
+      "out_len": 34
+    },
+    {
+      "kind": "llm",
+      "idx": 1,
+      "at_s": 1.1023926880604087,
+      "measured": false,
+      "in_len": 528,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 2,
+      "at_s": 1.4454161738605302,
+      "measured": false,
+      "in_len": 2655,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 3,
+      "at_s": 1.649338088770122,
+      "measured": false,
+      "in_len": 1371,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 4,
+      "at_s": 1.8646168179214584,
+      "measured": false,
+      "in_len": 615,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 0,
+      "at_s": 2.0519235622665897,
+      "measured": false,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000000
+    },
+    {
+      "kind": "dit",
+      "idx": 1,
+      "at_s": 2.1384044072410973,
+      "measured": false,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000001
+    },
+    {
+      "kind": "llm",
+      "idx": 5,
+      "at_s": 2.3762913261100707,
+      "measured": false,
+      "in_len": 892,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 6,
+      "at_s": 2.4617926783583637,
+      "measured": false,
+      "in_len": 2940,
+      "out_len": 27
+    },
+    {
+      "kind": "llm",
+      "idx": 7,
+      "at_s": 2.74848652679397,
+      "measured": false,
+      "in_len": 1528,
+      "out_len": 13
+    },
+    {
+      "kind": "dit",
+      "idx": 2,
+      "at_s": 2.976658238892206,
+      "measured": false,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000002
+    },
+    {
+      "kind": "llm",
+      "idx": 8,
+      "at_s": 3.0392407519546056,
+      "measured": false,
+      "in_len": 23,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 9,
+      "at_s": 5.2481796610786065,
+      "measured": false,
+      "in_len": 2942,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 10,
+      "at_s": 5.704125474815357,
+      "measured": false,
+      "in_len": 752,
+      "out_len": 13
+    },
+    {
+      "kind": "dit",
+      "idx": 3,
+      "at_s": 5.756846065325212,
+      "measured": false,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000003
+    },
+    {
+      "kind": "llm",
+      "idx": 11,
+      "at_s": 5.7984666026934235,
+      "measured": false,
+      "in_len": 1728,
+      "out_len": 88
+    },
+    {
+      "kind": "llm",
+      "idx": 12,
+      "at_s": 7.144466933820432,
+      "measured": false,
+      "in_len": 1528,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 13,
+      "at_s": 7.502217392654722,
+      "measured": false,
+      "in_len": 616,
+      "out_len": 103
+    },
+    {
+      "kind": "dit",
+      "idx": 4,
+      "at_s": 7.56345967594567,
+      "measured": false,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000004
+    },
+    {
+      "kind": "llm",
+      "idx": 14,
+      "at_s": 11.741878732220972,
+      "measured": false,
+      "in_len": 2919,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 15,
+      "at_s": 11.805773213112923,
+      "measured": false,
+      "in_len": 1379,
+      "out_len": 9
+    },
+    {
+      "kind": "dit",
+      "idx": 5,
+      "at_s": 12.377779611449528,
+      "measured": false,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000005
+    },
+    {
+      "kind": "llm",
+      "idx": 16,
+      "at_s": 13.749254964232017,
+      "measured": false,
+      "in_len": 751,
+      "out_len": 72
+    },
+    {
+      "kind": "llm",
+      "idx": 17,
+      "at_s": 13.829194669341621,
+      "measured": false,
+      "in_len": 1732,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 18,
+      "at_s": 15.429740846922163,
+      "measured": false,
+      "in_len": 616,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 19,
+      "at_s": 16.064216363352298,
+      "measured": false,
+      "in_len": 1448,
+      "out_len": 55
+    },
+    {
+      "kind": "dit",
+      "idx": 6,
+      "at_s": 17.012069395991276,
+      "measured": false,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000006
+    },
+    {
+      "kind": "llm",
+      "idx": 20,
+      "at_s": 17.103899989799523,
+      "measured": false,
+      "in_len": 1393,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 21,
+      "at_s": 19.264895482604427,
+      "measured": false,
+      "in_len": 533,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 7,
+      "at_s": 20.392941642391452,
+      "measured": false,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000007
+    },
+    {
+      "kind": "llm",
+      "idx": 22,
+      "at_s": 20.5556263382388,
+      "measured": false,
+      "in_len": 2294,
+      "out_len": 13
+    },
+    {
+      "kind": "dit",
+      "idx": 8,
+      "at_s": 21.07260683007862,
+      "measured": false,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000008
+    },
+    {
+      "kind": "llm",
+      "idx": 23,
+      "at_s": 21.995569663221662,
+      "measured": false,
+      "in_len": 1885,
+      "out_len": 307
+    },
+    {
+      "kind": "llm",
+      "idx": 24,
+      "at_s": 24.8028397307961,
+      "measured": false,
+      "in_len": 1545,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 25,
+      "at_s": 27.826342415938402,
+      "measured": false,
+      "in_len": 284,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 26,
+      "at_s": 28.247919850168348,
+      "measured": false,
+      "in_len": 7436,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 27,
+      "at_s": 28.49156843686985,
+      "measured": false,
+      "in_len": 7436,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 28,
+      "at_s": 29.299991927785193,
+      "measured": false,
+      "in_len": 2945,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 29,
+      "at_s": 30.6830452226728,
+      "measured": false,
+      "in_len": 1545,
+      "out_len": 24
+    },
+    {
+      "kind": "llm",
+      "idx": 30,
+      "at_s": 32.9176072279124,
+      "measured": false,
+      "in_len": 978,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 31,
+      "at_s": 33.19122284962234,
+      "measured": false,
+      "in_len": 1062,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 32,
+      "at_s": 33.355790242054546,
+      "measured": false,
+      "in_len": 1735,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 33,
+      "at_s": 36.20601918162588,
+      "measured": false,
+      "in_len": 2919,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 34,
+      "at_s": 36.70709639648137,
+      "measured": false,
+      "in_len": 1028,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 35,
+      "at_s": 37.03347702141185,
+      "measured": false,
+      "in_len": 2264,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 36,
+      "at_s": 37.40638801134556,
+      "measured": false,
+      "in_len": 2295,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 37,
+      "at_s": 38.4969521407242,
+      "measured": false,
+      "in_len": 978,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 38,
+      "at_s": 39.04367478986015,
+      "measured": false,
+      "in_len": 7436,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 39,
+      "at_s": 39.461343438529845,
+      "measured": false,
+      "in_len": 1886,
+      "out_len": 104
+    },
+    {
+      "kind": "llm",
+      "idx": 40,
+      "at_s": 41.19413175320124,
+      "measured": false,
+      "in_len": 7435,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 41,
+      "at_s": 41.235412228406595,
+      "measured": false,
+      "in_len": 290,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 42,
+      "at_s": 41.48046390958877,
+      "measured": false,
+      "in_len": 7436,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 43,
+      "at_s": 44.54843876557855,
+      "measured": false,
+      "in_len": 1385,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 44,
+      "at_s": 44.57383472602756,
+      "measured": false,
+      "in_len": 1062,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 45,
+      "at_s": 45.357596875822125,
+      "measured": false,
+      "in_len": 621,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 46,
+      "at_s": 45.42941634145533,
+      "measured": false,
+      "in_len": 2919,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 47,
+      "at_s": 46.47006331801339,
+      "measured": false,
+      "in_len": 2951,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 48,
+      "at_s": 47.80417943803202,
+      "measured": false,
+      "in_len": 1742,
+      "out_len": 87
+    },
+    {
+      "kind": "dit",
+      "idx": 9,
+      "at_s": 48.740899847801586,
+      "measured": false,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000009
+    },
+    {
+      "kind": "dit",
+      "idx": 10,
+      "at_s": 50.62599822831917,
+      "measured": false,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000010
+    },
+    {
+      "kind": "llm",
+      "idx": 49,
+      "at_s": 51.287355459555755,
+      "measured": false,
+      "in_len": 7098,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 50,
+      "at_s": 51.92143952958726,
+      "measured": false,
+      "in_len": 2661,
+      "out_len": 8
+    },
+    {
+      "kind": "dit",
+      "idx": 11,
+      "at_s": 52.10128361036168,
+      "measured": false,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000011
+    },
+    {
+      "kind": "llm",
+      "idx": 51,
+      "at_s": 53.24561541005299,
+      "measured": false,
+      "in_len": 980,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 52,
+      "at_s": 54.232516994246204,
+      "measured": false,
+      "in_len": 1385,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 53,
+      "at_s": 55.61038973472301,
+      "measured": false,
+      "in_len": 80,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 54,
+      "at_s": 56.149932676794016,
+      "measured": false,
+      "in_len": 624,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 55,
+      "at_s": 56.78582503870675,
+      "measured": false,
+      "in_len": 2358,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 56,
+      "at_s": 57.80780673197207,
+      "measured": false,
+      "in_len": 2960,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 57,
+      "at_s": 58.84538491573929,
+      "measured": false,
+      "in_len": 764,
+      "out_len": 14
+    },
+    {
+      "kind": "dit",
+      "idx": 12,
+      "at_s": 61.77765702948929,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000012
+    },
+    {
+      "kind": "llm",
+      "idx": 58,
+      "at_s": 62.22074567704766,
+      "measured": true,
+      "in_len": 646,
+      "out_len": 30
+    },
+    {
+      "kind": "dit",
+      "idx": 13,
+      "at_s": 62.70898612673348,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000013
+    },
+    {
+      "kind": "llm",
+      "idx": 59,
+      "at_s": 65.26946440725978,
+      "measured": true,
+      "in_len": 1889,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 60,
+      "at_s": 68.00635699360033,
+      "measured": true,
+      "in_len": 1088,
+      "out_len": 28
+    },
+    {
+      "kind": "llm",
+      "idx": 61,
+      "at_s": 69.89960095462696,
+      "measured": true,
+      "in_len": 1603,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 62,
+      "at_s": 70.57751874686201,
+      "measured": true,
+      "in_len": 2707,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 63,
+      "at_s": 71.94275991268341,
+      "measured": true,
+      "in_len": 898,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 14,
+      "at_s": 73.05657535100006,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000014
+    },
+    {
+      "kind": "llm",
+      "idx": 64,
+      "at_s": 74.99915733765854,
+      "measured": true,
+      "in_len": 305,
+      "out_len": 20
+    },
+    {
+      "kind": "dit",
+      "idx": 15,
+      "at_s": 76.34545252312523,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000015
+    },
+    {
+      "kind": "llm",
+      "idx": 65,
+      "at_s": 76.46570777551958,
+      "measured": true,
+      "in_len": 1056,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 66,
+      "at_s": 76.50909146119972,
+      "measured": true,
+      "in_len": 898,
+      "out_len": 32
+    },
+    {
+      "kind": "llm",
+      "idx": 67,
+      "at_s": 76.71603258199761,
+      "measured": true,
+      "in_len": 303,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 68,
+      "at_s": 76.74961516628393,
+      "measured": true,
+      "in_len": 7105,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 69,
+      "at_s": 77.04038765280325,
+      "measured": true,
+      "in_len": 624,
+      "out_len": 27
+    },
+    {
+      "kind": "dit",
+      "idx": 16,
+      "at_s": 78.42315099680597,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000016
+    },
+    {
+      "kind": "llm",
+      "idx": 70,
+      "at_s": 78.45254926141874,
+      "measured": true,
+      "in_len": 725,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 71,
+      "at_s": 78.78046270817319,
+      "measured": true,
+      "in_len": 3592,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 72,
+      "at_s": 78.91215641014483,
+      "measured": true,
+      "in_len": 313,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 73,
+      "at_s": 79.55937235759079,
+      "measured": true,
+      "in_len": 979,
+      "out_len": 151
+    },
+    {
+      "kind": "llm",
+      "idx": 74,
+      "at_s": 81.39902830274768,
+      "measured": true,
+      "in_len": 1634,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 75,
+      "at_s": 81.47295325967342,
+      "measured": true,
+      "in_len": 1732,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 76,
+      "at_s": 83.1444470707095,
+      "measured": true,
+      "in_len": 7432,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 77,
+      "at_s": 83.21208166709621,
+      "measured": true,
+      "in_len": 1686,
+      "out_len": 28
+    },
+    {
+      "kind": "llm",
+      "idx": 78,
+      "at_s": 83.73771428272727,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 79,
+      "at_s": 85.43894329670533,
+      "measured": true,
+      "in_len": 2285,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 80,
+      "at_s": 86.49452492364821,
+      "measured": true,
+      "in_len": 7107,
+      "out_len": 18
+    },
+    {
+      "kind": "dit",
+      "idx": 17,
+      "at_s": 86.80809590114316,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000017
+    },
+    {
+      "kind": "llm",
+      "idx": 81,
+      "at_s": 89.02252552635336,
+      "measured": true,
+      "in_len": 1733,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 82,
+      "at_s": 90.00679827750561,
+      "measured": true,
+      "in_len": 1634,
+      "out_len": 118
+    },
+    {
+      "kind": "llm",
+      "idx": 83,
+      "at_s": 90.29824299212673,
+      "measured": true,
+      "in_len": 900,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 84,
+      "at_s": 90.47444184081272,
+      "measured": true,
+      "in_len": 900,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 85,
+      "at_s": 91.5984533071886,
+      "measured": true,
+      "in_len": 2220,
+      "out_len": 51
+    },
+    {
+      "kind": "llm",
+      "idx": 86,
+      "at_s": 91.91249124962366,
+      "measured": true,
+      "in_len": 2942,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 87,
+      "at_s": 96.26574496233088,
+      "measured": true,
+      "in_len": 3968,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 88,
+      "at_s": 96.7672896359246,
+      "measured": true,
+      "in_len": 82,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 89,
+      "at_s": 96.79191028654942,
+      "measured": true,
+      "in_len": 311,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 90,
+      "at_s": 99.43596828757752,
+      "measured": true,
+      "in_len": 903,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 91,
+      "at_s": 99.90530924017268,
+      "measured": true,
+      "in_len": 927,
+      "out_len": 58
+    },
+    {
+      "kind": "llm",
+      "idx": 92,
+      "at_s": 101.27074775238628,
+      "measured": true,
+      "in_len": 157,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 93,
+      "at_s": 101.31428008949848,
+      "measured": true,
+      "in_len": 31,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 94,
+      "at_s": 102.17234084642739,
+      "measured": true,
+      "in_len": 3625,
+      "out_len": 14
+    },
+    {
+      "kind": "dit",
+      "idx": 18,
+      "at_s": 103.92467962851501,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000018
+    },
+    {
+      "kind": "llm",
+      "idx": 95,
+      "at_s": 104.34181028445623,
+      "measured": true,
+      "in_len": 2711,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 19,
+      "at_s": 104.89600741308892,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000019
+    },
+    {
+      "kind": "llm",
+      "idx": 96,
+      "at_s": 105.16156672194356,
+      "measured": true,
+      "in_len": 30,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 97,
+      "at_s": 105.86476716978363,
+      "measured": true,
+      "in_len": 311,
+      "out_len": 91
+    },
+    {
+      "kind": "llm",
+      "idx": 98,
+      "at_s": 106.83392336937338,
+      "measured": true,
+      "in_len": 2227,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 99,
+      "at_s": 108.92290450614027,
+      "measured": true,
+      "in_len": 3220,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 100,
+      "at_s": 109.15634100980927,
+      "measured": true,
+      "in_len": 179,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 101,
+      "at_s": 109.32928735651129,
+      "measured": true,
+      "in_len": 2669,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 102,
+      "at_s": 109.35192702456808,
+      "measured": true,
+      "in_len": 82,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 20,
+      "at_s": 110.52939812174262,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000020
+    },
+    {
+      "kind": "llm",
+      "idx": 103,
+      "at_s": 111.47052340399918,
+      "measured": true,
+      "in_len": 3214,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 104,
+      "at_s": 112.2479315415529,
+      "measured": true,
+      "in_len": 900,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 105,
+      "at_s": 112.67501219642955,
+      "measured": true,
+      "in_len": 1569,
+      "out_len": 59
+    },
+    {
+      "kind": "llm",
+      "idx": 106,
+      "at_s": 114.6177387844895,
+      "measured": true,
+      "in_len": 2669,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 107,
+      "at_s": 115.29385795424095,
+      "measured": true,
+      "in_len": 652,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 108,
+      "at_s": 116.80760774266166,
+      "measured": true,
+      "in_len": 7113,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 109,
+      "at_s": 116.87060682095732,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 31
+    },
+    {
+      "kind": "llm",
+      "idx": 110,
+      "at_s": 119.80823093126747,
+      "measured": true,
+      "in_len": 179,
+      "out_len": 12
+    },
+    {
+      "kind": "dit",
+      "idx": 21,
+      "at_s": 120.76114595262237,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000021
+    },
+    {
+      "kind": "llm",
+      "idx": 111,
+      "at_s": 120.87742540890854,
+      "measured": true,
+      "in_len": 2670,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 22,
+      "at_s": 121.24269818413521,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000022
+    },
+    {
+      "kind": "llm",
+      "idx": 112,
+      "at_s": 121.87890911147994,
+      "measured": true,
+      "in_len": 985,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 113,
+      "at_s": 121.96838715962203,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 114,
+      "at_s": 122.7580323381675,
+      "measured": true,
+      "in_len": 1136,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 115,
+      "at_s": 122.86723459754342,
+      "measured": true,
+      "in_len": 2541,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 116,
+      "at_s": 123.19202076270156,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 117,
+      "at_s": 123.48951899482277,
+      "measured": true,
+      "in_len": 1138,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 118,
+      "at_s": 124.56215324250503,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 119,
+      "at_s": 124.84670160982965,
+      "measured": true,
+      "in_len": 1988,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 120,
+      "at_s": 124.9308975539226,
+      "measured": true,
+      "in_len": 7425,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 121,
+      "at_s": 127.08715406984946,
+      "measured": true,
+      "in_len": 1138,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 122,
+      "at_s": 127.9162693756239,
+      "measured": true,
+      "in_len": 1628,
+      "out_len": 86
+    },
+    {
+      "kind": "llm",
+      "idx": 123,
+      "at_s": 128.1013295429985,
+      "measured": true,
+      "in_len": 2496,
+      "out_len": 23
+    },
+    {
+      "kind": "llm",
+      "idx": 124,
+      "at_s": 128.3909708981739,
+      "measured": true,
+      "in_len": 2676,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 125,
+      "at_s": 129.11198519822975,
+      "measured": true,
+      "in_len": 1140,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 126,
+      "at_s": 130.36002203683225,
+      "measured": true,
+      "in_len": 3598,
+      "out_len": 337
+    },
+    {
+      "kind": "llm",
+      "idx": 127,
+      "at_s": 131.74257555775557,
+      "measured": true,
+      "in_len": 7425,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 128,
+      "at_s": 131.75603284524053,
+      "measured": true,
+      "in_len": 2960,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 129,
+      "at_s": 132.28947400737317,
+      "measured": true,
+      "in_len": 2155,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 130,
+      "at_s": 132.62435613976146,
+      "measured": true,
+      "in_len": 3638,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 131,
+      "at_s": 132.77878575133624,
+      "measured": true,
+      "in_len": 1990,
+      "out_len": 8
+    },
+    {
+      "kind": "dit",
+      "idx": 23,
+      "at_s": 134.3474803796073,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000023
+    },
+    {
+      "kind": "dit",
+      "idx": 24,
+      "at_s": 135.2286027647507,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000024
+    },
+    {
+      "kind": "llm",
+      "idx": 132,
+      "at_s": 136.05715927389426,
+      "measured": true,
+      "in_len": 2798,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 133,
+      "at_s": 136.3102808446549,
+      "measured": true,
+      "in_len": 2227,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 134,
+      "at_s": 136.3436902575729,
+      "measured": true,
+      "in_len": 985,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 135,
+      "at_s": 137.8234960639755,
+      "measured": true,
+      "in_len": 2498,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 136,
+      "at_s": 137.89124518928838,
+      "measured": true,
+      "in_len": 1625,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 137,
+      "at_s": 138.2377271937729,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 127
+    },
+    {
+      "kind": "llm",
+      "idx": 138,
+      "at_s": 138.3973210861523,
+      "measured": true,
+      "in_len": 1624,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 139,
+      "at_s": 140.61436455100372,
+      "measured": true,
+      "in_len": 1625,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 140,
+      "at_s": 141.91958817570764,
+      "measured": true,
+      "in_len": 2962,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 141,
+      "at_s": 142.75380977261779,
+      "measured": true,
+      "in_len": 5381,
+      "out_len": 11
+    },
+    {
+      "kind": "dit",
+      "idx": 25,
+      "at_s": 144.66757722204173,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000025
+    },
+    {
+      "kind": "llm",
+      "idx": 142,
+      "at_s": 145.24849847362657,
+      "measured": true,
+      "in_len": 2676,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 143,
+      "at_s": 147.97062268826272,
+      "measured": true,
+      "in_len": 242,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 144,
+      "at_s": 148.12465367160294,
+      "measured": true,
+      "in_len": 2501,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 145,
+      "at_s": 148.86887549948204,
+      "measured": true,
+      "in_len": 3653,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 146,
+      "at_s": 150.36189383661528,
+      "measured": true,
+      "in_len": 7430,
+      "out_len": 37
+    },
+    {
+      "kind": "dit",
+      "idx": 26,
+      "at_s": 150.58564836829493,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000026
+    },
+    {
+      "kind": "llm",
+      "idx": 147,
+      "at_s": 151.5286365492964,
+      "measured": true,
+      "in_len": 98,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 148,
+      "at_s": 151.7196207726479,
+      "measured": true,
+      "in_len": 242,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 149,
+      "at_s": 152.06782737721875,
+      "measured": true,
+      "in_len": 118,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 150,
+      "at_s": 152.08769649196438,
+      "measured": true,
+      "in_len": 2504,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 151,
+      "at_s": 152.59813915626734,
+      "measured": true,
+      "in_len": 2676,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 152,
+      "at_s": 152.79141595599114,
+      "measured": true,
+      "in_len": 1732,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 153,
+      "at_s": 153.27041379807673,
+      "measured": true,
+      "in_len": 2505,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 154,
+      "at_s": 153.85171923282408,
+      "measured": true,
+      "in_len": 2756,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 155,
+      "at_s": 154.12901102816494,
+      "measured": true,
+      "in_len": 536,
+      "out_len": 62
+    },
+    {
+      "kind": "dit",
+      "idx": 27,
+      "at_s": 155.5883084093541,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000027
+    },
+    {
+      "kind": "llm",
+      "idx": 156,
+      "at_s": 155.65651432006396,
+      "measured": true,
+      "in_len": 407,
+      "out_len": 15
+    },
+    {
+      "kind": "dit",
+      "idx": 28,
+      "at_s": 157.5413822064093,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000028
+    },
+    {
+      "kind": "llm",
+      "idx": 157,
+      "at_s": 157.56239180703113,
+      "measured": true,
+      "in_len": 41,
+      "out_len": 397
+    },
+    {
+      "kind": "llm",
+      "idx": 158,
+      "at_s": 158.00035054027904,
+      "measured": true,
+      "in_len": 3092,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 159,
+      "at_s": 159.51425246579745,
+      "measured": true,
+      "in_len": 2258,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 160,
+      "at_s": 160.00561085253253,
+      "measured": true,
+      "in_len": 1113,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 161,
+      "at_s": 160.1497053940627,
+      "measured": true,
+      "in_len": 7431,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 162,
+      "at_s": 162.74204145497268,
+      "measured": true,
+      "in_len": 3077,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 163,
+      "at_s": 163.49192073956863,
+      "measured": true,
+      "in_len": 863,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 164,
+      "at_s": 164.40191984527374,
+      "measured": true,
+      "in_len": 7431,
+      "out_len": 14
+    },
+    {
+      "kind": "dit",
+      "idx": 29,
+      "at_s": 165.73272120714188,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000029
+    },
+    {
+      "kind": "dit",
+      "idx": 30,
+      "at_s": 167.61425375517942,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000030
+    },
+    {
+      "kind": "llm",
+      "idx": 165,
+      "at_s": 167.9315213510282,
+      "measured": true,
+      "in_len": 3020,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 166,
+      "at_s": 168.50190280406835,
+      "measured": true,
+      "in_len": 2757,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 167,
+      "at_s": 168.70842837790235,
+      "measured": true,
+      "in_len": 4306,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 31,
+      "at_s": 169.20759177018843,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000031
+    },
+    {
+      "kind": "llm",
+      "idx": 168,
+      "at_s": 169.2536298953265,
+      "measured": true,
+      "in_len": 3092,
+      "out_len": 28
+    },
+    {
+      "kind": "llm",
+      "idx": 169,
+      "at_s": 169.67648008719422,
+      "measured": true,
+      "in_len": 1113,
+      "out_len": 10
+    },
+    {
+      "kind": "dit",
+      "idx": 32,
+      "at_s": 170.02507140311096,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000032
+    },
+    {
+      "kind": "llm",
+      "idx": 170,
+      "at_s": 171.81989060861542,
+      "measured": true,
+      "in_len": 1750,
+      "out_len": 391
+    },
+    {
+      "kind": "llm",
+      "idx": 171,
+      "at_s": 171.82189467945585,
+      "measured": true,
+      "in_len": 4183,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 172,
+      "at_s": 172.2604238974353,
+      "measured": true,
+      "in_len": 1658,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 173,
+      "at_s": 173.3926060513447,
+      "measured": true,
+      "in_len": 7432,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 174,
+      "at_s": 174.13200387174015,
+      "measured": true,
+      "in_len": 2482,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 175,
+      "at_s": 174.22589788109946,
+      "measured": true,
+      "in_len": 407,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 176,
+      "at_s": 174.68991658567506,
+      "measured": true,
+      "in_len": 4183,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 177,
+      "at_s": 175.76279922547403,
+      "measured": true,
+      "in_len": 5915,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 178,
+      "at_s": 177.34798550853864,
+      "measured": true,
+      "in_len": 2794,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 179,
+      "at_s": 177.49503996035864,
+      "measured": true,
+      "in_len": 2260,
+      "out_len": 34
+    },
+    {
+      "kind": "llm",
+      "idx": 180,
+      "at_s": 177.52290545260186,
+      "measured": true,
+      "in_len": 1026,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 181,
+      "at_s": 180.3033790058425,
+      "measured": true,
+      "in_len": 866,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 182,
+      "at_s": 180.37917049535497,
+      "measured": true,
+      "in_len": 4303,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 183,
+      "at_s": 181.95639613112087,
+      "measured": true,
+      "in_len": 1661,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 184,
+      "at_s": 183.14972578819922,
+      "measured": true,
+      "in_len": 2552,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 185,
+      "at_s": 183.6497306024099,
+      "measured": true,
+      "in_len": 247,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 186,
+      "at_s": 183.96565499393938,
+      "measured": true,
+      "in_len": 2554,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 33,
+      "at_s": 184.0400799997621,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000033
+    },
+    {
+      "kind": "llm",
+      "idx": 187,
+      "at_s": 184.1765663607052,
+      "measured": true,
+      "in_len": 1026,
+      "out_len": 31
+    },
+    {
+      "kind": "llm",
+      "idx": 188,
+      "at_s": 184.85544454575157,
+      "measured": true,
+      "in_len": 251,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 189,
+      "at_s": 185.11101909436204,
+      "measured": true,
+      "in_len": 2369,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 190,
+      "at_s": 186.0548656309078,
+      "measured": true,
+      "in_len": 2796,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 191,
+      "at_s": 186.10340681188507,
+      "measured": true,
+      "in_len": 4305,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 192,
+      "at_s": 188.3899970401364,
+      "measured": true,
+      "in_len": 4700,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 193,
+      "at_s": 189.1488808768577,
+      "measured": true,
+      "in_len": 1029,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 194,
+      "at_s": 189.58022485760864,
+      "measured": true,
+      "in_len": 3575,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 195,
+      "at_s": 189.60422772309036,
+      "measured": true,
+      "in_len": 1137,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 196,
+      "at_s": 193.07256538737934,
+      "measured": true,
+      "in_len": 251,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 197,
+      "at_s": 193.5579986941466,
+      "measured": true,
+      "in_len": 106,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 198,
+      "at_s": 194.75195950673873,
+      "measured": true,
+      "in_len": 4306,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 199,
+      "at_s": 194.8902547876875,
+      "measured": true,
+      "in_len": 768,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 200,
+      "at_s": 195.59870422111754,
+      "measured": true,
+      "in_len": 622,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 201,
+      "at_s": 197.1103141747616,
+      "measured": true,
+      "in_len": 1138,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 202,
+      "at_s": 198.38494096304325,
+      "measured": true,
+      "in_len": 2797,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 34,
+      "at_s": 199.64705782501514,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000034
+    },
+    {
+      "kind": "dit",
+      "idx": 35,
+      "at_s": 200.41160123474785,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000035
+    },
+    {
+      "kind": "dit",
+      "idx": 36,
+      "at_s": 201.14649730993537,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000036
+    },
+    {
+      "kind": "llm",
+      "idx": 203,
+      "at_s": 202.75680926393707,
+      "measured": true,
+      "in_len": 2798,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 204,
+      "at_s": 204.18119700425459,
+      "measured": true,
+      "in_len": 2998,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 37,
+      "at_s": 204.48216308090574,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000037
+    },
+    {
+      "kind": "llm",
+      "idx": 205,
+      "at_s": 204.66978368606522,
+      "measured": true,
+      "in_len": 12,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 206,
+      "at_s": 205.65202758001618,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 26
+    },
+    {
+      "kind": "llm",
+      "idx": 207,
+      "at_s": 206.48822920839456,
+      "measured": true,
+      "in_len": 976,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 208,
+      "at_s": 207.0451720858613,
+      "measured": true,
+      "in_len": 7151,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 209,
+      "at_s": 208.6336751419003,
+      "measured": true,
+      "in_len": 5381,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 210,
+      "at_s": 209.31016160006044,
+      "measured": true,
+      "in_len": 1101,
+      "out_len": 76
+    },
+    {
+      "kind": "llm",
+      "idx": 211,
+      "at_s": 209.42576070220505,
+      "measured": true,
+      "in_len": 13,
+      "out_len": 52
+    },
+    {
+      "kind": "llm",
+      "idx": 212,
+      "at_s": 210.79122369845075,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 213,
+      "at_s": 212.5301814184279,
+      "measured": true,
+      "in_len": 95,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 214,
+      "at_s": 212.62949080509705,
+      "measured": true,
+      "in_len": 2607,
+      "out_len": 64
+    },
+    {
+      "kind": "llm",
+      "idx": 215,
+      "at_s": 213.30063996897945,
+      "measured": true,
+      "in_len": 2422,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 216,
+      "at_s": 213.9470678782574,
+      "measured": true,
+      "in_len": 29,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 217,
+      "at_s": 214.40634071352028,
+      "measured": true,
+      "in_len": 892,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 218,
+      "at_s": 214.5220051487287,
+      "measured": true,
+      "in_len": 94,
+      "out_len": 13
+    },
+    {
+      "kind": "dit",
+      "idx": 38,
+      "at_s": 215.43849133732354,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000038
+    },
+    {
+      "kind": "llm",
+      "idx": 219,
+      "at_s": 215.55807138864984,
+      "measured": true,
+      "in_len": 1307,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 220,
+      "at_s": 215.77032995294326,
+      "measured": true,
+      "in_len": 331,
+      "out_len": 19
+    },
+    {
+      "kind": "dit",
+      "idx": 39,
+      "at_s": 217.14824537066454,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000039
+    },
+    {
+      "kind": "llm",
+      "idx": 221,
+      "at_s": 218.3200945144684,
+      "measured": true,
+      "in_len": 4217,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 222,
+      "at_s": 219.2425899740792,
+      "measured": true,
+      "in_len": 4769,
+      "out_len": 102
+    },
+    {
+      "kind": "llm",
+      "idx": 223,
+      "at_s": 220.10996465073498,
+      "measured": true,
+      "in_len": 2738,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 224,
+      "at_s": 223.32832517279255,
+      "measured": true,
+      "in_len": 95,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 225,
+      "at_s": 223.4710595539956,
+      "measured": true,
+      "in_len": 197,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 40,
+      "at_s": 223.60687239650122,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000040
+    },
+    {
+      "kind": "llm",
+      "idx": 226,
+      "at_s": 223.71138713956913,
+      "measured": true,
+      "in_len": 841,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 227,
+      "at_s": 224.37366470536125,
+      "measured": true,
+      "in_len": 6077,
+      "out_len": 49
+    },
+    {
+      "kind": "llm",
+      "idx": 228,
+      "at_s": 225.64686895186404,
+      "measured": true,
+      "in_len": 4217,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 229,
+      "at_s": 226.2236577056244,
+      "measured": true,
+      "in_len": 744,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 230,
+      "at_s": 227.16251665950824,
+      "measured": true,
+      "in_len": 742,
+      "out_len": 24
+    },
+    {
+      "kind": "llm",
+      "idx": 231,
+      "at_s": 228.67613347014216,
+      "measured": true,
+      "in_len": 7154,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 232,
+      "at_s": 228.95823248824735,
+      "measured": true,
+      "in_len": 3208,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 233,
+      "at_s": 229.08726733263464,
+      "measured": true,
+      "in_len": 7153,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 234,
+      "at_s": 229.11420943976012,
+      "measured": true,
+      "in_len": 1347,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 235,
+      "at_s": 229.42931719955172,
+      "measured": true,
+      "in_len": 4075,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 236,
+      "at_s": 229.62138813802304,
+      "measured": true,
+      "in_len": 331,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 237,
+      "at_s": 231.51079338997002,
+      "measured": true,
+      "in_len": 2724,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 238,
+      "at_s": 233.49772828231866,
+      "measured": true,
+      "in_len": 34,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 41,
+      "at_s": 236.21992014170232,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000041
+    },
+    {
+      "kind": "llm",
+      "idx": 239,
+      "at_s": 236.254883489092,
+      "measured": true,
+      "in_len": 4796,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 240,
+      "at_s": 236.82820853072744,
+      "measured": true,
+      "in_len": 1653,
+      "out_len": 37
+    },
+    {
+      "kind": "llm",
+      "idx": 241,
+      "at_s": 238.16115659333786,
+      "measured": true,
+      "in_len": 969,
+      "out_len": 55
+    },
+    {
+      "kind": "llm",
+      "idx": 242,
+      "at_s": 238.59652912837188,
+      "measured": true,
+      "in_len": 194,
+      "out_len": 26
+    },
+    {
+      "kind": "llm",
+      "idx": 243,
+      "at_s": 238.83967448870874,
+      "measured": true,
+      "in_len": 2076,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 244,
+      "at_s": 239.715892677528,
+      "measured": true,
+      "in_len": 2326,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 245,
+      "at_s": 241.7947903761738,
+      "measured": true,
+      "in_len": 6097,
+      "out_len": 13
+    },
+    {
+      "kind": "dit",
+      "idx": 42,
+      "at_s": 243.21427678204907,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000042
+    },
+    {
+      "kind": "llm",
+      "idx": 246,
+      "at_s": 243.93706664352047,
+      "measured": true,
+      "in_len": 35,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 247,
+      "at_s": 244.68757932067484,
+      "measured": true,
+      "in_len": 1018,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 248,
+      "at_s": 245.75399394908484,
+      "measured": true,
+      "in_len": 1115,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 249,
+      "at_s": 245.92005003595597,
+      "measured": true,
+      "in_len": 4061,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 250,
+      "at_s": 246.63835943961524,
+      "measured": true,
+      "in_len": 4075,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 251,
+      "at_s": 246.91990843822146,
+      "measured": true,
+      "in_len": 1825,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 252,
+      "at_s": 247.73077038069533,
+      "measured": true,
+      "in_len": 1018,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 253,
+      "at_s": 248.38500964311723,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 85
+    },
+    {
+      "kind": "llm",
+      "idx": 254,
+      "at_s": 248.9614730368863,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 255,
+      "at_s": 249.21612177417495,
+      "measured": true,
+      "in_len": 2050,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 256,
+      "at_s": 249.32075474547196,
+      "measured": true,
+      "in_len": 96,
+      "out_len": 38
+    },
+    {
+      "kind": "llm",
+      "idx": 257,
+      "at_s": 252.64806229711056,
+      "measured": true,
+      "in_len": 4061,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 258,
+      "at_s": 252.87579229746754,
+      "measured": true,
+      "in_len": 841,
+      "out_len": 14
+    },
+    {
+      "kind": "dit",
+      "idx": 43,
+      "at_s": 252.93582363333152,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000043
+    },
+    {
+      "kind": "llm",
+      "idx": 259,
+      "at_s": 254.32239307731862,
+      "measured": true,
+      "in_len": 4765,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 260,
+      "at_s": 254.4813519057985,
+      "measured": true,
+      "in_len": 6097,
+      "out_len": 130
+    },
+    {
+      "kind": "llm",
+      "idx": 261,
+      "at_s": 255.95216067207352,
+      "measured": true,
+      "in_len": 2038,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 262,
+      "at_s": 256.19989125385626,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 263,
+      "at_s": 256.2456261477526,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 264,
+      "at_s": 256.64453464143463,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 60
+    },
+    {
+      "kind": "llm",
+      "idx": 265,
+      "at_s": 259.0098280678343,
+      "measured": true,
+      "in_len": 544,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 266,
+      "at_s": 259.1963741450455,
+      "measured": true,
+      "in_len": 2278,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 267,
+      "at_s": 260.3658871931483,
+      "measured": true,
+      "in_len": 52,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 268,
+      "at_s": 261.28997029093756,
+      "measured": true,
+      "in_len": 183,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 269,
+      "at_s": 262.36857841325883,
+      "measured": true,
+      "in_len": 4765,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 270,
+      "at_s": 262.45440487076837,
+      "measured": true,
+      "in_len": 1656,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 271,
+      "at_s": 262.64351057222757,
+      "measured": true,
+      "in_len": 332,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 272,
+      "at_s": 262.9848623936254,
+      "measured": true,
+      "in_len": 1032,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 273,
+      "at_s": 263.5506602292388,
+      "measured": true,
+      "in_len": 508,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 274,
+      "at_s": 264.60621595633785,
+      "measured": true,
+      "in_len": 2714,
+      "out_len": 64
+    },
+    {
+      "kind": "dit",
+      "idx": 44,
+      "at_s": 265.0833085251992,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000044
+    },
+    {
+      "kind": "llm",
+      "idx": 275,
+      "at_s": 265.2587106701275,
+      "measured": true,
+      "in_len": 2278,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 276,
+      "at_s": 267.9382814288993,
+      "measured": true,
+      "in_len": 6097,
+      "out_len": 61
+    },
+    {
+      "kind": "llm",
+      "idx": 277,
+      "at_s": 269.1275745750298,
+      "measured": true,
+      "in_len": 746,
+      "out_len": 52
+    },
+    {
+      "kind": "llm",
+      "idx": 278,
+      "at_s": 269.9077887162924,
+      "measured": true,
+      "in_len": 2038,
+      "out_len": 26
+    },
+    {
+      "kind": "llm",
+      "idx": 279,
+      "at_s": 271.0687423531819,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 200
+    },
+    {
+      "kind": "llm",
+      "idx": 280,
+      "at_s": 271.0781564860695,
+      "measured": true,
+      "in_len": 1177,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 45,
+      "at_s": 271.12739479973146,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000045
+    },
+    {
+      "kind": "llm",
+      "idx": 281,
+      "at_s": 272.36627521496575,
+      "measured": true,
+      "in_len": 848,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 282,
+      "at_s": 272.545066485438,
+      "measured": true,
+      "in_len": 163,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 283,
+      "at_s": 272.85309514683644,
+      "measured": true,
+      "in_len": 7087,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 284,
+      "at_s": 276.02566570414416,
+      "measured": true,
+      "in_len": 6097,
+      "out_len": 117
+    },
+    {
+      "kind": "llm",
+      "idx": 285,
+      "at_s": 276.31300517269506,
+      "measured": true,
+      "in_len": 2079,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 286,
+      "at_s": 276.5075679085352,
+      "measured": true,
+      "in_len": 550,
+      "out_len": 57
+    },
+    {
+      "kind": "llm",
+      "idx": 287,
+      "at_s": 277.0955528917286,
+      "measured": true,
+      "in_len": 4064,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 288,
+      "at_s": 277.4058337702296,
+      "measured": true,
+      "in_len": 333,
+      "out_len": 42
+    },
+    {
+      "kind": "llm",
+      "idx": 289,
+      "at_s": 278.6874380314761,
+      "measured": true,
+      "in_len": 7089,
+      "out_len": 40
+    },
+    {
+      "kind": "dit",
+      "idx": 46,
+      "at_s": 279.55434148711015,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000046
+    },
+    {
+      "kind": "llm",
+      "idx": 290,
+      "at_s": 279.9428901164669,
+      "measured": true,
+      "in_len": 163,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 291,
+      "at_s": 281.558133597893,
+      "measured": true,
+      "in_len": 1799,
+      "out_len": 57
+    },
+    {
+      "kind": "llm",
+      "idx": 292,
+      "at_s": 281.8176266717479,
+      "measured": true,
+      "in_len": 1089,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 293,
+      "at_s": 282.45192523243054,
+      "measured": true,
+      "in_len": 1830,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 294,
+      "at_s": 283.21808563256417,
+      "measured": true,
+      "in_len": 184,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 295,
+      "at_s": 285.67008921092366,
+      "measured": true,
+      "in_len": 554,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 296,
+      "at_s": 286.0832262644085,
+      "measured": true,
+      "in_len": 1831,
+      "out_len": 15
+    },
+    {
+      "kind": "dit",
+      "idx": 47,
+      "at_s": 288.72143913571153,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000047
+    },
+    {
+      "kind": "llm",
+      "idx": 297,
+      "at_s": 291.5580556546461,
+      "measured": true,
+      "in_len": 2657,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 298,
+      "at_s": 292.4631829511958,
+      "measured": true,
+      "in_len": 4609,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 299,
+      "at_s": 292.7315211481815,
+      "measured": true,
+      "in_len": 186,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 300,
+      "at_s": 292.75880645808877,
+      "measured": true,
+      "in_len": 7091,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 301,
+      "at_s": 293.0582924051188,
+      "measured": true,
+      "in_len": 1805,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 302,
+      "at_s": 294.1632954340861,
+      "measured": true,
+      "in_len": 293,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 303,
+      "at_s": 295.7364630260191,
+      "measured": true,
+      "in_len": 4611,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 304,
+      "at_s": 296.11314404563404,
+      "measured": true,
+      "in_len": 2657,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 305,
+      "at_s": 297.0565018646451,
+      "measured": true,
+      "in_len": 712,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 306,
+      "at_s": 297.11319606272446,
+      "measured": true,
+      "in_len": 1831,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 307,
+      "at_s": 297.26226406598687,
+      "measured": true,
+      "in_len": 1033,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 308,
+      "at_s": 298.0779287831038,
+      "measured": true,
+      "in_len": 293,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 309,
+      "at_s": 299.42289912640695,
+      "measured": true,
+      "in_len": 1834,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 310,
+      "at_s": 299.48862322060546,
+      "measured": true,
+      "in_len": 3213,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 311,
+      "at_s": 299.8950452531829,
+      "measured": true,
+      "in_len": 6061,
+      "out_len": 90
+    },
+    {
+      "kind": "llm",
+      "idx": 312,
+      "at_s": 300.39990180642366,
+      "measured": true,
+      "in_len": 41,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 313,
+      "at_s": 300.6679818732585,
+      "measured": true,
+      "in_len": 557,
+      "out_len": 58
+    },
+    {
+      "kind": "llm",
+      "idx": 314,
+      "at_s": 301.8692258072097,
+      "measured": true,
+      "in_len": 353,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 315,
+      "at_s": 302.0460718702073,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 316,
+      "at_s": 302.25869968929857,
+      "measured": true,
+      "in_len": 746,
+      "out_len": 36
+    },
+    {
+      "kind": "llm",
+      "idx": 317,
+      "at_s": 302.33269733385373,
+      "measured": true,
+      "in_len": 3213,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 318,
+      "at_s": 302.9469351342294,
+      "measured": true,
+      "in_len": 1033,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 319,
+      "at_s": 307.60437111573606,
+      "measured": true,
+      "in_len": 4611,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 48,
+      "at_s": 307.6517619179637,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000048
+    },
+    {
+      "kind": "llm",
+      "idx": 320,
+      "at_s": 308.1725606275967,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 321,
+      "at_s": 309.6345636458255,
+      "measured": true,
+      "in_len": 1428,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 322,
+      "at_s": 310.59721996939504,
+      "measured": true,
+      "in_len": 2035,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 323,
+      "at_s": 312.64420657035294,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 324,
+      "at_s": 313.42242053638637,
+      "measured": true,
+      "in_len": 379,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 325,
+      "at_s": 314.0490363705042,
+      "measured": true,
+      "in_len": 1033,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 326,
+      "at_s": 317.35917857120836,
+      "measured": true,
+      "in_len": 2473,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 327,
+      "at_s": 318.0215712362847,
+      "measured": true,
+      "in_len": 7091,
+      "out_len": 92
+    },
+    {
+      "kind": "llm",
+      "idx": 328,
+      "at_s": 318.5034491027912,
+      "measured": true,
+      "in_len": 2049,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 329,
+      "at_s": 319.12004702941715,
+      "measured": true,
+      "in_len": 1116,
+      "out_len": 130
+    },
+    {
+      "kind": "dit",
+      "idx": 49,
+      "at_s": 319.3404312368648,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000049
+    },
+    {
+      "kind": "llm",
+      "idx": 330,
+      "at_s": 319.49100404859985,
+      "measured": true,
+      "in_len": 380,
+      "out_len": 40
+    },
+    {
+      "kind": "llm",
+      "idx": 331,
+      "at_s": 323.832304454695,
+      "measured": true,
+      "in_len": 7158,
+      "out_len": 150
+    },
+    {
+      "kind": "llm",
+      "idx": 332,
+      "at_s": 324.1285059996936,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 333,
+      "at_s": 328.4308601326665,
+      "measured": true,
+      "in_len": 2474,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 334,
+      "at_s": 328.4689088040707,
+      "measured": true,
+      "in_len": 7093,
+      "out_len": 26
+    },
+    {
+      "kind": "llm",
+      "idx": 335,
+      "at_s": 329.97984882657545,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 336,
+      "at_s": 331.2104504879663,
+      "measured": true,
+      "in_len": 357,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 337,
+      "at_s": 332.1402471577843,
+      "measured": true,
+      "in_len": 379,
+      "out_len": 23
+    },
+    {
+      "kind": "llm",
+      "idx": 338,
+      "at_s": 333.0956889503306,
+      "measured": true,
+      "in_len": 2097,
+      "out_len": 88
+    },
+    {
+      "kind": "llm",
+      "idx": 339,
+      "at_s": 333.1179873905613,
+      "measured": true,
+      "in_len": 548,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 340,
+      "at_s": 333.2019460003495,
+      "measured": true,
+      "in_len": 172,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 341,
+      "at_s": 334.58983697073415,
+      "measured": true,
+      "in_len": 47,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 50,
+      "at_s": 335.6049089447879,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000050
+    },
+    {
+      "kind": "llm",
+      "idx": 342,
+      "at_s": 336.2000345730321,
+      "measured": true,
+      "in_len": 7431,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 343,
+      "at_s": 336.58786049748585,
+      "measured": true,
+      "in_len": 7029,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 344,
+      "at_s": 337.40704674221513,
+      "measured": true,
+      "in_len": 4616,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 345,
+      "at_s": 337.96082000939555,
+      "measured": true,
+      "in_len": 985,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 346,
+      "at_s": 339.73985298644124,
+      "measured": true,
+      "in_len": 549,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 347,
+      "at_s": 339.84675962482936,
+      "measured": true,
+      "in_len": 3213,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 348,
+      "at_s": 340.3379572785198,
+      "measured": true,
+      "in_len": 2477,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 349,
+      "at_s": 340.8654732409156,
+      "measured": true,
+      "in_len": 2122,
+      "out_len": 73
+    },
+    {
+      "kind": "llm",
+      "idx": 350,
+      "at_s": 341.2813692226076,
+      "measured": true,
+      "in_len": 319,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 351,
+      "at_s": 341.63021358531046,
+      "measured": true,
+      "in_len": 983,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 352,
+      "at_s": 342.4624269679915,
+      "measured": true,
+      "in_len": 3214,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 353,
+      "at_s": 342.84025445432354,
+      "measured": true,
+      "in_len": 7029,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 354,
+      "at_s": 343.800024007616,
+      "measured": true,
+      "in_len": 749,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 355,
+      "at_s": 343.874897376239,
+      "measured": true,
+      "in_len": 50,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 356,
+      "at_s": 345.4443613292744,
+      "measured": true,
+      "in_len": 3216,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 357,
+      "at_s": 348.36061051945876,
+      "measured": true,
+      "in_len": 1089,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 358,
+      "at_s": 348.58972025742014,
+      "measured": true,
+      "in_len": 1177,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 359,
+      "at_s": 348.8747976739811,
+      "measured": true,
+      "in_len": 7098,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 360,
+      "at_s": 349.834961920472,
+      "measured": true,
+      "in_len": 2055,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 361,
+      "at_s": 350.4836748387722,
+      "measured": true,
+      "in_len": 291,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 362,
+      "at_s": 351.5071145649116,
+      "measured": true,
+      "in_len": 2057,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 363,
+      "at_s": 351.5478036654042,
+      "measured": true,
+      "in_len": 37,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 364,
+      "at_s": 352.00895263030435,
+      "measured": true,
+      "in_len": 2058,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 365,
+      "at_s": 352.54799248758684,
+      "measured": true,
+      "in_len": 1033,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 366,
+      "at_s": 352.97827508291084,
+      "measured": true,
+      "in_len": 380,
+      "out_len": 130
+    },
+    {
+      "kind": "llm",
+      "idx": 367,
+      "at_s": 354.84933346320855,
+      "measured": true,
+      "in_len": 749,
+      "out_len": 11
+    },
+    {
+      "kind": "dit",
+      "idx": 51,
+      "at_s": 355.186323498749,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000051
+    },
+    {
+      "kind": "llm",
+      "idx": 368,
+      "at_s": 355.5726194940887,
+      "measured": true,
+      "in_len": 7100,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 369,
+      "at_s": 355.92564161385025,
+      "measured": true,
+      "in_len": 201,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 370,
+      "at_s": 356.8961990253496,
+      "measured": true,
+      "in_len": 332,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 371,
+      "at_s": 357.18001802305446,
+      "measured": true,
+      "in_len": 39,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 372,
+      "at_s": 357.22665293528144,
+      "measured": true,
+      "in_len": 177,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 373,
+      "at_s": 357.65770028998736,
+      "measured": true,
+      "in_len": 750,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 374,
+      "at_s": 357.7465550541554,
+      "measured": true,
+      "in_len": 367,
+      "out_len": 104
+    },
+    {
+      "kind": "llm",
+      "idx": 375,
+      "at_s": 358.6438070804408,
+      "measured": true,
+      "in_len": 980,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 376,
+      "at_s": 358.7989975761601,
+      "measured": true,
+      "in_len": 1937,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 377,
+      "at_s": 358.89155386889126,
+      "measured": true,
+      "in_len": 730,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 378,
+      "at_s": 359.22307054858345,
+      "measured": true,
+      "in_len": 2371,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 379,
+      "at_s": 361.54838119943975,
+      "measured": true,
+      "in_len": 1512,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 380,
+      "at_s": 362.5888024010239,
+      "measured": true,
+      "in_len": 730,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 381,
+      "at_s": 362.79190706742037,
+      "measured": true,
+      "in_len": 1937,
+      "out_len": 12
+    },
+    {
+      "kind": "dit",
+      "idx": 52,
+      "at_s": 363.514845169104,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000052
+    },
+    {
+      "kind": "llm",
+      "idx": 382,
+      "at_s": 363.7148230019841,
+      "measured": true,
+      "in_len": 98,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 383,
+      "at_s": 363.9342146735078,
+      "measured": true,
+      "in_len": 751,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 384,
+      "at_s": 363.93552227235995,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 385,
+      "at_s": 364.23546123554786,
+      "measured": true,
+      "in_len": 3438,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 386,
+      "at_s": 364.2493666032544,
+      "measured": true,
+      "in_len": 7103,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 387,
+      "at_s": 364.93617092773974,
+      "measured": true,
+      "in_len": 331,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 388,
+      "at_s": 365.27423695884926,
+      "measured": true,
+      "in_len": 2083,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 389,
+      "at_s": 365.7461944073116,
+      "measured": true,
+      "in_len": 209,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 390,
+      "at_s": 366.74091865584063,
+      "measured": true,
+      "in_len": 3003,
+      "out_len": 9
+    },
+    {
+      "kind": "dit",
+      "idx": 53,
+      "at_s": 366.81561888297284,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000053
+    },
+    {
+      "kind": "llm",
+      "idx": 391,
+      "at_s": 366.8504570354512,
+      "measured": true,
+      "in_len": 39,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 392,
+      "at_s": 366.8901440275197,
+      "measured": true,
+      "in_len": 179,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 393,
+      "at_s": 367.10002105922536,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 394,
+      "at_s": 367.5730600782855,
+      "measured": true,
+      "in_len": 2050,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 395,
+      "at_s": 367.82580569318236,
+      "measured": true,
+      "in_len": 99,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 396,
+      "at_s": 368.80204855325223,
+      "measured": true,
+      "in_len": 894,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 397,
+      "at_s": 369.0644117146288,
+      "measured": true,
+      "in_len": 98,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 398,
+      "at_s": 369.0691755167543,
+      "measured": true,
+      "in_len": 2083,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 399,
+      "at_s": 369.0864701132549,
+      "measured": true,
+      "in_len": 7437,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 400,
+      "at_s": 369.6885809196207,
+      "measured": true,
+      "in_len": 3003,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 401,
+      "at_s": 370.01333259419613,
+      "measured": true,
+      "in_len": 345,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 402,
+      "at_s": 370.5345883783611,
+      "measured": true,
+      "in_len": 4333,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 403,
+      "at_s": 370.64277773455757,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 404,
+      "at_s": 370.68368198933916,
+      "measured": true,
+      "in_len": 9,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 405,
+      "at_s": 371.6745211549246,
+      "measured": true,
+      "in_len": 1883,
+      "out_len": 81
+    },
+    {
+      "kind": "llm",
+      "idx": 406,
+      "at_s": 373.1170322270672,
+      "measured": true,
+      "in_len": 677,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 407,
+      "at_s": 373.2336330138897,
+      "measured": true,
+      "in_len": 1890,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 408,
+      "at_s": 373.39258442148025,
+      "measured": true,
+      "in_len": 293,
+      "out_len": 48
+    },
+    {
+      "kind": "llm",
+      "idx": 409,
+      "at_s": 373.57080028618486,
+      "measured": true,
+      "in_len": 2330,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 410,
+      "at_s": 373.9572377215127,
+      "measured": true,
+      "in_len": 2199,
+      "out_len": 63
+    },
+    {
+      "kind": "llm",
+      "idx": 411,
+      "at_s": 374.4825241964037,
+      "measured": true,
+      "in_len": 1028,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 412,
+      "at_s": 375.23158357820205,
+      "measured": true,
+      "in_len": 3367,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 413,
+      "at_s": 375.26438488645994,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 414,
+      "at_s": 375.58562125521314,
+      "measured": true,
+      "in_len": 1890,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 415,
+      "at_s": 376.3708429878178,
+      "measured": true,
+      "in_len": 1228,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 416,
+      "at_s": 376.4989790275733,
+      "measured": true,
+      "in_len": 157,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 417,
+      "at_s": 376.748854949045,
+      "measured": true,
+      "in_len": 543,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 418,
+      "at_s": 377.2912455106856,
+      "measured": true,
+      "in_len": 9,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 419,
+      "at_s": 377.3004851865443,
+      "measured": true,
+      "in_len": 5133,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 54,
+      "at_s": 377.40734080345356,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000054
+    },
+    {
+      "kind": "dit",
+      "idx": 55,
+      "at_s": 377.87255863636733,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000055
+    },
+    {
+      "kind": "llm",
+      "idx": 420,
+      "at_s": 378.17178043521744,
+      "measured": true,
+      "in_len": 2903,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 421,
+      "at_s": 379.6218136880241,
+      "measured": true,
+      "in_len": 2330,
+      "out_len": 20
+    },
+    {
+      "kind": "dit",
+      "idx": 56,
+      "at_s": 379.69799110091117,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000056
+    },
+    {
+      "kind": "llm",
+      "idx": 422,
+      "at_s": 380.17910469953875,
+      "measured": true,
+      "in_len": 540,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 423,
+      "at_s": 381.20628150051584,
+      "measured": true,
+      "in_len": 910,
+      "out_len": 20
+    },
+    {
+      "kind": "dit",
+      "idx": 57,
+      "at_s": 384.26758047008207,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000057
+    },
+    {
+      "kind": "llm",
+      "idx": 424,
+      "at_s": 384.61748577469916,
+      "measured": true,
+      "in_len": 295,
+      "out_len": 57
+    },
+    {
+      "kind": "llm",
+      "idx": 425,
+      "at_s": 385.97047038994504,
+      "measured": true,
+      "in_len": 1153,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 426,
+      "at_s": 386.13983706985465,
+      "measured": true,
+      "in_len": 1037,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 427,
+      "at_s": 386.39077574684205,
+      "measured": true,
+      "in_len": 73,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 428,
+      "at_s": 387.1982236017797,
+      "measured": true,
+      "in_len": 4959,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 429,
+      "at_s": 389.28008816576926,
+      "measured": true,
+      "in_len": 671,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 430,
+      "at_s": 389.5215949217041,
+      "measured": true,
+      "in_len": 352,
+      "out_len": 61
+    },
+    {
+      "kind": "llm",
+      "idx": 431,
+      "at_s": 389.97317506120027,
+      "measured": true,
+      "in_len": 1153,
+      "out_len": 8
+    },
+    {
+      "kind": "dit",
+      "idx": 58,
+      "at_s": 390.21723562630757,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000058
+    },
+    {
+      "kind": "llm",
+      "idx": 432,
+      "at_s": 390.8028095813298,
+      "measured": true,
+      "in_len": 591,
+      "out_len": 45
+    },
+    {
+      "kind": "llm",
+      "idx": 433,
+      "at_s": 390.88984449899465,
+      "measured": true,
+      "in_len": 11,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 434,
+      "at_s": 391.95401362101705,
+      "measured": true,
+      "in_len": 912,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 435,
+      "at_s": 392.33542902843675,
+      "measured": true,
+      "in_len": 591,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 436,
+      "at_s": 392.6595304456443,
+      "measured": true,
+      "in_len": 351,
+      "out_len": 40
+    },
+    {
+      "kind": "llm",
+      "idx": 437,
+      "at_s": 392.7860835677003,
+      "measured": true,
+      "in_len": 2799,
+      "out_len": 36
+    },
+    {
+      "kind": "llm",
+      "idx": 438,
+      "at_s": 392.9188747018127,
+      "measured": true,
+      "in_len": 23,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 439,
+      "at_s": 393.1044151904837,
+      "measured": true,
+      "in_len": 1508,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 440,
+      "at_s": 393.20312508465366,
+      "measured": true,
+      "in_len": 903,
+      "out_len": 196
+    },
+    {
+      "kind": "llm",
+      "idx": 441,
+      "at_s": 393.77152957739816,
+      "measured": true,
+      "in_len": 7436,
+      "out_len": 32
+    },
+    {
+      "kind": "llm",
+      "idx": 442,
+      "at_s": 394.08706701825145,
+      "measured": true,
+      "in_len": 1240,
+      "out_len": 58
+    },
+    {
+      "kind": "llm",
+      "idx": 443,
+      "at_s": 395.3102425972811,
+      "measured": true,
+      "in_len": 912,
+      "out_len": 10
+    },
+    {
+      "kind": "dit",
+      "idx": 59,
+      "at_s": 395.5443005549986,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000059
+    },
+    {
+      "kind": "llm",
+      "idx": 444,
+      "at_s": 399.8845819964533,
+      "measured": true,
+      "in_len": 25,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 445,
+      "at_s": 400.24244339557526,
+      "measured": true,
+      "in_len": 3016,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 446,
+      "at_s": 401.89030524088787,
+      "measured": true,
+      "in_len": 7435,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 447,
+      "at_s": 403.4669883840521,
+      "measured": true,
+      "in_len": 353,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 448,
+      "at_s": 404.0497001560387,
+      "measured": true,
+      "in_len": 308,
+      "out_len": 63
+    },
+    {
+      "kind": "llm",
+      "idx": 449,
+      "at_s": 405.0337165091579,
+      "measured": true,
+      "in_len": 142,
+      "out_len": 44
+    },
+    {
+      "kind": "dit",
+      "idx": 60,
+      "at_s": 405.60395155898027,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000060
+    },
+    {
+      "kind": "llm",
+      "idx": 450,
+      "at_s": 405.9341811901022,
+      "measured": true,
+      "in_len": 731,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 451,
+      "at_s": 405.9963519852181,
+      "measured": true,
+      "in_len": 663,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 452,
+      "at_s": 407.70236583451543,
+      "measured": true,
+      "in_len": 142,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 453,
+      "at_s": 408.8684944923422,
+      "measured": true,
+      "in_len": 237,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 454,
+      "at_s": 410.27677405647495,
+      "measured": true,
+      "in_len": 2744,
+      "out_len": 109
+    },
+    {
+      "kind": "llm",
+      "idx": 455,
+      "at_s": 412.70770862899315,
+      "measured": true,
+      "in_len": 7097,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 456,
+      "at_s": 413.38290652950565,
+      "measured": true,
+      "in_len": 384,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 457,
+      "at_s": 415.74653310989413,
+      "measured": true,
+      "in_len": 114,
+      "out_len": 121
+    },
+    {
+      "kind": "llm",
+      "idx": 458,
+      "at_s": 416.28990903319084,
+      "measured": true,
+      "in_len": 2036,
+      "out_len": 66
+    },
+    {
+      "kind": "llm",
+      "idx": 459,
+      "at_s": 416.57895614724276,
+      "measured": true,
+      "in_len": 1351,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 460,
+      "at_s": 416.78846840106775,
+      "measured": true,
+      "in_len": 107,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 461,
+      "at_s": 417.69176354297775,
+      "measured": true,
+      "in_len": 2723,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 462,
+      "at_s": 417.83133402480604,
+      "measured": true,
+      "in_len": 448,
+      "out_len": 77
+    },
+    {
+      "kind": "llm",
+      "idx": 463,
+      "at_s": 419.7015525161149,
+      "measured": true,
+      "in_len": 2036,
+      "out_len": 20
+    },
+    {
+      "kind": "dit",
+      "idx": 61,
+      "at_s": 421.14333732571816,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000061
+    },
+    {
+      "kind": "dit",
+      "idx": 62,
+      "at_s": 421.85802291442536,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000062
+    },
+    {
+      "kind": "llm",
+      "idx": 464,
+      "at_s": 421.9203900525041,
+      "measured": true,
+      "in_len": 107,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 465,
+      "at_s": 422.6031425087099,
+      "measured": true,
+      "in_len": 447,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 466,
+      "at_s": 422.98580683146855,
+      "measured": true,
+      "in_len": 1352,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 467,
+      "at_s": 423.15334773554144,
+      "measured": true,
+      "in_len": 238,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 468,
+      "at_s": 423.3178847066059,
+      "measured": true,
+      "in_len": 2572,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 469,
+      "at_s": 423.8947658398058,
+      "measured": true,
+      "in_len": 1271,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 470,
+      "at_s": 425.35346524617216,
+      "measured": true,
+      "in_len": 2071,
+      "out_len": 27
+    },
+    {
+      "kind": "llm",
+      "idx": 471,
+      "at_s": 426.8357259364282,
+      "measured": true,
+      "in_len": 45,
+      "out_len": 36
+    },
+    {
+      "kind": "dit",
+      "idx": 63,
+      "at_s": 426.96765188798804,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000063
+    },
+    {
+      "kind": "llm",
+      "idx": 472,
+      "at_s": 427.38380598510315,
+      "measured": true,
+      "in_len": 1272,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 64,
+      "at_s": 429.3696839130607,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000064
+    },
+    {
+      "kind": "llm",
+      "idx": 473,
+      "at_s": 429.6871967656532,
+      "measured": true,
+      "in_len": 1321,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 474,
+      "at_s": 430.17238746413886,
+      "measured": true,
+      "in_len": 2069,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 475,
+      "at_s": 430.5074698432455,
+      "measured": true,
+      "in_len": 1887,
+      "out_len": 105
+    },
+    {
+      "kind": "llm",
+      "idx": 476,
+      "at_s": 431.7480276377297,
+      "measured": true,
+      "in_len": 43,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 477,
+      "at_s": 432.35064550499004,
+      "measured": true,
+      "in_len": 1490,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 478,
+      "at_s": 433.20824727068344,
+      "measured": true,
+      "in_len": 1317,
+      "out_len": 24
+    },
+    {
+      "kind": "llm",
+      "idx": 479,
+      "at_s": 433.30201053616054,
+      "measured": true,
+      "in_len": 3269,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 480,
+      "at_s": 433.6111162643718,
+      "measured": true,
+      "in_len": 2580,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 481,
+      "at_s": 434.5650759868257,
+      "measured": true,
+      "in_len": 4399,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 482,
+      "at_s": 434.95413531757316,
+      "measured": true,
+      "in_len": 2954,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 483,
+      "at_s": 436.21285277861926,
+      "measured": true,
+      "in_len": 2070,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 484,
+      "at_s": 436.2295939857185,
+      "measured": true,
+      "in_len": 81,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 485,
+      "at_s": 437.1230257935274,
+      "measured": true,
+      "in_len": 109,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 486,
+      "at_s": 437.7910282113297,
+      "measured": true,
+      "in_len": 3446,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 487,
+      "at_s": 438.45132886880873,
+      "measured": true,
+      "in_len": 1961,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 488,
+      "at_s": 438.61084159649175,
+      "measured": true,
+      "in_len": 617,
+      "out_len": 94
+    },
+    {
+      "kind": "llm",
+      "idx": 489,
+      "at_s": 439.50904300703456,
+      "measured": true,
+      "in_len": 2394,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 490,
+      "at_s": 440.0171087710814,
+      "measured": true,
+      "in_len": 109,
+      "out_len": 15
+    },
+    {
+      "kind": "dit",
+      "idx": 65,
+      "at_s": 440.17410213920374,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000065
+    },
+    {
+      "kind": "llm",
+      "idx": 491,
+      "at_s": 440.827091438763,
+      "measured": true,
+      "in_len": 3133,
+      "out_len": 58
+    },
+    {
+      "kind": "llm",
+      "idx": 492,
+      "at_s": 443.1598299023062,
+      "measured": true,
+      "in_len": 2022,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 493,
+      "at_s": 444.7283214324636,
+      "measured": true,
+      "in_len": 1336,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 494,
+      "at_s": 444.84007614056287,
+      "measured": true,
+      "in_len": 158,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 495,
+      "at_s": 445.45567968727266,
+      "measured": true,
+      "in_len": 6097,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 496,
+      "at_s": 447.2767953475599,
+      "measured": true,
+      "in_len": 2070,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 497,
+      "at_s": 448.2119834994232,
+      "measured": true,
+      "in_len": 46,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 498,
+      "at_s": 448.8195551402992,
+      "measured": true,
+      "in_len": 2070,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 499,
+      "at_s": 449.33861893099805,
+      "measured": true,
+      "in_len": 2954,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 500,
+      "at_s": 449.57366206343914,
+      "measured": true,
+      "in_len": 1726,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 501,
+      "at_s": 449.7149355010787,
+      "measured": true,
+      "in_len": 7136,
+      "out_len": 101
+    },
+    {
+      "kind": "llm",
+      "idx": 502,
+      "at_s": 450.25982004001276,
+      "measured": true,
+      "in_len": 129,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 503,
+      "at_s": 452.0416002730672,
+      "measured": true,
+      "in_len": 2070,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 504,
+      "at_s": 452.45252774633974,
+      "measured": true,
+      "in_len": 842,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 505,
+      "at_s": 452.87129182626506,
+      "measured": true,
+      "in_len": 3121,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 66,
+      "at_s": 453.58537556644694,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000066
+    },
+    {
+      "kind": "llm",
+      "idx": 506,
+      "at_s": 453.60561918108846,
+      "measured": true,
+      "in_len": 450,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 507,
+      "at_s": 454.2004632269065,
+      "measured": true,
+      "in_len": 1363,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 67,
+      "at_s": 456.83629884589465,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000067
+    },
+    {
+      "kind": "llm",
+      "idx": 508,
+      "at_s": 458.446112494456,
+      "measured": true,
+      "in_len": 641,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 509,
+      "at_s": 460.5530232702863,
+      "measured": true,
+      "in_len": 2387,
+      "out_len": 82
+    },
+    {
+      "kind": "dit",
+      "idx": 68,
+      "at_s": 461.0181649009552,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000068
+    },
+    {
+      "kind": "llm",
+      "idx": 510,
+      "at_s": 462.99952481894985,
+      "measured": true,
+      "in_len": 3212,
+      "out_len": 109
+    },
+    {
+      "kind": "llm",
+      "idx": 511,
+      "at_s": 463.29803929761346,
+      "measured": true,
+      "in_len": 7138,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 512,
+      "at_s": 465.22018237767,
+      "measured": true,
+      "in_len": 2359,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 513,
+      "at_s": 465.79977758762925,
+      "measured": true,
+      "in_len": 1100,
+      "out_len": 271
+    },
+    {
+      "kind": "llm",
+      "idx": 514,
+      "at_s": 466.7311298027968,
+      "measured": true,
+      "in_len": 47,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 515,
+      "at_s": 467.124359434572,
+      "measured": true,
+      "in_len": 1364,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 516,
+      "at_s": 467.1791631162677,
+      "measured": true,
+      "in_len": 1726,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 517,
+      "at_s": 469.2723806958003,
+      "measured": true,
+      "in_len": 20,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 518,
+      "at_s": 470.151969282043,
+      "measured": true,
+      "in_len": 4134,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 519,
+      "at_s": 471.8040408933164,
+      "measured": true,
+      "in_len": 91,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 520,
+      "at_s": 472.11711605001335,
+      "measured": true,
+      "in_len": 3121,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 521,
+      "at_s": 473.3988212898224,
+      "measured": true,
+      "in_len": 1749,
+      "out_len": 391
+    },
+    {
+      "kind": "llm",
+      "idx": 522,
+      "at_s": 473.4607985760211,
+      "measured": true,
+      "in_len": 1838,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 523,
+      "at_s": 473.71894767040675,
+      "measured": true,
+      "in_len": 1333,
+      "out_len": 128
+    },
+    {
+      "kind": "llm",
+      "idx": 524,
+      "at_s": 475.5507576191956,
+      "measured": true,
+      "in_len": 182,
+      "out_len": 211
+    },
+    {
+      "kind": "llm",
+      "idx": 525,
+      "at_s": 475.8092198409806,
+      "measured": true,
+      "in_len": 1373,
+      "out_len": 76
+    },
+    {
+      "kind": "llm",
+      "idx": 526,
+      "at_s": 476.9927565062889,
+      "measured": true,
+      "in_len": 2103,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 527,
+      "at_s": 477.4898724287001,
+      "measured": true,
+      "in_len": 2361,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 528,
+      "at_s": 477.93681412921575,
+      "measured": true,
+      "in_len": 3452,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 529,
+      "at_s": 478.4830110127302,
+      "measured": true,
+      "in_len": 1935,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 530,
+      "at_s": 480.0376519690497,
+      "measured": true,
+      "in_len": 2571,
+      "out_len": 52
+    },
+    {
+      "kind": "llm",
+      "idx": 531,
+      "at_s": 480.72611547353205,
+      "measured": true,
+      "in_len": 3114,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 532,
+      "at_s": 481.40307704285,
+      "measured": true,
+      "in_len": 1374,
+      "out_len": 46
+    },
+    {
+      "kind": "llm",
+      "idx": 533,
+      "at_s": 484.6182786036574,
+      "measured": true,
+      "in_len": 109,
+      "out_len": 55
+    },
+    {
+      "kind": "llm",
+      "idx": 534,
+      "at_s": 485.04108141089705,
+      "measured": true,
+      "in_len": 1506,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 535,
+      "at_s": 485.16914869966496,
+      "measured": true,
+      "in_len": 2361,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 536,
+      "at_s": 486.75786149242936,
+      "measured": true,
+      "in_len": 2114,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 537,
+      "at_s": 488.6435143065222,
+      "measured": true,
+      "in_len": 368,
+      "out_len": 43
+    },
+    {
+      "kind": "llm",
+      "idx": 538,
+      "at_s": 490.0587151470196,
+      "measured": true,
+      "in_len": 2134,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 539,
+      "at_s": 491.36587216299705,
+      "measured": true,
+      "in_len": 2075,
+      "out_len": 33
+    },
+    {
+      "kind": "llm",
+      "idx": 540,
+      "at_s": 491.8061032803718,
+      "measured": true,
+      "in_len": 1372,
+      "out_len": 46
+    },
+    {
+      "kind": "llm",
+      "idx": 541,
+      "at_s": 494.19433579881604,
+      "measured": true,
+      "in_len": 1840,
+      "out_len": 116
+    },
+    {
+      "kind": "llm",
+      "idx": 542,
+      "at_s": 494.6444348479109,
+      "measured": true,
+      "in_len": 13,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 543,
+      "at_s": 494.76862194418146,
+      "measured": true,
+      "in_len": 238,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 544,
+      "at_s": 495.30887886010805,
+      "measured": true,
+      "in_len": 7139,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 545,
+      "at_s": 496.2080293669219,
+      "measured": true,
+      "in_len": 1334,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 546,
+      "at_s": 498.2141787365398,
+      "measured": true,
+      "in_len": 1002,
+      "out_len": 7
+    },
+    {
+      "kind": "dit",
+      "idx": 69,
+      "at_s": 498.25393412160423,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000069
+    },
+    {
+      "kind": "llm",
+      "idx": 547,
+      "at_s": 498.2662069468232,
+      "measured": true,
+      "in_len": 2363,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 548,
+      "at_s": 500.5083067191145,
+      "measured": true,
+      "in_len": 21,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 549,
+      "at_s": 501.10898590629137,
+      "measured": true,
+      "in_len": 323,
+      "out_len": 34
+    },
+    {
+      "kind": "llm",
+      "idx": 550,
+      "at_s": 501.1848602666541,
+      "measured": true,
+      "in_len": 1843,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 551,
+      "at_s": 501.44085087866705,
+      "measured": true,
+      "in_len": 1374,
+      "out_len": 109
+    },
+    {
+      "kind": "llm",
+      "idx": 552,
+      "at_s": 501.8550792582229,
+      "measured": true,
+      "in_len": 3760,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 553,
+      "at_s": 504.94069619609417,
+      "measured": true,
+      "in_len": 1961,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 554,
+      "at_s": 505.15831819184945,
+      "measured": true,
+      "in_len": 1402,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 555,
+      "at_s": 506.7238810228474,
+      "measured": true,
+      "in_len": 92,
+      "out_len": 16
+    },
+    {
+      "kind": "dit",
+      "idx": 70,
+      "at_s": 507.2610043294278,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000070
+    },
+    {
+      "kind": "llm",
+      "idx": 556,
+      "at_s": 507.40980418266423,
+      "measured": true,
+      "in_len": 1374,
+      "out_len": 40
+    },
+    {
+      "kind": "llm",
+      "idx": 557,
+      "at_s": 507.4373419690773,
+      "measured": true,
+      "in_len": 14,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 558,
+      "at_s": 509.6464600178656,
+      "measured": true,
+      "in_len": 13,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 559,
+      "at_s": 512.0159064444458,
+      "measured": true,
+      "in_len": 3276,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 560,
+      "at_s": 513.0790022925526,
+      "measured": true,
+      "in_len": 1973,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 561,
+      "at_s": 513.4906774225815,
+      "measured": true,
+      "in_len": 61,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 562,
+      "at_s": 513.7307135124448,
+      "measured": true,
+      "in_len": 2492,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 563,
+      "at_s": 515.4957809765774,
+      "measured": true,
+      "in_len": 1512,
+      "out_len": 46
+    },
+    {
+      "kind": "llm",
+      "idx": 564,
+      "at_s": 516.0100755591009,
+      "measured": true,
+      "in_len": 119,
+      "out_len": 93
+    },
+    {
+      "kind": "llm",
+      "idx": 565,
+      "at_s": 516.1903497662626,
+      "measured": true,
+      "in_len": 1320,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 566,
+      "at_s": 518.3917114358301,
+      "measured": true,
+      "in_len": 2906,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 567,
+      "at_s": 519.652122841767,
+      "measured": true,
+      "in_len": 1849,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 568,
+      "at_s": 520.9008916697867,
+      "measured": true,
+      "in_len": 1290,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 569,
+      "at_s": 521.4247056733274,
+      "measured": true,
+      "in_len": 1091,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 570,
+      "at_s": 523.6728589851076,
+      "measured": true,
+      "in_len": 13,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 571,
+      "at_s": 524.952810257157,
+      "measured": true,
+      "in_len": 1323,
+      "out_len": 76
+    },
+    {
+      "kind": "llm",
+      "idx": 572,
+      "at_s": 525.1127188088132,
+      "measured": true,
+      "in_len": 1849,
+      "out_len": 40
+    },
+    {
+      "kind": "llm",
+      "idx": 573,
+      "at_s": 525.9243594217662,
+      "measured": true,
+      "in_len": 1321,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 574,
+      "at_s": 526.0143236301911,
+      "measured": true,
+      "in_len": 986,
+      "out_len": 16
+    },
+    {
+      "kind": "llm",
+      "idx": 575,
+      "at_s": 526.3505449329874,
+      "measured": true,
+      "in_len": 14,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 576,
+      "at_s": 528.1349162545254,
+      "measured": true,
+      "in_len": 1337,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 577,
+      "at_s": 528.5703635630204,
+      "measured": true,
+      "in_len": 3488,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 578,
+      "at_s": 530.9824762524192,
+      "measured": true,
+      "in_len": 1405,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 579,
+      "at_s": 532.3820891599975,
+      "measured": true,
+      "in_len": 1201,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 580,
+      "at_s": 532.3958314450538,
+      "measured": true,
+      "in_len": 1322,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 581,
+      "at_s": 533.933454240531,
+      "measured": true,
+      "in_len": 1598,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 582,
+      "at_s": 534.9965588915713,
+      "measured": true,
+      "in_len": 3118,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 583,
+      "at_s": 535.7773244285713,
+      "measured": true,
+      "in_len": 163,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 584,
+      "at_s": 536.7784244060657,
+      "measured": true,
+      "in_len": 1336,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 585,
+      "at_s": 537.1164325997671,
+      "measured": true,
+      "in_len": 4491,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 586,
+      "at_s": 537.8889760241307,
+      "measured": true,
+      "in_len": 3265,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 587,
+      "at_s": 539.6293761606377,
+      "measured": true,
+      "in_len": 2434,
+      "out_len": 64
+    },
+    {
+      "kind": "llm",
+      "idx": 588,
+      "at_s": 540.0946573692258,
+      "measured": true,
+      "in_len": 1467,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 589,
+      "at_s": 540.1173313714944,
+      "measured": true,
+      "in_len": 3117,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 590,
+      "at_s": 541.2264629413662,
+      "measured": true,
+      "in_len": 974,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 591,
+      "at_s": 541.4808679274715,
+      "measured": true,
+      "in_len": 117,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 592,
+      "at_s": 542.8123971696331,
+      "measured": true,
+      "in_len": 1271,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 593,
+      "at_s": 542.8543725899069,
+      "measured": true,
+      "in_len": 731,
+      "out_len": 58
+    },
+    {
+      "kind": "llm",
+      "idx": 594,
+      "at_s": 545.0411616900026,
+      "measured": true,
+      "in_len": 427,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 595,
+      "at_s": 545.6393707762737,
+      "measured": true,
+      "in_len": 3865,
+      "out_len": 100
+    },
+    {
+      "kind": "llm",
+      "idx": 596,
+      "at_s": 546.1458370757251,
+      "measured": true,
+      "in_len": 2430,
+      "out_len": 36
+    },
+    {
+      "kind": "llm",
+      "idx": 597,
+      "at_s": 548.385234797146,
+      "measured": true,
+      "in_len": 4071,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 598,
+      "at_s": 548.8053785078946,
+      "measured": true,
+      "in_len": 122,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 599,
+      "at_s": 549.0839033670327,
+      "measured": true,
+      "in_len": 427,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 600,
+      "at_s": 549.888594973662,
+      "measured": true,
+      "in_len": 1599,
+      "out_len": 9
+    },
+    {
+      "kind": "dit",
+      "idx": 71,
+      "at_s": 549.9748945708826,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000071
+    },
+    {
+      "kind": "llm",
+      "idx": 601,
+      "at_s": 550.1676658934393,
+      "measured": true,
+      "in_len": 2431,
+      "out_len": 40
+    },
+    {
+      "kind": "llm",
+      "idx": 602,
+      "at_s": 550.4256731060493,
+      "measured": true,
+      "in_len": 3917,
+      "out_len": 109
+    },
+    {
+      "kind": "llm",
+      "idx": 603,
+      "at_s": 551.6483801885315,
+      "measured": true,
+      "in_len": 1330,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 604,
+      "at_s": 551.8213010778911,
+      "measured": true,
+      "in_len": 4790,
+      "out_len": 30
+    },
+    {
+      "kind": "llm",
+      "idx": 605,
+      "at_s": 552.7963774506338,
+      "measured": true,
+      "in_len": 1352,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 606,
+      "at_s": 553.0356983021569,
+      "measured": true,
+      "in_len": 1600,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 607,
+      "at_s": 554.5748024829786,
+      "measured": true,
+      "in_len": 804,
+      "out_len": 85
+    },
+    {
+      "kind": "llm",
+      "idx": 608,
+      "at_s": 554.8750126225865,
+      "measured": true,
+      "in_len": 1600,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 609,
+      "at_s": 556.8788227087857,
+      "measured": true,
+      "in_len": 614,
+      "out_len": 599
+    },
+    {
+      "kind": "llm",
+      "idx": 610,
+      "at_s": 558.4408470007947,
+      "measured": true,
+      "in_len": 1601,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 611,
+      "at_s": 558.5266999992953,
+      "measured": true,
+      "in_len": 2893,
+      "out_len": 31
+    },
+    {
+      "kind": "llm",
+      "idx": 612,
+      "at_s": 558.8828744845457,
+      "measured": true,
+      "in_len": 984,
+      "out_len": 121
+    },
+    {
+      "kind": "llm",
+      "idx": 613,
+      "at_s": 558.9617777259291,
+      "measured": true,
+      "in_len": 3945,
+      "out_len": 102
+    },
+    {
+      "kind": "llm",
+      "idx": 614,
+      "at_s": 559.7629318467207,
+      "measured": true,
+      "in_len": 432,
+      "out_len": 10
+    },
+    {
+      "kind": "dit",
+      "idx": 72,
+      "at_s": 561.5627511369756,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000072
+    },
+    {
+      "kind": "llm",
+      "idx": 615,
+      "at_s": 561.6315785976262,
+      "measured": true,
+      "in_len": 1277,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 616,
+      "at_s": 562.1231061823978,
+      "measured": true,
+      "in_len": 2644,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 617,
+      "at_s": 563.6661443916313,
+      "measured": true,
+      "in_len": 986,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 618,
+      "at_s": 564.0463651903144,
+      "measured": true,
+      "in_len": 3960,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 619,
+      "at_s": 567.5373261008534,
+      "measured": true,
+      "in_len": 6187,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 620,
+      "at_s": 568.476054691784,
+      "measured": true,
+      "in_len": 2329,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 621,
+      "at_s": 568.8421800385489,
+      "measured": true,
+      "in_len": 1334,
+      "out_len": 81
+    },
+    {
+      "kind": "llm",
+      "idx": 622,
+      "at_s": 568.9082246800544,
+      "measured": true,
+      "in_len": 456,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 623,
+      "at_s": 569.065786609189,
+      "measured": true,
+      "in_len": 1276,
+      "out_len": 18
+    },
+    {
+      "kind": "llm",
+      "idx": 624,
+      "at_s": 570.0966957544451,
+      "measured": true,
+      "in_len": 984,
+      "out_len": 81
+    },
+    {
+      "kind": "llm",
+      "idx": 625,
+      "at_s": 570.9412455862081,
+      "measured": true,
+      "in_len": 3896,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 626,
+      "at_s": 574.0181374758719,
+      "measured": true,
+      "in_len": 1404,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 627,
+      "at_s": 576.3583730224833,
+      "measured": true,
+      "in_len": 2548,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 628,
+      "at_s": 576.6547558410853,
+      "measured": true,
+      "in_len": 122,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 629,
+      "at_s": 577.4660228590832,
+      "measured": true,
+      "in_len": 1603,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 630,
+      "at_s": 578.1943129322242,
+      "measured": true,
+      "in_len": 4765,
+      "out_len": 43
+    },
+    {
+      "kind": "llm",
+      "idx": 631,
+      "at_s": 579.0768570663932,
+      "measured": true,
+      "in_len": 1276,
+      "out_len": 13
+    },
+    {
+      "kind": "llm",
+      "idx": 632,
+      "at_s": 579.2085095854919,
+      "measured": true,
+      "in_len": 102,
+      "out_len": 487
+    },
+    {
+      "kind": "llm",
+      "idx": 633,
+      "at_s": 580.0011811341493,
+      "measured": true,
+      "in_len": 7328,
+      "out_len": 23
+    },
+    {
+      "kind": "llm",
+      "idx": 634,
+      "at_s": 580.279464338664,
+      "measured": true,
+      "in_len": 1318,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 635,
+      "at_s": 581.3116031732944,
+      "measured": true,
+      "in_len": 729,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 636,
+      "at_s": 582.0354607623874,
+      "measured": true,
+      "in_len": 2643,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 637,
+      "at_s": 586.2366412503889,
+      "measured": true,
+      "in_len": 2069,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 638,
+      "at_s": 586.9293152387182,
+      "measured": true,
+      "in_len": 1750,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 639,
+      "at_s": 588.9990270191478,
+      "measured": true,
+      "in_len": 2726,
+      "out_len": 20
+    },
+    {
+      "kind": "llm",
+      "idx": 640,
+      "at_s": 589.0115636198319,
+      "measured": true,
+      "in_len": 457,
+      "out_len": 46
+    },
+    {
+      "kind": "llm",
+      "idx": 641,
+      "at_s": 591.1460689565546,
+      "measured": true,
+      "in_len": 987,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 642,
+      "at_s": 594.3814218234568,
+      "measured": true,
+      "in_len": 2476,
+      "out_len": 36
+    },
+    {
+      "kind": "llm",
+      "idx": 643,
+      "at_s": 596.3699509790074,
+      "measured": true,
+      "in_len": 2065,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 644,
+      "at_s": 596.8042135694745,
+      "measured": true,
+      "in_len": 2721,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 645,
+      "at_s": 596.8101273933115,
+      "measured": true,
+      "in_len": 79,
+      "out_len": 23
+    },
+    {
+      "kind": "llm",
+      "idx": 646,
+      "at_s": 598.5401280367487,
+      "measured": true,
+      "in_len": 4249,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 647,
+      "at_s": 599.8369249537387,
+      "measured": true,
+      "in_len": 2791,
+      "out_len": 21
+    },
+    {
+      "kind": "llm",
+      "idx": 648,
+      "at_s": 601.6447825710218,
+      "measured": true,
+      "in_len": 2790,
+      "out_len": 11
+    },
+    {
+      "kind": "dit",
+      "idx": 73,
+      "at_s": 601.6754417211524,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000073
+    },
+    {
+      "kind": "llm",
+      "idx": 649,
+      "at_s": 602.3221040779239,
+      "measured": true,
+      "in_len": 2997,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 650,
+      "at_s": 602.4158395417243,
+      "measured": true,
+      "in_len": 1591,
+      "out_len": 49
+    },
+    {
+      "kind": "llm",
+      "idx": 651,
+      "at_s": 602.7302213787161,
+      "measured": true,
+      "in_len": 150,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 652,
+      "at_s": 603.2046435823759,
+      "measured": true,
+      "in_len": 386,
+      "out_len": 31
+    },
+    {
+      "kind": "llm",
+      "idx": 653,
+      "at_s": 604.1714821556885,
+      "measured": true,
+      "in_len": 2503,
+      "out_len": 26
+    },
+    {
+      "kind": "llm",
+      "idx": 654,
+      "at_s": 606.1300710723109,
+      "measured": true,
+      "in_len": 331,
+      "out_len": 52
+    },
+    {
+      "kind": "llm",
+      "idx": 655,
+      "at_s": 606.7049808355276,
+      "measured": true,
+      "in_len": 423,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 656,
+      "at_s": 606.8135382496271,
+      "measured": true,
+      "in_len": 709,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 657,
+      "at_s": 607.2475046055791,
+      "measured": true,
+      "in_len": 1652,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 658,
+      "at_s": 607.5436568954833,
+      "measured": true,
+      "in_len": 3977,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 659,
+      "at_s": 607.825505103376,
+      "measured": true,
+      "in_len": 158,
+      "out_len": 25
+    },
+    {
+      "kind": "llm",
+      "idx": 660,
+      "at_s": 608.5599473102436,
+      "measured": true,
+      "in_len": 613,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 661,
+      "at_s": 609.3325059012545,
+      "measured": true,
+      "in_len": 2864,
+      "out_len": 387
+    },
+    {
+      "kind": "llm",
+      "idx": 662,
+      "at_s": 610.2061513070995,
+      "measured": true,
+      "in_len": 3848,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 663,
+      "at_s": 610.2867897346254,
+      "measured": true,
+      "in_len": 158,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 664,
+      "at_s": 613.1908425857658,
+      "measured": true,
+      "in_len": 617,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 665,
+      "at_s": 614.6165031067869,
+      "measured": true,
+      "in_len": 1861,
+      "out_len": 73
+    },
+    {
+      "kind": "llm",
+      "idx": 666,
+      "at_s": 618.3952368025025,
+      "measured": true,
+      "in_len": 151,
+      "out_len": 9
+    },
+    {
+      "kind": "dit",
+      "idx": 74,
+      "at_s": 620.601980119838,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000074
+    },
+    {
+      "kind": "dit",
+      "idx": 75,
+      "at_s": 621.2313640906706,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000075
+    },
+    {
+      "kind": "llm",
+      "idx": 667,
+      "at_s": 622.3803466467526,
+      "measured": true,
+      "in_len": 6487,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 668,
+      "at_s": 624.4474859402419,
+      "measured": true,
+      "in_len": 9,
+      "out_len": 78
+    },
+    {
+      "kind": "llm",
+      "idx": 669,
+      "at_s": 624.6889835119513,
+      "measured": true,
+      "in_len": 151,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 670,
+      "at_s": 625.8065359034232,
+      "measured": true,
+      "in_len": 191,
+      "out_len": 196
+    },
+    {
+      "kind": "dit",
+      "idx": 76,
+      "at_s": 627.7631824751621,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000076
+    },
+    {
+      "kind": "dit",
+      "idx": 77,
+      "at_s": 627.9291736404426,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000077
+    },
+    {
+      "kind": "llm",
+      "idx": 671,
+      "at_s": 628.9727593974183,
+      "measured": true,
+      "in_len": 1690,
+      "out_len": 44
+    },
+    {
+      "kind": "llm",
+      "idx": 672,
+      "at_s": 630.0573992240243,
+      "measured": true,
+      "in_len": 4939,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 673,
+      "at_s": 630.765208337517,
+      "measured": true,
+      "in_len": 1897,
+      "out_len": 46
+    },
+    {
+      "kind": "llm",
+      "idx": 674,
+      "at_s": 631.4896531648869,
+      "measured": true,
+      "in_len": 160,
+      "out_len": 19
+    },
+    {
+      "kind": "llm",
+      "idx": 675,
+      "at_s": 632.1676792073686,
+      "measured": true,
+      "in_len": 1538,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 676,
+      "at_s": 632.419131857699,
+      "measured": true,
+      "in_len": 151,
+      "out_len": 8
+    },
+    {
+      "kind": "dit",
+      "idx": 78,
+      "at_s": 633.1815070107668,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000078
+    },
+    {
+      "kind": "llm",
+      "idx": 677,
+      "at_s": 633.9634455941688,
+      "measured": true,
+      "in_len": 86,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 678,
+      "at_s": 634.6543924088354,
+      "measured": true,
+      "in_len": 622,
+      "out_len": 31
+    },
+    {
+      "kind": "llm",
+      "idx": 679,
+      "at_s": 635.1720823788039,
+      "measured": true,
+      "in_len": 3334,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 680,
+      "at_s": 635.3968576844186,
+      "measured": true,
+      "in_len": 2525,
+      "out_len": 15
+    },
+    {
+      "kind": "llm",
+      "idx": 681,
+      "at_s": 635.7014903079289,
+      "measured": true,
+      "in_len": 2059,
+      "out_len": 82
+    },
+    {
+      "kind": "dit",
+      "idx": 79,
+      "at_s": 636.3307608623435,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000079
+    },
+    {
+      "kind": "llm",
+      "idx": 682,
+      "at_s": 636.7084182181555,
+      "measured": true,
+      "in_len": 1612,
+      "out_len": 71
+    },
+    {
+      "kind": "llm",
+      "idx": 683,
+      "at_s": 636.7803743178514,
+      "measured": true,
+      "in_len": 151,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 684,
+      "at_s": 637.0932129187164,
+      "measured": true,
+      "in_len": 1538,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 685,
+      "at_s": 638.0624730969805,
+      "measured": true,
+      "in_len": 1085,
+      "out_len": 22
+    },
+    {
+      "kind": "llm",
+      "idx": 686,
+      "at_s": 638.7027265951687,
+      "measured": true,
+      "in_len": 3020,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 687,
+      "at_s": 639.3380371775548,
+      "measured": true,
+      "in_len": 34,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 688,
+      "at_s": 639.8301196412427,
+      "measured": true,
+      "in_len": 636,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 689,
+      "at_s": 639.842392023163,
+      "measured": true,
+      "in_len": 162,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 690,
+      "at_s": 640.0378167421486,
+      "measured": true,
+      "in_len": 1615,
+      "out_len": 37
+    },
+    {
+      "kind": "llm",
+      "idx": 691,
+      "at_s": 640.3329746811286,
+      "measured": true,
+      "in_len": 332,
+      "out_len": 55
+    },
+    {
+      "kind": "llm",
+      "idx": 692,
+      "at_s": 640.5543358996741,
+      "measured": true,
+      "in_len": 1907,
+      "out_len": 6
+    },
+    {
+      "kind": "llm",
+      "idx": 693,
+      "at_s": 640.7451858998368,
+      "measured": true,
+      "in_len": 1992,
+      "out_len": 12
+    },
+    {
+      "kind": "llm",
+      "idx": 694,
+      "at_s": 640.8566522486207,
+      "measured": true,
+      "in_len": 2985,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 695,
+      "at_s": 641.1847060289695,
+      "measured": true,
+      "in_len": 152,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 696,
+      "at_s": 641.3908730534081,
+      "measured": true,
+      "in_len": 1862,
+      "out_len": 209
+    },
+    {
+      "kind": "llm",
+      "idx": 697,
+      "at_s": 641.6215164491271,
+      "measured": true,
+      "in_len": 1634,
+      "out_len": 43
+    },
+    {
+      "kind": "llm",
+      "idx": 698,
+      "at_s": 643.0822427964994,
+      "measured": true,
+      "in_len": 4467,
+      "out_len": 8
+    },
+    {
+      "kind": "llm",
+      "idx": 699,
+      "at_s": 643.1768144881964,
+      "measured": true,
+      "in_len": 160,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 80,
+      "at_s": 644.4427328258106,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000080
+    },
+    {
+      "kind": "llm",
+      "idx": 700,
+      "at_s": 644.4643731772369,
+      "measured": true,
+      "in_len": 2248,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 701,
+      "at_s": 646.0618997606658,
+      "measured": true,
+      "in_len": 1539,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 702,
+      "at_s": 647.1385047714393,
+      "measured": true,
+      "in_len": 12,
+      "out_len": 74
+    },
+    {
+      "kind": "llm",
+      "idx": 703,
+      "at_s": 647.4786676043204,
+      "measured": true,
+      "in_len": 153,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 704,
+      "at_s": 647.7763959575831,
+      "measured": true,
+      "in_len": 334,
+      "out_len": 9
+    },
+    {
+      "kind": "llm",
+      "idx": 705,
+      "at_s": 649.8375454357778,
+      "measured": true,
+      "in_len": 1539,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 706,
+      "at_s": 649.993167643047,
+      "measured": true,
+      "in_len": 1863,
+      "out_len": 79
+    },
+    {
+      "kind": "llm",
+      "idx": 707,
+      "at_s": 650.2869311299794,
+      "measured": true,
+      "in_len": 1992,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 708,
+      "at_s": 650.3569078651091,
+      "measured": true,
+      "in_len": 1540,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 709,
+      "at_s": 650.713682300321,
+      "measured": true,
+      "in_len": 636,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 710,
+      "at_s": 650.9436122933598,
+      "measured": true,
+      "in_len": 748,
+      "out_len": 11
+    },
+    {
+      "kind": "llm",
+      "idx": 711,
+      "at_s": 651.2467405589293,
+      "measured": true,
+      "in_len": 1540,
+      "out_len": 10
+    },
+    {
+      "kind": "llm",
+      "idx": 712,
+      "at_s": 651.9701579550394,
+      "measured": true,
+      "in_len": 3424,
+      "out_len": 409
+    },
+    {
+      "kind": "llm",
+      "idx": 713,
+      "at_s": 654.0476400547961,
+      "measured": true,
+      "in_len": 1087,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 714,
+      "at_s": 654.2878229823091,
+      "measured": true,
+      "in_len": 1655,
+      "out_len": 10
+    },
+    {
+      "kind": "dit",
+      "idx": 81,
+      "at_s": 654.9043140839617,
+      "measured": true,
+      "prompt": "a snowy mountain village",
+      "image_seed": 903000081
+    },
+    {
+      "kind": "llm",
+      "idx": 715,
+      "at_s": 655.0714485816138,
+      "measured": true,
+      "in_len": 149,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 716,
+      "at_s": 655.5667218751179,
+      "measured": true,
+      "in_len": 2470,
+      "out_len": 6
+    },
+    {
+      "kind": "dit",
+      "idx": 82,
+      "at_s": 656.2759833012669,
+      "measured": true,
+      "prompt": "a bowl of ramen",
+      "image_seed": 903000082
+    },
+    {
+      "kind": "dit",
+      "idx": 83,
+      "at_s": 656.4223250514519,
+      "measured": true,
+      "prompt": "a lighthouse at dusk",
+      "image_seed": 903000083
+    },
+    {
+      "kind": "dit",
+      "idx": 84,
+      "at_s": 656.516627744297,
+      "measured": true,
+      "prompt": "a photo of a red bicycle",
+      "image_seed": 903000084
+    },
+    {
+      "kind": "llm",
+      "idx": 717,
+      "at_s": 656.575011008452,
+      "measured": true,
+      "in_len": 1616,
+      "out_len": 29
+    },
+    {
+      "kind": "llm",
+      "idx": 718,
+      "at_s": 657.1605290882112,
+      "measured": true,
+      "in_len": 149,
+      "out_len": 52
+    },
+    {
+      "kind": "llm",
+      "idx": 719,
+      "at_s": 657.8139875666222,
+      "measured": true,
+      "in_len": 1850,
+      "out_len": 28
+    },
+    {
+      "kind": "llm",
+      "idx": 720,
+      "at_s": 657.8930332528937,
+      "measured": true,
+      "in_len": 3360,
+      "out_len": 86
+    },
+    {
+      "kind": "llm",
+      "idx": 721,
+      "at_s": 658.2382595526226,
+      "measured": true,
+      "in_len": 228,
+      "out_len": 7
+    },
+    {
+      "kind": "llm",
+      "idx": 722,
+      "at_s": 658.5427304631776,
+      "measured": true,
+      "in_len": 2445,
+      "out_len": 14
+    },
+    {
+      "kind": "llm",
+      "idx": 723,
+      "at_s": 658.9946905140273,
+      "measured": true,
+      "in_len": 1749,
+      "out_len": 17
+    },
+    {
+      "kind": "llm",
+      "idx": 724,
+      "at_s": 659.5585500751463,
+      "measured": true,
+      "in_len": 1502,
+      "out_len": 31
+    }
+  ]
+}

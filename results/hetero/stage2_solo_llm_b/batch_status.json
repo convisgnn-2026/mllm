@@ -1,0 +1,9 @@
+{
+  "status": "complete",
+  "updated_unix_s": 1793582114.5902066,
+  "protocol_sha256": "cd8c20a8fbb50fde4762e5f13404f8f86cbcc429dda1fbf84e24499f5f5e3f30",
+  "total_jobs": 8,
+  "pid": 36881,
+  "completed_jobs": 8,
+  "infra_failures": []
+}

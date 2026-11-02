@@ -1,0 +1,47 @@
+{
+  "run_id": "C_3090__alpha2_seed901",
+  "candidate": "C_3090",
+  "alpha": 2.0,
+  "plan_stem": "alpha2_seed901",
+  "plan": "results/hetero/stage1_plans/alpha2_seed901.json",
+  "plan_sha256": "08a4edb72b941997d6d9ca73fb34756e20d5b463a473807eccdbb8d1cf28feea",
+  "prompt_sha256": "7594bd6a9466ebafc106418082f886100a95e5ee21babe6be463a83805cc4bee",
+  "replay": "both",
+  "expected_servers": [
+    "serve_8100",
+    "serve_8200"
+  ],
+  "cards": [
+    "3090",
+    "4090"
+  ],
+  "command": [
+    "bash",
+    "bench/hetero/run_mixed_modal.sh",
+    "C",
+    "3090"
+  ],
+  "env_explicit": {
+    "MODEL": "meta-llama/Llama-3.2-3B-Instruct",
+    "DMODEL": "stabilityai/stable-diffusion-3.5-medium",
+    "GPU_UTIL": "0.5",
+    "SIZE": "512",
+    "STEPS": "28",
+    "KV_BYTES": "4294967296",
+    "DRAIN_TIMEOUT": "300",
+    "CONTROLLED_PLAN": "/home/jinwoo.kim27/mllm/results/hetero/stage1_plans/alpha2_seed901.json",
+    "CONTROLLED_OUT": "/home/jinwoo.kim27/mllm/results/hetero/stage1_pilot/C_3090/alpha2_seed901"
+  },
+  "started_unix_s": 1792058596.4326832,
+  "outcome": "done",
+  "log": "/home/jinwoo.kim27/mllm/results/hetero/stage1_pilot/C_3090/alpha2_seed901.console.log",
+  "finished_unix_s": 1792059625.616874,
+  "exit_code": 0,
+  "errors": 168,
+  "drain_timeouts": 167,
+  "kv_ok": true,
+  "kv_reason": "",
+  "records_ok": true,
+  "records_problems": [],
+  "plan_match": true
+}

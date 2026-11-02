@@ -1,0 +1,52 @@
+== mixed_modal LLM=C DIT=4090  13:01:16
+  :8100 ready (33s)
+  :8200 ready (6s)
+  dit ready (3s)
+0, 21788 MiB
+1, 13043 MiB
+[transformers] Ignoring clean_up_tokenization_spaces=True for BPE tokenizer TokenizersBackend. The clean_up_tokenization post-processing step is designed for WordPiece tokenizers and is destructive for BPE (it strips spaces before punctuation). Set clean_up_tokenization_spaces=False to suppress this warning, or set clean_up_tokenization_spaces_for_bpe_even_though_it_will_corrupt_output=True to force cleanup anyway.
+progress: completed=100/1493 elapsed=44.0s errors=0
+progress: completed=200/1493 elapsed=90.8s errors=0
+progress: completed=300/1493 elapsed=132.6s errors=0
+progress: completed=400/1493 elapsed=178.2s errors=0
+progress: completed=500/1493 elapsed=225.6s errors=0
+progress: completed=600/1493 elapsed=275.1s errors=0
+progress: completed=700/1493 elapsed=318.3s errors=0
+progress: completed=800/1493 elapsed=363.7s errors=0
+progress: completed=900/1493 elapsed=402.2s errors=0
+progress: completed=1000/1493 elapsed=448.3s errors=0
+progress: completed=1100/1493 elapsed=489.8s errors=0
+progress: completed=1200/1493 elapsed=529.7s errors=0
+progress: completed=1300/1493 elapsed=572.6s errors=0
+progress: completed=1400/1493 elapsed=616.8s errors=0
+{
+  "plan_sha256": "3c075f9543860b0c221f122e2343adc0ec54eab91c4789aad3b95c0c61566fce",
+  "model": "meta-llama/Llama-3.2-3B-Instruct",
+  "only": "both",
+  "start_unix_s": 1791864131.82335,
+  "warmup_s": 60,
+  "duration_s": 600,
+  "drain_timeout_s": 300.0,
+  "requests": 1493,
+  "prompt_sha256": "3f00a65cf1351c53fbedd18bacb53761161eb12c2e83735f3fc69d63f75ccf6d",
+  "errors": 0,
+  "measured": {
+    "llm": {
+      "n": 1154,
+      "errors": 0,
+      "attainment": {
+        "A": 0.6568457538994801,
+        "B": 0.8466204506065858
+      }
+    },
+    "dit": {
+      "n": 200,
+      "errors": 0,
+      "attainment": {
+        "A": 1.0,
+        "B": 0.67
+      }
+    }
+  }
+}
+cleanup

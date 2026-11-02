@@ -1,0 +1,26 @@
+[
+  {
+    "port": 8510,
+    "command": "start",
+    "before_unix_s": 1791877876.8138788,
+    "after_unix_s": 1791877876.8677511
+  },
+  {
+    "port": 8540,
+    "command": "start",
+    "before_unix_s": 1791877876.8677528,
+    "after_unix_s": 1791877876.8952374
+  },
+  {
+    "port": 8540,
+    "command": "stop",
+    "before_unix_s": 1791877884.8955297,
+    "after_unix_s": 1791877913.80383
+  },
+  {
+    "port": 8510,
+    "command": "stop",
+    "before_unix_s": 1791877913.8038313,
+    "after_unix_s": 1791877913.8291397
+  }
+]

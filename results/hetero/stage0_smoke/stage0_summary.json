@@ -1,0 +1,1343 @@
+{
+  "base": "results/hetero/stage0_smoke",
+  "completed": 12,
+  "failed": 0,
+  "runs": [
+    {
+      "peak_mem_mib": {
+        "0": 253,
+        "1": 21297
+      },
+      "peak_power_w": {
+        "0": 24.93,
+        "1": 369.52
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 50272
+      },
+      "candidate": "S3_3090",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "both",
+      "requests": 142,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.0,
+            "B": 0.0
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 0.0,
+            "B": 0.0
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {},
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.002084593555387926,
+        "dit": 0.0013192840421396568
+      },
+      "mem_after_load_mib": {
+        "0": 253,
+        "1": 21287
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ],
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "4f71021b5841834adee67ff8ab550177c1a88d02783dea29a50c3f0514990873",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 251,
+        "1": 21297
+      },
+      "peak_power_w": {
+        "0": 25.46,
+        "1": 370.09
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 50272
+      },
+      "candidate": "S3_3090_only_dit",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "dit",
+      "requests": 17,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8461538461538461,
+            "B": 0.15384615384615385
+          }
+        }
+      },
+      "error_kinds": {
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "dit": 0.004487474173103578
+      },
+      "mem_after_load_mib": {
+        "0": 251,
+        "1": 21287
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "ada0966f8efb87405534131334354c947872781d4d01643d616a994a7d5d9cf5",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 253,
+        "1": 21287
+      },
+      "peak_power_w": {
+        "0": 25.88,
+        "1": 370.41
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 50272
+      },
+      "candidate": "S3_3090_only_llm",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "llm",
+      "requests": 125,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.6404494382022472,
+            "B": 0.550561797752809
+          }
+        },
+        "dit": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.0022356474574181107
+      },
+      "mem_after_load_mib": {
+        "0": 131,
+        "1": 21287
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "b961781db546cd69d113228fece9bb179db61990ab91d394701a53141b234eea",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 8655,
+        "1": 13043
+      },
+      "peak_power_w": {
+        "0": 446.24,
+        "1": 370.14
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 50272
+      },
+      "candidate": "S3_4090",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "both",
+      "requests": 142,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.6179775280898876,
+            "B": 0.550561797752809
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 1.0,
+            "B": 1.0
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {},
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.0022251601273239885,
+        "dit": 0.001294296172694942
+      },
+      "mem_after_load_mib": {
+        "0": 8645,
+        "1": 13043
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ],
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "4f71021b5841834adee67ff8ab550177c1a88d02783dea29a50c3f0514990873",
+      "log_flags": [],
+      "shutdown_noise_lines": 0,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 8655,
+        "1": 13043
+      },
+      "peak_power_w": {
+        "0": 450.11,
+        "1": 259.22
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 50272
+      },
+      "candidate": "S3_4090_only_dit",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "dit",
+      "requests": 17,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 1.0,
+            "B": 1.0
+          }
+        }
+      },
+      "error_kinds": {
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "dit": 0.009677218230237372
+      },
+      "mem_after_load_mib": {
+        "0": 8645,
+        "1": 13043
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "ada0966f8efb87405534131334354c947872781d4d01643d616a994a7d5d9cf5",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 8647,
+        "1": 11677
+      },
+      "peak_power_w": {
+        "0": 25.51,
+        "1": 370.28
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 37776
+      },
+      "candidate": "S3_4090_only_llm",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "llm",
+      "requests": 125,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.6404494382022472,
+            "B": 0.550561797752809
+          }
+        },
+        "dit": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.002364577276666946
+      },
+      "mem_after_load_mib": {
+        "0": 8525,
+        "1": 11677
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S3",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "b961781db546cd69d113228fece9bb179db61990ab91d394701a53141b234eea",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 13398,
+        "1": 8271
+      },
+      "peak_power_w": {
+        "0": 419.26,
+        "1": 369.73
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_3090",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "both",
+      "requests": 142,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8539325842696629,
+            "B": 0.7752808988764045
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8461538461538461,
+            "B": 0.15384615384615385
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {},
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.0023987556320541614,
+        "dit": 0.0010782463247487328
+      },
+      "mem_after_load_mib": {
+        "0": 13398,
+        "1": 8261
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ],
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "4f71021b5841834adee67ff8ab550177c1a88d02783dea29a50c3f0514990873",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 13397,
+        "1": 8271
+      },
+      "peak_power_w": {
+        "0": 175.34,
+        "1": 370.21
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_3090_only_dit",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "dit",
+      "requests": 17,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8461538461538461,
+            "B": 0.15384615384615385
+          }
+        }
+      },
+      "error_kinds": {
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "dit": 0.004599390974064477
+      },
+      "mem_after_load_mib": {
+        "0": 13397,
+        "1": 8261
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "ada0966f8efb87405534131334354c947872781d4d01643d616a994a7d5d9cf5",
+      "log_flags": [],
+      "shutdown_noise_lines": 0,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 13397,
+        "1": 8261
+      },
+      "peak_power_w": {
+        "0": 431.37,
+        "1": 43.39
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_3090_only_llm",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "llm",
+      "requests": 125,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8651685393258427,
+            "B": 0.7752808988764045
+          }
+        },
+        "dit": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.002498015843875656
+      },
+      "mem_after_load_mib": {
+        "0": 13397,
+        "1": 8261
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "3090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "b961781db546cd69d113228fece9bb179db61990ab91d394701a53141b234eea",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 21802,
+        "1": 18
+      },
+      "peak_power_w": {
+        "0": 447.55,
+        "1": 40.52
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_4090",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "both",
+      "requests": 142,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.30337078651685395,
+            "B": 0.1797752808988764
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 1.0,
+            "B": 0.6153846153846154
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {},
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.002072856462326911,
+        "dit": 0.0012874044667885443
+      },
+      "mem_after_load_mib": {
+        "0": 21792,
+        "1": 18
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ],
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "4f71021b5841834adee67ff8ab550177c1a88d02783dea29a50c3f0514990873",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 21681,
+        "1": 18
+      },
+      "peak_power_w": {
+        "0": 447.83,
+        "1": 38.67
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_4090_only_dit",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "dit",
+      "requests": 17,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        },
+        "dit": {
+          "n": 13,
+          "errors": 0,
+          "attainment": {
+            "A": 1.0,
+            "B": 1.0
+          }
+        }
+      },
+      "error_kinds": {
+        "dit": {}
+      },
+      "send_lag_p99_s": {
+        "dit": 0.006176291850316318
+      },
+      "mem_after_load_mib": {
+        "0": 21671,
+        "1": 18
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "dit": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "ada0966f8efb87405534131334354c947872781d4d01643d616a994a7d5d9cf5",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    },
+    {
+      "peak_mem_mib": {
+        "0": 21790,
+        "1": 18
+      },
+      "peak_power_w": {
+        "0": 448.4,
+        "1": 39.69
+      },
+      "kv_cache_tokens": {
+        "serve_8100": 49888
+      },
+      "candidate": "S4_4090_only_llm",
+      "plan": "smoke_seed900",
+      "done": true,
+      "only": "llm",
+      "requests": 125,
+      "errors": 0,
+      "measured": {
+        "llm": {
+          "n": 89,
+          "errors": 0,
+          "attainment": {
+            "A": 0.8539325842696629,
+            "B": 0.7752808988764045
+          }
+        },
+        "dit": {
+          "n": 0,
+          "errors": 0,
+          "attainment": {
+            "A": null,
+            "B": null
+          }
+        }
+      },
+      "error_kinds": {
+        "llm": {}
+      },
+      "send_lag_p99_s": {
+        "llm": 0.0027666063643110306
+      },
+      "mem_after_load_mib": {
+        "0": 21790,
+        "1": 18
+      },
+      "gpu_mem_total_mib": null,
+      "deployment": {
+        "llm": "S4",
+        "dit": "4090",
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "dit_model": "stabilityai/stable-diffusion-3.5-medium",
+        "gpu_util": 0.5,
+        "size": 512,
+        "steps": 28,
+        "gpu_uuids": [
+          "GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b",
+          "GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e"
+        ],
+        "python": "3.12.14",
+        "versions": {
+          "torch": "2.13.0+cu129",
+          "vllm": "0.28.0+cu129",
+          "diffusers": "0.40.0",
+          "transformers": "5.14.1",
+          "httpx": "0.28.1"
+        }
+      },
+      "columns": {
+        "llm": [
+          "kind",
+          "idx",
+          "measured",
+          "planned_s",
+          "send_s",
+          "send_lag_s",
+          "first_s",
+          "end_s",
+          "ttft",
+          "tpot",
+          "e2e",
+          "queue",
+          "encode",
+          "denoise",
+          "vae",
+          "out_tokens",
+          "err",
+          "in_len",
+          "out_len"
+        ]
+      },
+      "plan_sha256": "1e6faa0d82595540a44b081cc2ddb56f2f5ba1a9d4220caff54d54f5f983253b",
+      "prompt_sha256": "b961781db546cd69d113228fece9bb179db61990ab91d394701a53141b234eea",
+      "log_flags": [],
+      "shutdown_noise_lines": 3,
+      "console_tail": [
+        "  }",
+        "}",
+        "cleanup"
+      ]
+    }
+  ],
+  "failed_runs": [],
+  "parity": {
+    "both": {
+      "n": 4,
+      "same_plan_sha": true,
+      "same_prompt_sha": true,
+      "same_columns": true,
+      "same_denominators": true
+    },
+    "llm": {
+      "n": 4,
+      "same_plan_sha": true,
+      "same_prompt_sha": true,
+      "same_columns": true,
+      "same_denominators": true
+    },
+    "dit": {
+      "n": 4,
+      "same_plan_sha": true,
+      "same_prompt_sha": true,
+      "same_columns": true,
+      "same_denominators": true
+    },
+    "kv_cache_tokens": {
+      "distinct_values": [
+        37776,
+        49888,
+        50272
+      ],
+      "identical": false
+    }
+  }
+}
