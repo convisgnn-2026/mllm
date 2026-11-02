@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # 혼재(LLM + DiT) 정적 배치 실험. LLM 구성(S4|S3|C|A|none) × DiT 위치(4090|3090|split|none) × (LLM 도착률, DiT 도착률).
 #   LRATES="1.0 2.0" DRATES="0.1 0.2" N=300 bench/hetero/run_mixed_modal.sh C 4090
+#   CONTROLLED_PLAN=<plan.json> [CONTROLLED_OUT=<dir>] [REPLAY_ONLY=llm|dit] bench/hetero/run_mixed_modal.sh S4 3090
+#     REPLAY_ONLY 는 상주형 단독: 두 서버를 모두 띄운 채 한 서비스 요청만 재생한다(LLM=none/DIT=none 과 다름).
 # 결과 results/hetero/mixed_modal/<LLM>_<DIT>/<work>_L<lr>_D<dr>/{llm,dit}/ + gpu.csv
 # cuda:0 = 4090, cuda:1 = 3090 (UUID 고정). LLM 메모리는 GPU_UTIL(기본 0.5) 로 고정해 단독/혼재 조건을 같게 둔다.
 set -uo pipefail
@@ -27,7 +29,11 @@ mkdir -p "$OUT"
 G4090=GPU-d5bd27b1-7998-9ae2-b764-3c528e12a47b; G3090=GPU-208c8076-e9ae-fde6-aacf-b0c3fae16a9e
 export CUDA_DEVICE_ORDER=PCI_BUS_ID VLLM_USE_FLASHINFER_SAMPLER=0 UCX_NET_DEVICES=all HF_HUB_OFFLINE=1
 export UCX_TLS=cuda_copy,tcp,self UCX_TCP_TX_SEG_SIZE=4m UCX_TCP_RX_SEG_SIZE=4m UCX_TCP_SNDBUF=64m UCX_TCP_RCVBUF=64m UCX_MAX_RNDV_LANES=4 UCX_RNDV_THRESH=64k
-COMMON=(--dtype bfloat16 --max-model-len 8192 --gpu-memory-utilization "$GPU_UTIL" --no-enable-prefix-caching --max-num-seqs 256)
+# KV 예산은 바이트로 고정한다. gpu-memory-utilization 만으로는 profiling 시점의 컴파일·activation 피크에 따라 KV 용량이 달라진다
+# (Stage 0: 같은 후보가 37,776 vs 50,272 토큰). KV_BYTES=0 이면 예전처럼 util 기반 자동 산정.
+KV_BYTES=${KV_BYTES:-4294967296}
+KVARG=(); [ "$KV_BYTES" = 0 ] || KVARG=(--kv-cache-memory-bytes "$KV_BYTES")
+COMMON=(--dtype bfloat16 --max-model-len 8192 --gpu-memory-utilization "$GPU_UTIL" "${KVARG[@]}" --no-enable-prefix-caching --max-num-seqs 256)
 PIDS=(); SM=""
 cleanup() {
   echo "cleanup"
@@ -75,19 +81,31 @@ if [ "$DIT" != none ]; then
 fi
 nvidia-smi --query-gpu=index,memory.used --format=csv,noheader > "$OUT/mem_after_load.txt"; cat "$OUT/mem_after_load.txt"
 if [ -n "${CONTROLLED_PLAN:-}" ]; then
-  "$V/python" - "$OUT" "$LLM" "$DIT" "$MODEL" "$DMODEL" "$GPU_UTIL" "$SIZE" "$STEPS" "$G4090" "$G3090" <<'PYMETA'
-import json, sys, platform
+  "$V/python" - "$OUT" "$LLM" "$DIT" "$MODEL" "$DMODEL" "$GPU_UTIL" "$SIZE" "$STEPS" "$G4090" "$G3090" "$KV_BYTES" <<'PYMETA'
+import json, sys, platform, re
 from pathlib import Path
-out, llm, dit, model, dmodel, util, size, steps, gpu4, gpu3 = sys.argv[1:]
+out, llm, dit, model, dmodel, util, size, steps, gpu4, gpu3, kv_bytes = sys.argv[1:]
+kv_tokens={}
+for log in sorted(Path(out).glob('serve_*.log')):
+    m=re.search(r'GPU KV cache size: ([\d,]+) tokens', log.read_text(errors='replace'))
+    kv_tokens[log.stem]=int(m.group(1).replace(',','')) if m else None
 import importlib.metadata as md
 versions={k: md.version(k) for k in ('torch','vllm','diffusers','transformers','httpx')}
-Path(out,'deployment.json').write_text(json.dumps(dict(llm=llm,dit=dit,model=model,dit_model=dmodel,gpu_util=float(util),size=int(size),steps=int(steps),gpu_uuids=[gpu4,gpu3],python=platform.python_version(),versions=versions),indent=2))
+Path(out,'deployment.json').write_text(json.dumps(dict(llm=llm,dit=dit,model=model,dit_model=dmodel,gpu_util=float(util),kv_cache_memory_bytes=int(kv_bytes),kv_cache_tokens=kv_tokens,size=int(size),steps=int(steps),gpu_uuids=[gpu4,gpu3],python=platform.python_version(),versions=versions),indent=2))
 PYMETA
   [ $? -eq 0 ] || exit 1
   nvidia-smi --query-gpu=timestamp,index,utilization.gpu,memory.used,power.draw,clocks.sm,clocks.mem --format=csv,noheader -lms 1000 > "$OUT/gpu.csv" 2>/dev/null & SM=$!
   ONLY=both
   [ "$LLM" != none ] || ONLY=dit
   [ "$DIT" != none ] || ONLY=llm
+  # 상주형 단독(resident solo): 두 서버를 모두 올린 채 한 서비스에만 요청을 보낸다. REPLAY_ONLY=llm|dit 로 지정.
+  if [ -n "${REPLAY_ONLY:-}" ]; then
+    case $REPLAY_ONLY in both|llm|dit) ;; *) echo "bad REPLAY_ONLY=$REPLAY_ONLY"; exit 1 ;; esac
+    { [ "$REPLAY_ONLY" = llm ] && [ "$LLM" = none ]; } && { echo "REPLAY_ONLY=llm but LLM=none"; exit 1; }
+    { [ "$REPLAY_ONLY" = dit ] && [ "$DIT" = none ]; } && { echo "REPLAY_ONLY=dit but DIT=none"; exit 1; }
+    ONLY=$REPLAY_ONLY
+  fi
+  echo "replay only=$ONLY"
   "$V/python" bench/hetero/controlled_mixed.py replay --plan "$CONTROLLED_PLAN" --only "$ONLY" --out "$OUT/replay" --drain-timeout "${DRAIN_TIMEOUT:-300}"
   status=$?
   kill "$SM" 2>/dev/null; wait "$SM" 2>/dev/null; SM=""
