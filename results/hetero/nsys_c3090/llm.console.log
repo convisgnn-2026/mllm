@@ -1,0 +1,11 @@
+== nsys diagnostic C_3090 mode=llm 16:31:16
+  :8100 ready (33s)
+  :8200 ready (6s)
+  dit ready (3s)
+0, 12053 MiB
+1, 19957 MiB
+replay only=llm start 16:31:58
+nsys start 16:33:28
+nsys stop 16:35:09
+-rw-rw-r--. 1 jinwoo.kim27 jinwoo.kim27 53887126 Nov  2 16:35 results/hetero/nsys_c3090/llm/report.nsys-rep
+cleanup 16:35:19

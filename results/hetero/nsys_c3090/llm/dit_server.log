@@ -1,0 +1,21 @@
+/home/jinwoo.kim27/venv/jinwoo/lib/python3.12/site-packages/diffusers/utils/deprecation_utils.py:23: FutureWarning: `torch_dtype` is deprecated and will be removed in version 1.0.0. Please use `dtype` instead.
+  deprecate("torch_dtype", "1.0.0", _TORCH_DTYPE_DEPRECATION_MESSAGE)
+Couldn't connect to the Hub: Cannot reach https://huggingface.co/api/models/stabilityai/stable-diffusion-3.5-medium: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable..
+Will try to load from local cache.
+Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]
+Loading weights:   0%|          | 0/197 [00:00<?, ?it/s][ALoading weights: 100%|██████████| 197/197 [00:00<00:00, 2629.69it/s]
+Loading pipeline components...:  14%|█▍        | 1/7 [00:00<00:01,  4.66it/s]
+Loading weights:   0%|          | 0/517 [00:00<?, ?it/s][A
+Loading weights:  19%|█▊        | 96/517 [00:00<00:00, 955.33it/s][A
+Loading weights:  42%|████▏     | 218/517 [00:00<00:00, 1100.30it/s][A
+Loading weights:  69%|██████▉   | 359/517 [00:00<00:00, 1240.47it/s][A
+Loading weights:  95%|█████████▍| 490/517 [00:00<00:00, 1247.41it/s][ALoading weights: 100%|██████████| 517/517 [00:00<00:00, 1242.88it/s]
+Loading pipeline components...:  29%|██▊       | 2/7 [00:00<00:01,  2.52it/s]Loading pipeline components...:  86%|████████▌ | 6/7 [00:00<00:00,  9.01it/s]Loading pipeline components...: 100%|██████████| 7/7 [00:02<00:00,  3.02it/s]
+/home/jinwoo.kim27/mllm/bench/hetero/dit_server.py:74: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+READY

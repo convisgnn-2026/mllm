@@ -1,0 +1,19 @@
+INFO:     Started server process [193700]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8192 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     127.0.0.1:21730 - "GET /health HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:21742 - "GET /healthcheck HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21754 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21770 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21780 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21766 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21762 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21794 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21784 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:21788 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [193700]

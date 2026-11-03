@@ -1,0 +1,10 @@
+== nsys diagnostic S4_4090 mode=llm 18:05:25
+  :8100 ready (33s)
+  dit ready (3s)
+0, 20518 MiB
+1, 18 MiB
+replay only=llm start 18:06:04
+nsys start 18:07:34
+nsys stop 18:09:08
+-rw-rw-r--. 1 jinwoo.kim27 jinwoo.kim27 10374092 Nov  2 18:09 results/hetero/nsys_s4_4090/llm/report.nsys-rep
+cleanup 18:09:18

@@ -1,0 +1,33 @@
+{
+  "run": "llm",
+  "decode_proc": [
+    176019,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": null,
+  "window_s": 89.332628798,
+  "decode": {
+    "n_graph_steps": 7960,
+    "n_nongraph_kernels": 76747,
+    "busy_s": 33.60612823,
+    "busy_frac": 0.37619096943839614,
+    "n_steps_ge2ms": 3320
+  },
+  "decode_step_ms": {
+    "p50": 8.541657,
+    "p90": 9.474116,
+    "p99": 9.931707
+  },
+  "decode_gap_ms": {
+    "p50": 0.982636,
+    "p90": 1.004941,
+    "p99": 554.787802,
+    "sum_s": 60.443306481
+  },
+  "dmon_gpu1": {
+    "n": 101,
+    "sm_pct_mean": 40.198019801980195,
+    "mem_pct_mean": 36.46534653465346,
+    "mem_pct_p90": 97.0
+  }
+}

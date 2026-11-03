@@ -1,4 +1,6 @@
-# B300 / RTX PRO 6000 포팅 인수인계 (2026-11-02)
+# B300 / RTX PRO 6000 포팅 인수인계 (2026-11-02, 7절 추가 2026-11-03)
+
+> **2026-11-03 추가:** 7절에 공유 GPU 간섭의 원인(프로세스 간 시간 분할) 확인 결과와, 그에 따라 B300에서 먼저 확인할 항목·환경 의존 항목·미커밋 파일 목록을 덧붙였다. 1~6절은 11-02 상태 그대로이며, 7절과 다른 부분은 7절이 우선한다.
 
 이 문서는 4090+3090 풀에서 끝낸 Stage 0~2b를 B300 8장(main 노드) + RTX PRO 6000 노드 환경으로 옮길 때, 그쪽 Claude Code와 사람이 먼저 읽을 문서다. 근거 문서는 `docs/solver_need_experiments.md`(실험 기록 전체)와 `docs/stage1_protocol.md`(프로토콜)이고, 여기에는 **무엇이 환경에 묶여 있어 다시 정해야 하는지**만 적는다.
 
@@ -57,3 +59,59 @@
 ## 6. 그쪽 Claude Code에게 주는 첫 지시 (복사용)
 
 > `docs/handoff_b300.md`와 `docs/solver_need_experiments.md`의 "Stage 2b 결과" 절을 읽고, 4절 체크리스트 1~2번만 먼저 진행해 줘. 하네스(`bench/hetero/run_mixed_modal.sh`, `run_stage1_pilot.py`)의 환경 상수는 바꾸되 판정 정의(`stage1_report.py`)와 분석 스크립트는 건드리지 마. GPU를 쓰는 실행은 시작 전에 나에게 확인받고, 결과는 관측과 제안을 구분해서 `docs/solver_need_experiments.md`에 이어서 기록해.
+
+---
+
+## 7. 추가 (2026-11-03): 간섭의 원인 확인과 그에 따른 변경
+
+11-02 이후 한 일은 Nsight Systems 캡처 6회(C_3090 3회, S4_4090 3회)와 GPU 없이 한 k 계산 1건이다. 근거는 `docs/solver_need_experiments.md`의 "Nsight 진단", "Nsight 진단 2", "k를 시간 분할 기제에서 계산하기" 세 절이다. 아래는 그중 인수인계에 필요한 것만 적는다.
+
+### 7.1 추가된 결론
+
+| 번호 | 결론 | 상태 | 근거 위치 |
+|---|---|---|---|
+| R6 | 같은 GPU에 두 프로세스를 두면 CUDA가 두 컨텍스트를 약 2.3 ms 단위로 번갈아 실행한다(기본 시간 분할). 실행 중인 커널 자체는 느려지지 않고(DiT 커널 p50 단독 = 혼합), 스텝의 벽시계 시간만 늘어난다. decode 스텝 2.06~2.14×, 스텝 사이 간격 +4.5 ms, prefill eager gemm 1.9×. 4090(S4_4090)과 3090(C_3090)에서 같다. | **확정(관측)** | `results/hetero/nsys_c3090/`, `results/hetero/nsys_s4_4090/`, 각 `nsys_summary.json`, `timeline_*.png` |
+| R6-a | DRAM 대역폭(dmon mem% 47~54), 클럭, 배치 크기(Running 0~5), vLLM 큐(Waiting 0~4, KV ≤ 46%)는 원인이 아니다. 설정 오류가 아니라 compute mode Default·MPS 없음·MIG 없음 상태의 CUDA 기본 동작이다. | **확정(관측)** | 같은 위치 |
+| R6-b | 공유의 결과가 "지연 증가"로 끝나는지 "포화"로 가는지는 공유 전 단독 점유율로 갈린다. DiT 단독 점유 0.53(4090)이면 처리량 유지·지연 1.76×, 0.97(3090)이면 처리량 0.68×·큐 증가. | **확정(관측)** | 같은 위치 |
+| R7 | 시간 분할 기제를 식으로 옮긴 k 모델(k = 1 + p, p = 내 스텝 동안 상대가 GPU 일을 가진 시간 비율, 적합 매개변수 0개)은 비포화 16점에서 중앙값 9%, 15/16이 ±25% 이내. 포화(부풀린 점유 합 ≥ 1) 30점은 맞지 않으며 "불가"로 처리해야 한다. | **가설(선택 편향 있음)** | `bench/hetero/analyze_k_timeshare.py`, `results/hetero/k_model/k_timeshare.{md,json}`, `k_timeshare_explained.png` |
+
+R7의 신뢰도에 대한 사용자 판단(2026-11-03): **낮다.** 46점을 본 뒤 규칙을 골랐고, seed 902·903 held-out과 선택기 수준 비교를 하지 않았으며, PD 배치의 TTFT 항이 없다. 따라서 **옮겨 가는 주장은 R1~R6이고, R7은 "검증 전 가설"로만 넘긴다.** solver의 k는 여전히 R2의 2-앵커 선형이다. "측정 0회 k"는 주장하지 않는다.
+
+### 7.2 R1~R3의 재해석
+
+- R1(서비스를 다른 카드에 두면 간섭 없음)의 원인이 R6으로 설명된다. 시간 분할은 같은 GPU 위의 컨텍스트 사이에서만 일어난다.
+- R2의 k 값은 **"MPS·MIG 없는 기본 시간 분할"에서의 값**이다. 공유 방식이 바뀌면(MPS: 커널 동시 실행, MIG: 하드웨어 분리) k의 모양이 바뀌므로 R2의 수치는 그 환경에 옮기지 않는다.
+- P/D 분할의 TPOT 이득은 decode GPU를 다른 프로세스와 나누지 않을 때만 남는다(C_4090 TPOT k 1.00, C_3090 2.8). 단일 엔진의 TPOT 꼬리는 다른 요청의 prefill 뒤에서 decode 스텝이 기다리는 것(엔진 내부, head-of-line)이고, 공유 GPU의 TPOT 증가는 프로세스 간 시간 분할(엔진 외부)이다. 두 가지를 구분해서 설명할 것.
+
+### 7.3 B300에서 Stage 0 전에 먼저 확인할 것 (4절 체크리스트 앞에 추가)
+
+B300과 RTX PRO 6000은 MIG를 지원한다. 따라서 "공유"가 세 가지 중 어느 것인지부터 정해야 R2·R6이 옮겨지는지 말할 수 있다.
+
+0-a. **공유 방식 기록.** `nvidia-smi -q | grep -i "compute mode\|MIG"`, MPS 데몬 유무(`pgrep nvidia-cuda-mps`). 기본 상태(Default, MIG off, MPS 없음)인지 적는다. 이 상태가 아니면 R6의 전제가 다르다.
+0-b. **같은 캡처 1쌍.** `bench/hetero/profile_mixed_nsys.sh`를 B300 한 장에 대해 mixed/llm/dit 3회(약 15분). 확인 항목은 세 개: (1) 상대 프로세스가 끼어든 커널의 늘어난 길이 분포에서 슬라이스 길이가 얼마인가(4090/3090은 2.3 ms), (2) decode 스텝이 단독의 약 2배가 되는가, (3) 커널 p50이 단독과 같은가. 셋이 맞으면 R6은 B300에서도 성립하고, 규칙 B(아래)를 그대로 쓴다.
+0-c. **MIG·MPS는 도구로 1회씩.** 같은 두 프로세스를 MIG 인스턴스 둘에 나눠 k가 1이 되는지, MPS를 켜면 k가 어떻게 바뀌는지 각 1회. 이것은 간섭을 "해결"하는 실험이 아니라 solver가 "어떤 공유 방식에서 어떤 k를 써야 하는가"를 아는 데 필요한 측정이다.
+
+solver에 들어가는 규칙 세 개와 이식 여부:
+
+| 규칙 | 내용 | B300에서 |
+|---|---|---|
+| A | 공유하지 않는 단계·지표는 k = 1 | 그대로(R1, 21쌍 0.99~1.07) |
+| B | 기본 시간 분할로 공유하면 k는 R2의 2-앵커 선형(또는 검증되면 R7) | 0-b로 확인. MPS면 모양이 바뀌고, MIG면 A로 돌아간다 |
+| C | 부풀린 점유 합 ≥ 1이면 포화 → 배치 불가 | 공유 방식과 무관하게 유지 |
+
+### 7.4 환경에 묶인 항목 추가 (2절에 더함)
+
+| 항목 | 현재 | 위치 | B300에서 |
+|---|---|---|---|
+| Nsight CLI | `~/tools/nsys/.../2026.5.1/.../nsys` (사용자 홈에 수동 설치, root 없음) | `profile_mixed_nsys.sh` 15행 `NSYS=` | Blackwell을 지원하는 버전으로 재설치. GPU 메트릭 샘플링은 `RmProfilingAdminOnly=1`이면 막힌다(여기서도 막혀 dmon으로 대체) |
+| 캡처 대상 GPU | UUID 2개 하드코딩, `PLACE` 분기 C_3090/S4_4090 | `profile_mixed_nsys.sh` 12·19행 | 후보 집합이 바뀌므로 `PLACE` 분기를 다시 쓴다. 분석(`analyze_nsys.py`, `plot_nsys_timeline.py`)은 그대로 |
+| 슬라이스 상수 | 2.3 ms, 스텝 사이 손실 2슬라이스 | `analyze_k_timeshare.py` | 0-b에서 재측정한 값으로 바꾼다(R7을 쓸 때만 해당) |
+
+### 7.5 반입 묶음과 저장소 상태 (5절 수정)
+
+- **Nsight 산출물은 저장소에 넣지 않는다.** `results/hetero/nsys_c3090/`(1.1 GB)와 `results/hetero/nsys_s4_4090/`(0.9 GB)의 `report.sqlite`·`report.nsys-rep`은 `.gitignore`에 **아직 없다**(11-03 기준). 커밋 전에 `results/hetero/nsys_*/**/report.sqlite`, `results/hetero/nsys_*/**/report.nsys-rep`을 추가하고, `nsys_summary.json`·`timeline_*.png`·`dmon.txt`·콘솔 로그만 남긴다. 캡처는 `profile_mixed_nsys.sh`로 재생성 가능하다.
+- **11-03 기준 미커밋 파일.** 코드: `bench/hetero/profile_mixed_nsys.sh`, `analyze_nsys.py`, `plot_nsys_timeline.py`, `analyze_k_model.py`, `analyze_k_timeshare.py`, `plot_k_timeshare_explained.py`, `plot_ieee.py`, `plot_ieee_pd.py`. 문서: `docs/solver_need_experiments.md`(세 절 추가), `docs/1102_mail.md`, `docs/1102_mail_full.md`, `docs/mllm_v0.6.pptx`, 이 문서의 7절. 결과: `results/hetero/k_model/`, `results/hetero/stage2b_report/fig_ieee_*.{pdf,png}`, nsys 두 디렉터리(위 제외 규칙 적용 후).
+
+### 7.6 그쪽 Claude Code에게 주는 첫 지시 (6절을 대신함, 복사용)
+
+> `docs/handoff_b300.md`를 7절까지 읽고, `docs/solver_need_experiments.md`의 "Nsight 진단"·"Nsight 진단 2" 절을 읽어 줘. 먼저 7.3의 0-a(공유 방식 기록)만 하고 결과를 보고해. 0-b 캡처와 4절 체크리스트는 내가 확인한 뒤 하나씩 진행한다. k 모델(R7)은 가설이므로 solver에 넣지 말고, 환경 상수는 바꾸되 판정 정의(`stage1_report.py`)와 분석 스크립트는 건드리지 마. GPU를 쓰는 실행은 시작 전에 나에게 확인받고, 결과는 관측과 제안을 구분해서 `docs/solver_need_experiments.md`에 이어서 기록해.

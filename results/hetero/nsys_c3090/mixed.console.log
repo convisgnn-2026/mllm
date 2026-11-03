@@ -1,0 +1,11 @@
+== nsys diagnostic C_3090 mode=mixed 16:24:54
+  :8100 ready (33s)
+  :8200 ready (6s)
+  dit ready (3s)
+0, 11935 MiB
+1, 19957 MiB
+replay only=both start 16:25:36
+nsys start 16:27:06
+nsys stop 16:28:59
+-rw-rw-r--. 1 jinwoo.kim27 jinwoo.kim27 134808505 Nov  2 16:28 results/hetero/nsys_c3090/mixed/report.nsys-rep
+cleanup 16:29:09

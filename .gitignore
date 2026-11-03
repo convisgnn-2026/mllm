@@ -44,3 +44,10 @@ results/hetero/stage*/runner.lock
 results/hetero/stage*/**/_warmup/
 # torch profiler traces (70 MB, regenerable)
 results/hetero/vlm_gpu_profile_seed0/traces/
+
+# Nsight Systems captures (results/hetero/nsys_*): raw reports are ~1 GB each and regenerable with
+# bench/hetero/profile_mixed_nsys.sh; keep nsys_summary.json, timeline_*.png, dmon.txt, console logs.
+results/hetero/nsys_*/**/report.sqlite
+results/hetero/nsys_*/**/report.nsys-rep
+results/hetero/nsys_*/**/_warmup/
+results/hetero/nsys_*/**/replay/

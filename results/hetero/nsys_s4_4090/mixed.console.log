@@ -1,0 +1,10 @@
+== nsys diagnostic S4_4090 mode=mixed 18:01:07
+  :8100 ready (33s)
+  dit ready (3s)
+0, 20518 MiB
+1, 18 MiB
+replay only=both start 18:01:46
+nsys start 18:03:16
+nsys stop 18:05:05
+-rw-rw-r--. 1 jinwoo.kim27 jinwoo.kim27 127588633 Nov  2 18:05 results/hetero/nsys_s4_4090/mixed/report.nsys-rep
+cleanup 18:05:15

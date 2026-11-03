@@ -1,0 +1,34 @@
+{
+  "run": "dit",
+  "decode_proc": [
+    208678,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": [
+    207722,
+    "python"
+  ],
+  "window_s": 81.40900855,
+  "decode": {
+    "n_graph_steps": 0,
+    "n_nongraph_kernels": 0,
+    "busy_s": 0.0,
+    "busy_frac": 0.0
+  },
+  "dit": {
+    "n_kernels": 2328900,
+    "busy_s": 42.817888052,
+    "busy_frac": 0.5259600726583226,
+    "kernel_us_p50": 6.56,
+    "kernel_us_p90": 62.111,
+    "kernel_us_p99": 240.35,
+    "kernel_us_max": 1856.881
+  },
+  "dmon_gpu1": {
+    "gpu": "0",
+    "n": 106,
+    "sm_pct_mean": 44.4622641509434,
+    "mem_pct_mean": 17.27358490566038,
+    "mem_pct_p90": 39.0
+  }
+}

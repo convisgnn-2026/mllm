@@ -1,0 +1,11 @@
+== nsys diagnostic C_3090 mode=dit 17:38:47
+  :8100 ready (33s)
+  :8200 ready (6s)
+  dit ready (3s)
+0, 12054 MiB
+1, 19957 MiB
+replay only=dit start 17:39:28
+nsys start 17:40:58
+nsys stop 17:42:49
+-rw-rw-r--. 1 jinwoo.kim27 jinwoo.kim27 125967090 Nov  2 17:42 results/hetero/nsys_c3090/dit/report.nsys-rep
+cleanup 17:42:59
