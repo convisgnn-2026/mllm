@@ -1,0 +1,7 @@
+{
+  "start_unix_s": 1793843850.2097433,
+  "plan_sha256": "44337c290ff44e3a0b1e3d112d712716e52917e24e558fc0c74c1e306036cfe0",
+  "warmup_s": 60.0,
+  "duration_s": 600.0,
+  "status": "running"
+}

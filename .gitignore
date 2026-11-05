@@ -51,3 +51,9 @@ results/hetero/nsys_*/**/report.sqlite
 results/hetero/nsys_*/**/report.nsys-rep
 results/hetero/nsys_*/**/_warmup/
 results/hetero/nsys_*/**/replay/
+
+# Nsight Systems raw captures (100+ MB each) and their sqlite exports: regenerable from the .nsys-rep, not committed.
+# Keep nsys_summary*.json, timeline/fig PNGs, logs, replay records.
+results/**/*.nsys-rep
+results/**/*.sqlite
+results/**/*.sqlite-journal

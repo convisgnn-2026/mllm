@@ -1,0 +1,51 @@
+{
+  "run": "mixed",
+  "decode_proc": [
+    2144643,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": [
+    2140321,
+    "python"
+  ],
+  "window_s": 90.050406408,
+  "decode": {
+    "n_graph_steps": 5319,
+    "n_nongraph_kernels": 115682,
+    "busy_s": 14.271199052,
+    "busy_frac": 0.158480118205576,
+    "n_steps_ge2ms": 4072
+  },
+  "dit": {
+    "n_kernels": 2368375,
+    "busy_s": 25.831160121,
+    "busy_frac": 0.2868522325592212,
+    "kernel_us_p50": 5.216,
+    "kernel_us_p90": 26.176,
+    "kernel_us_p99": 53.376,
+    "kernel_us_max": 1499.965
+  },
+  "overlap": {
+    "both_executing_s": 5.565668791,
+    "frac_of_decode_busy": 0.3899930742133412,
+    "frac_of_dit_busy": 0.2154633692381191,
+    "union_busy_frac": 0.383526202264111
+  },
+  "decode_step_ms": {
+    "p50": 2.511739,
+    "p90": 2.610554,
+    "p99": 2.792825
+  },
+  "decode_gap_ms": {
+    "p50": 0.32112,
+    "p90": 0.330591,
+    "p99": 672.017692,
+    "sum_s": 79.52125221000034,
+    "inside_dit_kernels_s": 21.594356891000015,
+    "inside_dit_kernels_frac": 0.27155453782308997,
+    "gap_with_dit_p50": 0.322111,
+    "gap_without_dit_p50": 0.319871,
+    "n_gaps_with_dit": 2242,
+    "n_gaps_without_dit": 1829
+  }
+}

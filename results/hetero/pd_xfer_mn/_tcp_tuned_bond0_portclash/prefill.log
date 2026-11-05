@@ -1,0 +1,47 @@
+<frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.cudart module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.runtime module instead.
+<frozen importlib._bootstrap_external>:1301: FutureWarning: The cuda.nvrtc module is deprecated and will be removed in a future release, please switch to use the cuda.bindings.nvrtc module instead.
+INFO 11-05 14:10:12 [patch.py:252] NVFP4 W4A4 weight_scale NaN-clamp: installed.
+INFO 11-05 14:10:13 [quack_fp8.py:76] Quack FP8 fused-bias GEMM enabled (CuteDSL).
+INFO 11-05 14:10:13 [quack_fp8.py:155] Patched FlashInfer FP8 ScaledMM to use quack fused-bias GEMM.
+INFO 11-05 14:10:13 [patch.py:503] inductor factorable-divisibility patch: installed.
+INFO 11-05 14:10:13 [patch.py:568] [cumem-cuda] CuMemAllocator._python_free_callback patched: asleep guard extended to all platforms.
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333] 
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333]        █     █     █▄   ▄█
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333]  ▄▄ ▄█ █     █     █ ▀▄▀ █  version 0.28.0
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333]   █▄█▀ █     █     █     █  model   meta-llama/Llama-3.2-3B-Instruct
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333]    ▀▀  ▀▀▀▀▀ ▀▀▀▀▀ ▀     ▀
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:333] 
+(APIServer pid=2044511) INFO 11-05 14:10:13 [api_utils.py:272] non-default args: {'model_tag': 'meta-llama/Llama-3.2-3B-Instruct', 'host': '0.0.0.0', 'port': 8100, 'model': 'meta-llama/Llama-3.2-3B-Instruct', 'dtype': 'bfloat16', 'max_model_len': 8192, 'gpu_memory_utilization': 0.5, 'enable_prefix_caching': False, 'max_num_seqs': 64, 'kv_transfer_config': KVTransferConfig(kv_connector='NixlConnector', engine_id='53e411d1-b2f3-4702-9c25-b74719cb3488', kv_buffer_device='cuda', kv_buffer_size=1000000000.0, kv_role='kv_producer', kv_rank=None, kv_parallel_size=1, kv_ip='127.0.0.1', kv_port=14579, kv_connector_extra_config={}, kv_connector_module_path=None, enable_permute_local_kv=False, kv_load_failure_policy='fail')}
+(APIServer pid=2044511) Traceback (most recent call last):
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/bin/vllm", line 6, in <module>
+(APIServer pid=2044511)     sys.exit(main())
+(APIServer pid=2044511)              ^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 97, in main
+(APIServer pid=2044511)     args.dispatch_function(args)
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/entrypoints/cli/serve.py", line 152, in cmd
+(APIServer pid=2044511)     uvloop.run(run_server(args))
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/uvloop/__init__.py", line 96, in run
+(APIServer pid=2044511)     return __asyncio.run(
+(APIServer pid=2044511)            ^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 195, in run
+(APIServer pid=2044511)     return runner.run(main)
+(APIServer pid=2044511)            ^^^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/asyncio/runners.py", line 118, in run
+(APIServer pid=2044511)     return self._loop.run_until_complete(task)
+(APIServer pid=2044511)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/uvloop/__init__.py", line 48, in wrapper
+(APIServer pid=2044511)     return await main
+(APIServer pid=2044511)            ^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 738, in run_server
+(APIServer pid=2044511)     listen_address, sock = setup_server(args, reuse_port=False)
+(APIServer pid=2044511)                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/tracing/otel.py", line 178, in sync_wrapper
+(APIServer pid=2044511)     return func(*args, **kwargs)
+(APIServer pid=2044511)            ^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 617, in setup_server
+(APIServer pid=2044511)     sock = create_server_socket(sock_addr, reuse_port=reuse_port)
+(APIServer pid=2044511)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(APIServer pid=2044511)   File "/home/jinwoo.kim27/venv/mllm/lib/python3.12/site-packages/vllm/entrypoints/openai/api_server.py", line 566, in create_server_socket
+(APIServer pid=2044511)     sock.bind(addr)
+(APIServer pid=2044511) OSError: [Errno 98] Address already in use

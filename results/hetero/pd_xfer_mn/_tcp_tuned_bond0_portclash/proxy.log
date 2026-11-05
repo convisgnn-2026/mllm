@@ -1,0 +1,7 @@
+INFO:     Started server process [2045537]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 98] error while attempting to bind on address ('127.0.0.1', 8192): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+Initialized 1 prefill clients and 1 decode clients.

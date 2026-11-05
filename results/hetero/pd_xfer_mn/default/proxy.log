@@ -1,0 +1,33 @@
+INFO:     Started server process [2077734]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8193 (Press CTRL+C to quit)
+Initialized 1 prefill clients and 1 decode clients.
+INFO:     127.0.0.1:13952 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13962 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13968 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13976 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:13992 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14006 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14014 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14020 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62088 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62104 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62126 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62116 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62144 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62038 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62154 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62068 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62048 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62060 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62062 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62054 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62080 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62082 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62140 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62138 - "POST /v1/completions HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2077734]

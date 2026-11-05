@@ -115,3 +115,7 @@ solver에 들어가는 규칙 세 개와 이식 여부:
 ### 7.6 그쪽 Claude Code에게 주는 첫 지시 (6절을 대신함, 복사용)
 
 > `docs/handoff_b300.md`를 7절까지 읽고, `docs/solver_need_experiments.md`의 "Nsight 진단"·"Nsight 진단 2" 절을 읽어 줘. 먼저 7.3의 0-a(공유 방식 기록)만 하고 결과를 보고해. 0-b 캡처와 4절 체크리스트는 내가 확인한 뒤 하나씩 진행한다. k 모델(R7)은 가설이므로 solver에 넣지 말고, 환경 상수는 바꾸되 판정 정의(`stage1_report.py`)와 분석 스크립트는 건드리지 마. GPU를 쓰는 실행은 시작 전에 나에게 확인받고, 결과는 관측과 제안을 구분해서 `docs/solver_need_experiments.md`에 이어서 기록해.
+
+## 8. 재현 안내 (2026-11-05 추가)
+
+같은 환경에서 다시 돌리는 방법(노드·venv·nsys 설치·스크립트·MPS/MIG 설정·결과 폴더)은 `docs/b300_playbook.md`에 있다. 실험 결과와 판단은 `docs/solver_need_experiments.md`의 "B300 포팅" 절부터.

@@ -1,0 +1,58 @@
+{
+  "run": "mixed",
+  "decode_proc": [
+    2016271,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": [
+    2012037,
+    "python"
+  ],
+  "window_s": 90.034261422,
+  "decode": {
+    "n_graph_steps": 5373,
+    "n_nongraph_kernels": 116432,
+    "busy_s": 12.325425733,
+    "busy_frac": 0.13689706050044037,
+    "n_steps_ge2ms": 4126
+  },
+  "dit": {
+    "n_kernels": 2367784,
+    "busy_s": 20.1081594,
+    "busy_frac": 0.22333897210253056,
+    "kernel_us_p50": 5.472,
+    "kernel_us_p90": 16.96,
+    "kernel_us_p99": 34.368,
+    "kernel_us_max": 2461.691
+  },
+  "overlap": {
+    "both_executing_s": 4.707031232,
+    "frac_of_decode_busy": 0.38189603620728746,
+    "frac_of_dit_busy": 0.2340856335165117,
+    "union_busy_frac": 0.3079555878294235
+  },
+  "decode_step_ms": {
+    "p50": 2.489403,
+    "p90": 2.614971,
+    "p99": 3.424504
+  },
+  "decode_gap_ms": {
+    "p50": 0.247488,
+    "p90": 0.290688,
+    "p99": 677.257727,
+    "sum_s": 79.99105055599993,
+    "inside_dit_kernels_s": 16.191688261999996,
+    "inside_dit_kernels_frac": 0.20241874746556254,
+    "gap_with_dit_p50": 0.25696,
+    "gap_without_dit_p50": 0.226911,
+    "n_gaps_with_dit": 2816,
+    "n_gaps_without_dit": 1309
+  },
+  "dmon_gpu1": {
+    "gpu": "1",
+    "n": 107,
+    "sm_pct_mean": 32.55140186915888,
+    "mem_pct_mean": 8.22429906542056,
+    "mem_pct_p90": 24.0
+  }
+}

@@ -14,7 +14,7 @@ import uvicorn
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="stabilityai/stable-diffusion-3.5-medium")
-ap.add_argument("--port", type=int, default=8300)
+ap.add_argument("--port", type=int, default=8300); ap.add_argument("--host", default="127.0.0.1")
 ap.add_argument("--enc-dev", default="cuda:0"); ap.add_argument("--dit-dev", default="cuda:0"); ap.add_argument("--vae-dev", default="cuda:0")
 ap.add_argument("--size", type=int, default=512); ap.add_argument("--steps", type=int, default=28); ap.add_argument("--cfg", type=float, default=4.5)
 ap.add_argument("--max-batch", type=int, default=1, help="대기 중 요청을 최대 이만큼 묶어 한 번에 denoise")
@@ -90,4 +90,4 @@ async def gen(body: dict):
 @app.get("/health")
 async def health(): return {"ok": True}
 
-uvicorn.run(app, host="127.0.0.1", port=a.port, log_level="warning")
+uvicorn.run(app, host=a.host, port=a.port, log_level="warning")

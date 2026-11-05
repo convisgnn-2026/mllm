@@ -1,0 +1,27 @@
+{
+  "run": "llm",
+  "decode_proc": [
+    2202183,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": null,
+  "window_s": 89.889507396,
+  "decode": {
+    "n_graph_steps": 5323,
+    "n_nongraph_kernels": 115749,
+    "busy_s": 14.278766177,
+    "busy_frac": 0.15884797448156215,
+    "n_steps_ge2ms": 4076
+  },
+  "decode_step_ms": {
+    "p50": 2.512729,
+    "p90": 2.609177,
+    "p99": 2.789721
+  },
+  "decode_gap_ms": {
+    "p50": 0.320768,
+    "p90": 0.330304,
+    "p99": 675.572528,
+    "sum_s": 79.51274271600022
+  }
+}

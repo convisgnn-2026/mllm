@@ -826,3 +826,267 @@ C_4090의 fp 52는 전부 α 1.4·1.5(무릎 이후)에서 나온다.
 **유보.** 46점을 보고 TS0→TS1→TS2→TS3으로 규칙을 고른 것이므로 선택 편향이 있다. 규칙 자체(덩어리 길이 비교, 되먹임 점유, 포화 = 요구 합 ≥ 1)는 기제에서 나왔지만 "맞는 규칙"을 데이터를 보고 골랐다. 검증이 되려면 (1) 이 46점이 아닌 데이터(seed 902·903 혼합 실행)에서 k를 재서 맞추고, (2) 선택기 수준에서 TS3 k로 solver를 돌려 oracle 대비 결과(ok/violation/overpay/missed)를 2-앵커 선형과 비교해야 한다. 둘 다 GPU 실행 없이 가능하다. 그 전까지는 "측정 0회 k"를 주장하지 않는다.
 
 **다음 후보(미실시).** (1) stage2b_report에 k 모드 `timeshare`를 추가해 선택기 수준 평가. (2) seed 902·903 혼합 실행으로 held-out k 비교. (3) PD TTFT 항: decode GPU의 DiT 큐 영향을 TTFT에 더하는 식(첫 토큰 = prefill + KV 전송 + decode GPU의 첫 스텝).
+
+## B300 포팅 0-a: 공유 방식 기록 (2026-11-03, GPU 실행 없음)
+
+**목적.** handoff 7.3의 0-a. R6(프로세스 간 시간 분할)의 전제인 "compute mode Default · MIG off · MPS 없음"이 새 풀에서 성립하는지 기록한다.
+
+**관측.**
+
+| 노드 | GPU | compute mode | MIG | MPS | 드라이버 / CUDA | 비고 |
+|---|---|---|---|---|---|---|
+| B300 `vanta-gpu-worker-study01` (10.201.4.151) | B300 SXM6 ×8, 275 GB | 8장 모두 Default | GPU 7만 Enabled(1g.67gb 1 + 1g.34gb 5, 타 사용자) | 없음 | 595.71.05 / 13.2 | 비어 있는 카드 1·3·4·6. 0·2·5는 타 사용자(vLLM 등) |
+| RTX PRO 6000 `vanta-dev-gpu-worker-infer01` (10.201.4.101) | PRO 6000 Blackwell SE ×4, 96 GB | 4장 모두 Default | 처음 4장 Enabled. 0·1은 인스턴스 없이 모드만 켜져 CUDA 불가(`cuInit`→100). 사용자가 `nvidia-smi -i 0,1 -mig 0`으로 해제 → 0·1 Disabled, `cuInit 0 / ctxCreate 0` 확인. 2·3은 Enabled 유지(3번 2g.48gb 위 타 사용자 vLLM) | 없음 | 595.71.05 | 사용 가능 카드 0·1 |
+
+**노드 간 링크.** 같은 서브넷 1홉. B300 쪽 bond0 = 100 GbE ×2 active-backup, PRO 6000 쪽 bond0 = **25 GbE ×2 active-backup(Broadcom BCM57414, RoCE 가능)**. PRO 6000 노드에는 IB 카드가 물리적으로 없음(lspci에 Mellanox 없음). 따라서 노드 간 상한 25 Gbps ≈ 2.9 GB/s(9월 iperf3 실측 23.5 Gbps). RTT 0.07~0.13 ms. 이전 4090↔3090 PD 전송이 UCX TCP 루프백 2.4~2.6 GB/s였으므로(`results/hetero/pd_xfer/README.md`) 노드 간 PD 분할은 같은 급의 링크 위에서 성립한다. B300 노드의 IB(800G ×8, 100G ×4)는 B300 간 전용.
+
+**판단(관측 수준).** B300 1·3·4·6과 PRO 6000 0·1은 R6 전제(Default, MIG off, MPS 없음)를 만족한다. 규칙 B는 0-b 캡처로 확인한 뒤 적용한다. MIG 분리 실험(0-c)은 B300 쪽에서 sudo로 인스턴스를 만들어 할 수 있다(PRO 6000 쪽은 비밀번호 sudo).
+
+**환경.** 인터넷 열림(PyPI·HF 200). B300 venv `~/venv/jinwoo`: torch 2.13+cu130(sm_100/120), diffusers 0.40, **vLLM·NIXL 없음**. PRO 6000 노드: venv 없음, 시스템 python3에 torch 없음. 모델 캐시 양쪽 비어 있음.
+
+**제안(미실시).** (1) 별도 venv `~/venv/mllm`에 vLLM+NIXL 설치(양쪽 노드), 3B·SD3.5-medium 다운로드. (2) `run_mixed_modal.sh`의 멀티노드 복사본: 카드 2장 → (호스트, UUID), decode vLLM·dit_server 원격 기동, `UCX_NET_DEVICES=bond0`. (3) Stage 0: pd_smoke(B300 2장) → pd_xfer_probe(B300→PRO 6000) → 단독 포화점 → λ0.
+
+## B300 포팅 Stage 0-1: 단일 카드 스모크 (2026-11-03 실행, 2026-11-05 정리)
+
+실행: B300 GPU1(`GPU-1b5a091d`) 한 장에 vLLM(Llama-3.2-3B-Instruct, `--gpu-memory-utilization 0.5 --kv-cache-memory-bytes 4GiB`) + dit_server(SD3.5-medium 512², 28 steps) 동거. 스크립트는 세션 임시 `smoke.sh`(저장소 밖). 결과 `results/hetero/stage0_b300/smoke2/`.
+
+### 관측
+
+| 항목 | B300 | 이전(4090) |
+|---|---|---|
+| attention backend | **FLASHINFER** (vLLM 0.28.0 자동 선택, 후보 FLASHINFER/FLASH_ATTN/TRITON_ATTN/FLEX_ATTENTION) | FLASH_ATTN |
+| GPU KV cache size | **37,440 tokens** | 37,440 |
+| 기동 시간 (vLLM·DiT 모두 READY) | 108 s (FlashInfer JIT 포함) | — |
+| GPU1 메모리 (두 서버 상주) | 22,136 MiB (dit 8.8 GB + vLLM 13.4 GB) | — |
+| DiT solo 1장 (encode/denoise/vae/total) | 0.027 / 1.04 / 0.03 / **1.09 s** (첫 요청 1.35 s, 워밍업) | ~10 s 급 |
+| LLM 64 tok 응답 | 정상 3/3 | — |
+| 혼합 버스트 4 LLM(48 tok) + 2 DiT 동시 | LLM 0.089~0.100 s, DiT 1.12 s / 2.22 s (직렬) | — |
+
+- KV 토큰 수가 이전 서버와 **정확히 일치**(37,440). `--kv-cache-memory-bytes` 고정이 카드 종류와 무관하게 KV 용량을 맞춰 준다는 것이 확인됨. Stage 1 의 "KV 4 GiB 고정" 조건은 B300·PRO6000 에서도 그대로 쓸 수 있다.
+- DiT 1건이 1.1 s 라 B300 에서는 4090 대비 ~9× 빠르다. 같은 λ 로는 DiT 가 포화하지 않으므로 λ0 는 solo 포화에서 다시 뽑아야 한다(Stage 0-3).
+- 혼합 버스트에서 LLM 응답은 DiT 와 동시임에도 0.1 s 안쪽. 요청 수가 작아 간섭 판정은 못 한다(관측 범위 밖). 간섭은 Stage 2 에서 본다.
+- 실행 결함: 스모크 스크립트 끝의 `wait` 가 서버 프로세스까지 기다려 요청 완료 후 ~41 h 동안 서버가 GPU1 에 남아 있었다(타 사용자 영향 없음, GPU1 은 우리 전용). 2026-11-05 수동 종료, 스크립트는 curl PID 만 기다리도록 수정. 저장소에 넣을 때 반영.
+
+### 제안
+
+- FlashInfer 를 Blackwell 정상 경로로 채택하고 run 마다 백엔드를 deployment.json 에 기록(`run_mixed_modal_mn.sh` 에 추가 예정). 4090 결과(FLASH_ATTN)와의 차이는 "카드 차이"에 백엔드 차이가 섞인다는 점을 보고서에 명시.
+- 다음: Stage 0-2 `pd_smoke` (B300 두 장: GPU1·GPU3) → `pd_xfer_probe` B300→PRO6000(25 GbE). GPU 사용이므로 시작 전 확인 필요.
+
+## B300 포팅 0-b: 한 장 공유(S4_B300) Nsight 캡처 1차 (2026-11-05 10:30~10:46)
+
+실행: `PLACE=S4_B300 bench/hetero/profile_mixed_nsys.sh mixed|llm|dit`. B300 GPU1 한 장에 vLLM(3B, FLASHINFER, TRTLLM prefill 자동 선택) + dit_server(SD3.5-medium). nsys 2025.6.3(`/opt/nvidia/nsight-systems/2025.6.3`, 시스템 기본 `nsys`는 CUDA 13.1 설치 불완전으로 동작 안 함). 플랜 alpha1_seed901, 캡처 90 s. 출력 `results/hetero/nsys_s4_b300/{mixed,llm,dit}/`.
+
+### 관측
+
+- **mixed·llm 두 모드에서 vLLM 엔진이 재생 시작 약 8 s 뒤 멈췄다.** 완료된 LLM 요청은 mixed 15건, llm 20건(idx 0~20 중 19·21 제외, 전부 out_len ≤ 12). 멈춘 뒤 엔진 로그는 `Running: 2 reqs, Waiting: 0, generation 0.0 tok/s`가 캡처 종료까지 반복, dmon sm% 0. API 서버에는 요청이 계속 도착했다(`POST /v1/completions` llm 344건, mixed 412건)이지만 엔진에 전달되지 않았고, 종료 시 EngineCore 가 SIGTERM 에 반응하지 않아 강제 종료됐다. → EngineCore 프로세스가 호스트 쪽에서 교착. 두 모드가 같은 지점에서 멈춰 결정적이다.
+- 기각된 가설: FlashInfer 추론 중 JIT 컴파일(`flashinfer_jit.log`에 추론 중 컴파일 없음, cached_ops 변경 없음). 긴 프롬프트(idx 7, 6,156 토큰은 정상 완료). KV 부족(usage 4%).
+- 남은 후보: (a) nsys 2025.6.3 주입 + `--cuda-graph-trace=graph` 와 vLLM CUDA graph/FlashInfer(trtllm-gen cubin) 조합의 교착. 이전 서버는 nsys 2026.5.1 + FLASH_ATTN 에서 문제 없었다. (b) FlashInfer/TRTLLM 경로 자체의 긴 디코드(out_len 63·208) 교착. 스모크(nsys 없음)에서는 48·64 토큰 디코드가 정상이었다는 점에서 (a)가 더 유력하지만 미확정.
+- **dit 모드(DiT 단독)는 정상.** 84건, e2e p50 1.54 s, p90 3.39 s, 오류 0. `analyze_nsys.py`는 이 캡처에서 실패한다(vLLM이 유휴라 CUDA graph 트레이스 표가 없음. 이전 서버는 유휴 vLLM도 표가 있었음). 스크립트는 건드리지 않고 sqlite를 직접 집계한 값(DiT 프로세스만): 커널 2,532,431개, GPU busy 18.4 s / 90.2 s(점유 0.20), 커널 µs p50 4.64 · p90 13.4 · p99 29.5 · max 1,882; dmon sm% 평균 21.6. 비교: 4090 DiT 단독은 점유 0.53, 커널 p50 6.56 µs, sm% 44.5. 같은 λ(α 1.0)에서 B300의 DiT 단독 점유가 0.20이라 공유해도 포화 구간에는 못 들어간다. λ0 재산정의 근거.
+- 따라서 mixed·llm 캡처는 **R6 판정에 쓸 수 없다**(캡처 창 안에 디코드 스텝이 없음).
+
+### 제안
+
+1. 원인 분리 실행(GPU1, 약 5분, 확인 후): 같은 서버·같은 플랜을 **nsys 없이** llm-only 로 60 s 재생. 통과하면 (a) 확정 → nsys 옵션을 바꿔(`--cuda-graph-trace=node`, 또는 `-t cuda` 만) 재캡처. 실패하면 (b) → `VLLM_ATTENTION_BACKEND=FLASH_ATTN` 또는 `--enforce-eager` 로 비교.
+2. 이전 서버와 같은 nsys 2026.5.1 을 홈에 설치할 수 있으면 버전 변수부터 제거.
+3. 관련 보고: nsys 로 감싼 vLLM 이 멈추는 사례(NVIDIA 포럼), RTX PRO 6000 CUDA graph 호스트 락 사례. 같은 증상인지는 불명.
+
+### 0-b 멈춤 원인 분리 (2026-11-05 10:55~11:07, GPU1, LLM만 60~75 s 재생, 수집 미시작)
+
+| 시험 | 조건 | 결과 |
+|---|---|---|
+| nsys 없음 | 같은 서버·플랜 | 정상. 102건 완료(멈췌던 idx 19·21 포함), 오류 0, 최대 313 토큰 디코드 |
+| A | `nsys launch --trace=cuda,nvtx --cuda-graph-trace=graph` (이전 서버 옵션) | **멈춤 재현.** 20건 후 Running 2·생성 0, sm% 0.4 |
+| B | `--trace=cuda,nvtx --cuda-graph-trace=node` | 정상. 74건, sm% 6.3 |
+| C | `--trace=nvtx` | 정상. 74건 |
+
+**관측.** 멈춤은 nsys 2025.6.3의 `--cuda-graph-trace=graph` 와 vLLM(FlashInfer, CUDA graph) 조합에서만 난다. 수집을 켜지 않아도 주입만으로 난다. FlashInfer/TRTLLM 경로 자체는 문제 없다(가설 (b) 기각). 기록 `results/hetero/stage0_b300/diag_llm_nonsys`, `diag_nsys_{A,B,C}`.
+**조치.** `profile_mixed_nsys.sh` 의 `*_B300` 배치는 `--cuda-graph-trace=node` 를 쓴다(`GRAPH_TRACE_B300` 로 바꿀 수 있음). 4090/3090 분기는 graph 유지. 멈춘 1차 캡처는 `results/hetero/nsys_s4_b300_graphtrace_stalled/` 로 보존. node 모드에서는 graph 실행이 하나의 구간이 아니라 노드(커널) 단위로 기록되므로, `analyze_nsys.py`(graph 표 전제)는 그대로 두고 decode 스텝은 별도 집계로 복원한다(제안: 같은 프로세스 커널 사이 간격 < 1 ms 를 한 스텝으로 묶음).
+
+### 0-b nsys 구성 확정 (2026-11-05 11:07~11:30)
+
+- node 모드 재캡처(nsys 2025.6.3, `--cuda-graph-trace=node`): LLM 재생은 멈추지 않았으나(mixed 147건·오류 0) **EngineCore 커널이 수집되지 않음**(진단: "CUDA profiling might have not been started correctly"). DiT 프로세스만 기록됨. 결과는 `results/hetero/nsys_s4_b300_node/`에 보존, R6 판정에는 못 씀.
+- 추가 시험(GPU1, LLM만 60 s, 20 s 캡처):
+
+| 시험 | nsys | 옵션 | 결과 |
+|---|---|---|---|
+| D | 2025.6.3 | node + `--trace-fork-before-exec=true` | 멈춤 없음, EngineCore 커널 369,649개(graph 노드 340,536) 수집 |
+| E | **2026.5.1** (사용자가 NVIDIA 공개 rpm을 `~/tools/nsys`에 풀어 설치) | **graph (이전 서버와 동일)** | 멈춤 없음, EngineCore graph 실행 90,730건 수집, GRAPH_TRACE 표 생성 |
+
+- **결정.** B300 캡처는 nsys 2026.5.1 + graph 모드로 한다. 이전 서버와 nsys 버전·옵션·분석기(`analyze_nsys.py`)가 모두 같아져 비교에 변수가 없다. `profile_mixed_nsys.sh`의 `*_B300` 기본값을 그렇게 바꿈. `analyze_nsys_node.py`(새 파일)는 node 모드 대비용으로 남긴다.
+- 11:31 S4_B300 세 모드 본 캡처 시작(`results/hetero/nsys_s4_b300/`).
+
+## B300 포팅 0-b 결과: 한 장 공유(S4_B300) Nsight 캡처 (2026-11-05 11:31~11:48, nsys 2026.5.1 graph 모드)
+
+실행: `PLACE=S4_B300 bench/hetero/profile_mixed_nsys.sh mixed|llm|dit`. B300 GPU1 한 장, vLLM(Llama-3.2-3B, FLASHINFER) + dit_server(SD3.5-medium 512² 28 steps), 플랜 alpha1_seed901(이전 서버와 같은 요청률), 캡처 90 s. 멈춤·오류 없음(mixed LLM 424건·DiT 79건, llm 346건, dit 86건). 결과 `results/hetero/nsys_s4_b300/{mixed,llm,dit}/` (`nsys_summary.json`, `timeline_*.png`). 비교 대상은 "Nsight 진단 2"의 S4_4090.
+
+### 관측
+
+**분석기 문턱.** `analyze_nsys.py`는 decode 스텝을 "graph 실행 ≥ 2 ms"로 정의한다(4090 스텝 6.8 ms 기준). B300 단독 decode graph 길이 분포는 0.1 ms 미만(보조 launch 1,247개)과 1.5~3 ms(4,127개, p50 1.83 ms)의 두 덩어리라 2 ms 문턱은 스텝의 95%를 버린다(219/4,127). 분석기는 건드리지 않고, 문턱만 환경변수로 받는 사본(세션 스크래치 `analysis/analyze_nsys_thr.py`, `STEP_MIN_MS=1`)으로 같은 지표를 다시 냈다. 아래 decode 수치는 1 ms 문턱 값이며, 2 ms 문턱 값은 각 디렉터리의 `nsys_summary.json`에 그대로 있다.
+
+| 지표 | B300 단독 | B300 혼합 | 비율 | 4090 단독 → 혼합 (비율) |
+|---|---|---|---|---|
+| decode 스텝 p50 / p90 ms | 1.84 / 1.93 | 1.85 / 1.94 | **1.00** | 6.85 → 14.1 (2.06) |
+| 스텝 사이 간격 p50 ms | 0.21 | 1.68 (DiT 있을 때 1.72, 없을 때 0.22) | **8.0** | 0.90 → 5.43 (6.0) |
+| 스텝+간격 (토큰당 시간) ms | 2.05 | 3.53 | **1.72** | 7.75 → 19.5 (2.5) |
+| 요청 TPOT p50 / p90 ms (캡처 중 기록) | 1.96 / 2.32 | 2.84 / 4.65 | **1.45 / 2.0** | 9.4 → 25.4 (2.7, C_3090) |
+| 요청 TTFT p50 / p90 ms | 28.9 / 58.6 | 32.3 / 76.1 | 1.12 / 1.30 | — |
+| DiT 커널 p50 / p99 µs | 4.6 / 29.5 | 4.6 / 29.5 | **1.00** | 6.5 / 240 → 동일 |
+| DiT ≥ 1 ms 커널 수 | 37 | 535 (p10/p50/p90 = 2.34/2.46/2.72 ms) | — | 늘어난 길이 2.3~2.6 ms |
+| DiT denoise p50 / e2e p90 s | 1.36 / 3.61 | 1.33 / 3.35 | **1.0** | 지연 1.76× |
+| 점유(busy frac) decode / DiT / 합집합 | 0.11 / 0.20 | 0.12 / 0.21 / 0.31 | — | 0.64 / 0.78 / 0.89 |
+| dmon sm% | 13 / 22 | 39 | — | — / 89 |
+
+- **R6의 기제는 B300에서도 같다.** (1) 커널은 느려지지 않는다(DiT 커널 p50·p99 동일, decode 스텝 길이 동일). (2) 상대 프로세스가 끼어든 DiT 커널만 늘어나고, 늘어난 길이가 2.2~2.5 ms에 몰린다(4090/3090의 2.3 ms 슬라이스와 같은 크기). (3) 공유 방식은 0-a에서 확인한 기본 시간 분할(Default·MIG off·MPS 없음).
+- **드러나는 모양은 다르다.** 4090에서는 decode 스텝(6.8 ms)이 슬라이스(2.3 ms)보다 길어 스텝 중간이 잘려 스텝이 2배가 됐다. B300에서는 decode 스텝(1.84 ms)이 슬라이스보다 짧아 스텝은 한 차례 안에 끝나고, 비용은 전부 **스텝 사이 간격**(0.21 → 1.72 ms, DiT 슬라이스 하나를 기다리는 시간)으로 나타난다. 그 결과 토큰당 시간 1.72×, 요청 TPOT p50 1.45×·p90 2.0×로, "스텝 2배" 공식은 B300에 그대로 옮기면 과대 추정이다.
+- **DiT 쪽은 요청 수준에서 간섭이 안 보인다.** DiT 점유 0.20 + decode 0.11로 GPU가 70% 비어 있어, 늘어난 커널 535개(합 ~1.3 s/90 s)가 denoise 시간(1.3 s/요청)에 묻힌다. R6-b(결과는 단독 점유 합으로 갈린다)와 일치하며, 이번 요청률은 "조금 느려지는" 구간이다(사용자 판단 2026-11-05: 포화 구간은 이번 목적이 아님).
+- 혼합 sm% 39 ≈ 단독 합 35. 대역폭·클럭 요인은 이번에도 없다(mem% 10).
+- 그림 `results/hetero/nsys_s4_b300/mixed/fig_dit_kernel_lengths.png`: DiT 커널 길이 히스토그램을 단독(위)·혼합(아래) 두 패널로. 2.2~3.0 ms 구간이 단독 0개, 혼합 464개.
+- 그림 `results/hetero/nsys_s4_b300/mixed/fig_elongated_kernels.png`: (a) 0.3 ms 이상 DiT 커널 길이 히스토그램, 단독(333개)과 혼합(785개). 단독의 봉우리(0.4·0.55·0.95·1.85 ms)는 혼합에도 그대로 있고, 혼합에만 2.2~3.0 ms 덩어리(약 450개)가 추가된다. 늘어난 양 = 2.2~3.0 ms − 수십 µs ≈ decode 차례 하나. (b) 그중 하나(2.48 ms)를 확대: 커널이 멈춘 사이에 vLLM decode graph 1.87 ms가 들어가 있다.
+- 그림 `results/hetero/nsys_s4_b300/mixed/timeline_mixed_busy.png`(캡처 +1.6 s, 30 ms 창): decode graph(~1.9 ms) → DiT 커널 묶음(~1~1.5 ms) → decode graph … 가 겹침 없이 번갈아 가며, 주기 약 4 ms. 단독(`llm/timeline_llm.png`)에서는 graph 사이 간격이 0.2 ms다. 기본 창(+30 s) 그림 `timeline_mixed.png`는 prefill 구간이라 참고용.
+
+### 제안
+
+1. **k 모델의 입력에 "스텝 길이 ÷ 슬라이스 길이"를 넣어야 한다.** 스텝 < 슬라이스면 간섭은 "상대 슬라이스 대기(간격)"로, 스텝 > 슬라이스면 "스텝 안 절단"으로 나타난다. R7(k = 1 + p)은 이 구분이 없으므로 B300 값으로 검증하기 전에는 solver에 넣지 않는다(기존 결정 유지). R2의 2-앵커 선형은 이 모양 차이와 무관하게 쓸 수 있다.
+2. **`analyze_nsys.py`의 스텝 문턱 2 ms는 카드별 상수다.** 판정 정의를 바꾸지 않기 위해 사본으로 처리했지만, 포팅을 확정할 때는 `STEP_MIN_MS` 인자(기본 2)를 저장소 분석기에 넣는 것이 맞다. 사용자 확인 후.
+3. 다음: C_B300(PD 분할 + decode 카드 공유, GPU1·GPU3) 같은 캡처 → decode 전용 엔진에서도 "간격형" 간섭인지. 그 뒤 Stage 0-2(pd_smoke, 노드 간 pd_xfer_probe).
+
+## B300 포팅 0-b 결과 2: PD 분할 + decode 카드 공유(C_B300) Nsight 캡처 (2026-11-05 11:55~12:12)
+
+실행: `PLACE=C_B300 bench/hetero/profile_mixed_nsys.sh mixed|llm|dit`. prefill vLLM = GPU3 단독(추적 안 함), decode vLLM + dit_server = GPU1 공유, KV 전송 NixlConnector(UCX tcp, 같은 노드). nsys 2026.5.1 graph 모드. 멈춤·오류 없음(mixed LLM 454·DiT 84, llm 377, dit 84). 결과 `results/hetero/nsys_c_b300/`. 두 프로세스가 GPU1에 있었음을 sqlite의 deviceId로 확인(dit_server는 자기 가시 목록의 cuda:1 = GPU1, decode는 cuda:0 = GPU1).
+
+### 관측
+
+| 지표 (1 ms 문턱) | C_B300 단독 → 혼합 | S4_B300 단독 → 혼합 (참고) |
+|---|---|---|
+| decode 스텝 p50 ms | 1.84 → 1.85 (1.00×) | 1.84 → 1.85 |
+| 스텝 사이 간격 p50 ms | 0.27 → 1.63 (DiT 있을 때 1.69, 없을 때 0.32) | 0.21 → 1.68 |
+| 토큰당 시간 ms | 2.11 → 3.48 (1.65×) | 2.05 → 3.53 (1.72×) |
+| 요청 TPOT p50 / p90 ms | 1.96 / 2.32 → 2.59 / 4.32 (1.32× / 1.86×) | 1.45× / 2.0× |
+| 요청 TTFT p50 / p90 ms | 350 / 1,051 → 526 / 1,540 | 29 / 59 → 32 / 76 |
+| DiT 커널 p50 µs | 4.6 → 4.7 | 4.6 → 4.6 |
+| DiT 2.2~3.0 ms 커널 수 | 0 → 30 (p50 2.48 ms) | 0 → 464 |
+| 점유 decode / DiT / 합집합 | 0.09 / 0.20 → 0.29 | 0.11 / 0.20 → 0.31 |
+
+- **decode 전용 엔진에서도 간섭은 "간격형"이다.** 스텝 길이는 그대로이고 DiT가 있을 때 스텝 사이 간격이 1.7 ms로 늘어난다. S4_B300과 같은 모양·같은 크기. 이전 C_3090(decode 스텝 8.5 → 18.3 ms, 2.8×)과 다른 것은 카드 종류가 아니라 스텝 길이(1.84 ms)가 슬라이스(~2.3 ms)보다 짧기 때문이라는 해석이 두 배치에서 유지된다.
+- **PD의 TTFT는 KV 전송이 지배한다.** 단독에서도 TTFT p50 350 ms·p90 1.05 s이고 vLLM 로그의 KV 전송 평균 0.7~1.1 s, P90 1.3~2 s. 3B 모델 1k 토큰 KV는 ~110 MB라 2.4 GB/s면 50 ms여야 하는데 10배 이상 느리다. 간섭 판정과 무관한 별도 문제(UCX tcp 경로·세그먼트 설정 또는 B300 NIXL 경로)로, Stage 0-2 `pd_xfer_probe`에서 다룬다.
+- **DiT 요청 지연은 이 캡처로는 판정할 수 없다.** 네 캡처 모두 denoise 시간이 한 실행 안에서 0.65~1.5 s로 흔들린다(첫 구간 빠르고 중간 느림). 원인은 GPU가 아니다. DiT 커널 p50은 전 실행 4.6 µs로 같고, DiT 단독에서 요청당 GPU 시간 0.49 s vs 벽시계 0.91 s(GPU 몫 0.54, 요청당 커널 67k개). 즉 512² SD3.5-medium은 B300에서 **CPU 측 커널 launch에 절반이 묶여** 있고, nsys 주입(launch마다 오버헤드)과 노드의 다른 사용자 CPU 부하(load 9~12, 타 사용자 python 100%)에 따라 벽시계가 움직인다. S4의 "DiT 1.36 → 1.33 변화 없음"과 C의 "0.83 → 1.31"은 둘 다 이 잡음 안이다. R6 판정의 DiT 항목은 커널 수준(p50 동일, 끼어든 커널만 ~2.3 ms 연장)으로만 쓴다.
+- 정리 중 발견: 중단된 진단 스크립트가 남긴 `nvidia-smi dmon`(CPU 100%) 프로세스를 12:15에 종료. 캡처 중 dmon 자체가 CPU 하나를 점유하므로 DiT launch 지연에 영향이 있을 수 있다(미정량).
+
+### 제안
+
+1. **R6 포팅 판정: 성립.** 두 배치(S4_B300, C_B300)에서 (1) 커널 둔화 없음, (2) 끼어든 커널의 연장 ≈ 2.3 ms 슬라이스, (3) 공유 방식 기본 시간 분할. 규칙 A/B는 B300에 그대로 쓴다. 단 "decode 스텝 2배"는 스텝 > 슬라이스일 때의 특수형이고, 일반형은 "토큰당 시간 = 스텝 + 상대 차례 대기"다.
+2. B300에서 DiT 간섭을 요청 수준으로 보려면 DiT를 GPU에 묶인 크기로 키워야 한다(1024² 또는 배치 ≥ 4, `--max-batch`). 그 전까지 DiT k는 nsys 없는 Stage 1/2 측정(이전 서버 방식)으로만 잰다.
+3. 다음: Stage 0-2(pd_smoke 두 장 → pd_xfer_probe 노드 간)에서 KV 전송 속도 문제를 먼저 본다.
+
+## B300 포팅 Stage 0-2a: 같은 노드 KV 전송 프로브 (2026-11-05 12:24~12:33, GPU3 → GPU1)
+
+`bench/hetero/pd_xfer_probe_b300.sh`(이전 `pd_xfer_probe.sh`의 B300판: 3B 모델, 2048 토큰 프롬프트 = KV 235 MB, `--gpu-memory-utilization 0.5`). 순차 8건 / 동시 16건, decode 서버의 "KV Transfer metrics" 기준. 출력 `results/hetero/pd_xfer_b300/<tag>/`.
+
+### 관측
+
+| 태그 | UCX 설정 | 선택된 경로(로그) | 순차 8건 평균 / p90 | 실효 | 동시 16건 평균 / p90 |
+|---|---|---|---|---|---|
+| tcp_tuned_all | 하네스 그대로(`cuda_copy,tcp,self`, 4m seg, 64m buf, 4 lanes, `NET_DEVICES=all`) | `tcp/vxlan.calico` | 162 / 219 ms | 1.45 GB/s | 900 / 1,438 ms |
+| tcp_tuned_lo | 위 + `NET_DEVICES=lo` | `tcp/lo` | 158 / 219 ms | 1.49 GB/s | 838 / 1,355 ms |
+| tcp_tuned_bond0 | 위 + `NET_DEVICES=bond0` | `tcp/bond0` | 159 / 222 ms | 1.48 GB/s | 730 / 1,233 ms |
+| **default** | UCX 환경변수 없음(NIXL 기본) | `device(cuda_ipc/cuda)` + `rc_mlx5`(IB 레인) | **20 / 42 ms** | **~12 GB/s** | **24 / 49 ms** |
+
+- C_B300 캡처에서 본 TTFT 0.35~1.5 s와 vLLM 로그의 187 MB/s는 vLLM 설정 문제가 아니다. 커넥터·레이아웃·디스크립터 수는 이전 서버와 같다. 원인은 하네스의 UCX 환경변수가 같은 노드에서도 **호스트 경유 TCP**를 강제한 것이고, 그 경로의 상한이 이 노드에서는 1.45 GB/s다(이전 서버 2.4 GB/s). 인터페이스 선택(`all`이 Calico VXLAN을 고름)은 속도에 영향이 없었다(`lo`·`bond0`와 동일).
+- 동시 16건의 700~900 ms는 직렬화가 아니라 1.45 GB/s를 16개가 나눠 쓴 결과다. B300은 prefill이 빨라 전송 16개가 거의 동시에 시작한다(이전 서버는 prefill이 느려 자연히 시차가 났다).
+- 같은 노드에서는 NIXL 기본 경로로 두면 20 ms(235 MB)다. 로그상 데이터 레인은 `cuda_ipc`(NVLink), 제어·RMA는 `rc_mlx5`(B300 노드의 IB NIC mlx5_0/1/6/7). "accelerated IB support not found" 경고에도 IB 경로는 열린다. 요청당 KV 전송이 TTFT에 더하는 시간이 수십 ms로 내려간다.
+
+### 조치·제안
+
+1. **같은 노드 PD(C_B300 등)는 UCX 환경변수를 주지 않는다.** `profile_mixed_nsys.sh`·`run_mixed_modal_mn.sh`의 UCX_* 는 노드 간 배치(B300 → PRO6000, 25 GbE)에서만 넣는다. 멀티노드 하네스에서 `UCX_NET_DEVICES=bond0`(B300) / 해당 NIC(PRO6000)로 명시한다.
+2. C_B300 캡처(간섭 판정)는 영향 없음. decode 스텝·간격 지표는 전송 경로와 무관하고, TTFT 항만 이 설정 때문에 부풀었다. Stage 1에서 C_B300을 쓸 때는 1번을 적용한 뒤 TTFT를 다시 잰다.
+3. 노드 간 전송(`pd_xfer_probe` B300 → PRO6000)은 아직 안 했다. 25 GbE 이론 3.1 GB/s, 호스트 경유 TCP가 이 노드에서 1.45 GB/s이므로 노드 간은 그 이하가 될 가능성이 크다. 다음 단계에서 측정(PRO6000 GPU0 사용, 확인 필요).
+
+## B300 공유 방식 비교 1: MPS 아래 한 장 공유(S4_B300, MPS) Nsight 캡처 (2026-11-05 13:58~)
+
+설정: B300 GPU1 전용 MPS 제어 데몬을 사용자 권한으로 띄움(`CUDA_VISIBLE_DEVICES=GPU1 CUDA_MPS_PIPE_DIRECTORY=~/mps_gpu1/pipe nvidia-cuda-mps-control -d`, root 불필요, 다른 GPU에 영향 없음). vLLM과 dit_server를 그 파이프의 클라이언트로 띄움(`profile_mixed_nsys.sh`에 `MPS_PIPE`, `MPS_PCT_LLM/DIT` 추가). 비율 제한 없음(기본 100/100). 나머지는 S4_B300과 동일(플랜 alpha1_seed901, nsys 2026.5.1 graph). 출력 `results/hetero/nsys_s4_b300_mps/`.
+주의: MPS 모드에서는 nsys가 하드웨어 트레이스를 못 쓰고 소프트웨어 계측 트레이스로 떨어진다(진단 메시지). 그래서 절대값(스텝 1.84 → 2.01 ms)이 시간 분할 캡처와 다르고, 비교는 반드시 같은 MPS 조건의 단독과 한다.
+
+### 관측 (llm 단독 vs mixed, 1 ms 문턱)
+
+| 지표 | MPS 단독 → 혼합 | 시간 분할 단독 → 혼합 (S4_B300) |
+|---|---|---|
+| decode 스텝 p50 / p90 ms | 2.01 / 2.11 → 2.49 / 2.61 (**1.24×**) | 1.84 → 1.85 (1.00×) |
+| 스텝 사이 간격 p50 ms | 0.21 → 0.25 (**변화 없음**) | 0.21 → 1.68 (8×) |
+| 토큰당 시간 ms | 2.22 → 2.74 (**1.23×**) | 2.05 → 3.53 (1.72×) |
+| 요청 TPOT p50 / p90 ms | 2.10 / 2.46 → 2.40 / 3.22 (**1.14× / 1.31×**) | 1.96 / 2.32 → 2.84 / 4.65 (1.45× / 2.0×) |
+| 요청 TTFT p50 / p90 ms | 29.0 / 62.1 → 28.9 / 62.9 (1.0×) | 28.9 / 58.6 → 32.3 / 76.1 |
+| 두 프로세스 동시 실행 시간 / decode busy | 0.38 | 0.17 |
+| DiT 커널 p50 / p90 / p99 µs | 5 / 17 / 34 (혼합) | 4.6 / 13.4 / 29.5 |
+
+- **MPS는 간섭의 형태를 바꾼다.** 시간 분할에서는 스텝은 그대로이고 "상대 차례 대기"가 간격으로 붙었다. MPS에서는 간격이 사라지고(단독과 같음) 두 프로세스의 커널이 실제로 겹쳐 돌며(동시 실행 38%), 그 대신 스텝 자체가 1.24× 길어진다(SM·대역 경합). DiT 커널 p90·p99도 13→17, 29→34 µs로 늘어 DiT 쪽도 경합을 받는다.
+- **크기는 절반 이하로 줄지만 0이 아니다.** 토큰당 시간 1.72× → 1.23×, TPOT p90 2.0× → 1.31×. 이 요청률(α 1.0, 두 프로세스 점유 합 0.31)에서도 k≈1.15~1.3이 남는다.
+- DiT 단독(dit 모드) 1차는 노드 간 프로브의 포트 충돌로 오염(`_dit_contaminated_by_probe`), 14:23 깨끗이 재실행. **DiT 쪽 MPS 효과(커널 수준, 단독 → 혼합):** 커널 p50 5.1 → 5.5 µs(+8%), p90 14.6 → 17.0(+16%), p99 29.6 → 34.4(+16%). 시간 분할에서 464개였던 2.2~3.0 ms "멈춘 커널"은 6개로 사라진다. 즉 MPS에서 DiT는 멈추지 않는 대신 모든 커널이 조금씩 느려진다(SM 공유). 요청 수준 denoise(1.17 → 1.32 s)는 CPU launch 잡음 범위라 판정에 쓰지 않는다.
+
+### 제안
+- MPS 비율 스윕(`MPS_PCT_LLM/MPS_PCT_DIT` = 70/30, 30/70)을 같은 플랜으로 돌려 "비율이 LLM k와 DiT k를 반대로 움직이는지" 확인. 그 뒤 α 0.5·1.5에서 반복해 MPS k의 부하 의존성.
+- 운영 관점 기록: MPS 서버는 사용자당 하나라 공유 노드에서 여러 사용자가 한 GPU를 MPS로 나눠 쓸 수 없고, 클라이언트 오류가 서버 전체로 번진다. solver의 "MPS 공유" 레버는 같은 테넌트(같은 사용자) 서비스 간에만 성립한다.
+
+## B300 포팅 Stage 0-2b: 노드 간 KV 전송 프로브 (2026-11-05 14:19~14:24, B300 GPU3 → PRO6000 GPU1, 25 GbE)
+
+`bench/hetero/pd_xfer_probe_mn.sh`(새 파일): prefill vLLM = B300 GPU3, decode vLLM = PRO6000 GPU1(ssh -n -f 로 원격 기동), 프록시·로드젠 = B300. 3B, 2048 토큰 프롬프트(KV 235 MB), 순차 8 / 동시 16. 출력 `results/hetero/pd_xfer_mn/<tag>/` (decode.log 는 원격에서 복사).
+
+### 포팅 중 발견한 것 (실행 전제)
+1. **어텐션 백엔드가 NIXL 호환 해시에 들어간다.** B300(sm_103)은 FLASHINFER, PRO 6000(sm_120)은 FLASH_ATTN 을 자동 선택해 "NIXL compatibility hash mismatch" 로 모든 요청이 실패했다. vLLM 0.28 에서는 `VLLM_ATTENTION_BACKEND` 환경변수가 없어졌고 `--attention-backend FLASHINFER` CLI 인자로 양쪽을 맞춰야 한다. 이기종 노드 간 PD 의 필수 조건이며 멀티노드 하네스에도 넣는다.
+2. ssh 로 원격 vLLM 을 띄울 때 `ssh host "cmd &"` 는 서버가 세션을 잡아 돌아오지 않는다(setsid·stdin 분리로도 안 됨). `ssh -n -f` 로 해결.
+3. 같은 노드에서 캡처 하네스(8100/8192/5600)와 포트가 겹치면 요청이 엉뚱한 서버로 간다. 프로브는 8110/8193/5610 을 쓴다. 이 충돌로 MPS dit 단독 캡처 1회가 오염되어 재실행.
+
+### 관측
+
+| 태그 | UCX 설정 | 선택 경로 | 순차 8건 평균 / p90 | 실효 | 동시 16건 평균 / p90 |
+|---|---|---|---|---|---|
+| tcp_tuned_bond0 | `cuda_copy,tcp,self`, 4m seg, 64m buf, 4 lanes, `NET_DEVICES=bond0` | tcp/bond0 | 162 / 174 ms | **1.45 GB/s** (vLLM 집계 1,380 MB/s) | 1,340 / 2,250 ms |
+| default | 없음 | **tcp/vxlan.calico** (Calico VXLAN 오버레이) | 657 / 685 ms | 0.36 GB/s | 10,037 / 10,102 ms |
+
+- 노드 간 튜닝 TCP 의 순차 속도(1.45 GB/s)는 같은 노드 호스트 경유 TCP 와 같다. 즉 현재 상한은 25 GbE 링크(이론 3.1 GB/s)가 아니라 cuda_copy + TCP 스택의 호스트 측 복사다. 이전 서버(2.4 GB/s)보다 낮은 이유는 미확인(CPU 세대·NUMA·버퍼 설정 후보).
+- 튜닝 없는 기본값은 UCX 가 Kubernetes Calico 의 VXLAN 오버레이 인터페이스를 고른다. 같은 노드에서는 어느 인터페이스든 lo 로 돌아 차이가 없었지만, 노드 간에서는 캡슐화를 거쳐 4배 느리고(0.36 GB/s) 동시 요청에서 10 s 로 직렬화된다. 노드 간 PD 는 반드시 `UCX_NET_DEVICES=bond0` + 튜닝 TCP 로 띄운다.
+- 동시 16건 1.3 s 는 1.45 GB/s 를 16개가 나눈 값(16 × 235 MB / 1.45 GB/s ≈ 2.6 s 총, 평균 대기 ~1.3 s). solver 의 링크 제약: λ·KV ≤ 1.45 GB/s → 3B 2k 프롬프트 기준 약 6 req/s, 1.5k(p50) 기준 약 8.6 req/s.
+
+### 제안
+- 멀티노드 하네스(`run_mixed_modal_mn.sh`)에 `--attention-backend FLASHINFER` 와 튜닝 TCP + `UCX_NET_DEVICES=bond0`(양 노드) 를 고정. 같은 노드 PD 는 UCX 환경변수 없이.
+- 링크 상한을 올리려면 RoCE(BCM57414 는 RoCE 지원)로 UCX `rc` 전송을 여는 것이 후보. 관리자 설정 필요, 후순위.
+- 다음: C_PRO6000(prefill B300, decode+DiT PRO6000) 캡처로 노드 간 배치의 간섭 모양 확인.
+
+## B300 공유 방식 비교 2: MIG 반반 분할(S4_B300_MIG) + 세 방식 종합 (2026-11-05 14:30~14:47)
+
+설정: GPU1에 MIG 켜고(`sudo nvidia-smi -i 1 -mig 1`) 3g.135gb 두 조각(`mig -cgi 9,9 -C`, 각 SM 70개·133 GB). vLLM = 조각 1(MIG-b6fc…), dit_server = 조각 2(MIG-a4b5…). `profile_mixed_nsys.sh`에 `PLACE=S4_B300_MIG` 추가(프로세스는 MIG 조각 하나만 볼 수 있어 S4 분기의 dit 가시 장치를 분리). 나머지는 S4_B300과 동일. 출력 `results/hetero/nsys_s4_b300_mig/`. **MIG는 아직 켜져 있다**(GPU1을 통째로 쓰려면 `sudo nvidia-smi mig -i 1 -dci; -dgi; nvidia-smi -i 1 -mig 0`).
+
+### 관측 (1 ms 문턱)
+
+| 지표 | MIG 단독 → 혼합 | 비고 |
+|---|---|---|
+| decode 스텝 p50 / p90 ms | 2.51 / 2.61 → 2.51 / 2.61 (**1.00×**) | 통째 GPU 단독 1.84 → 반쪽 SM이라 1.36× 느림 |
+| 스텝 사이 간격 p50 ms | 0.32 → 0.32 | |
+| 요청 TPOT p50 / p90 ms | 2.73 / 3.03 → 2.72 / 3.08 (**1.00× / 1.02×**) | 통째 단독 1.96 / 2.32 |
+| 요청 TTFT p50 / p90 ms | 31.2 / 83.8 → 32.4 / 87.5 | |
+| DiT 커널 p50 / p90 / p99 µs | 5.2 / 26.2 / 53.4 → 동일 | 통째 GPU 4.6 / 13.4 / 29.5 → 긴 커널이 2× 느림(SM 절반) |
+| DiT 2.2~3.0 ms 커널 | 0 → 0 | 멈춤 없음 |
+| 두 프로세스 동시 실행 / decode busy | 0.39 | 서로 다른 조각에서 실제 동시 실행 |
+
+- **간섭 0(k=1.00).** 단독과 혼합이 커널·스텝·요청 수준 모두 소수점까지 같다. 하드웨어 분할의 정의 그대로.
+- **대가는 용량.** 같은 요청에 decode 토큰당 1.36×, DiT 긴 커널 2×. 조각 안에서 포화가 먼저 온다. 이번 요청률(점유 0.16 + 0.29)에서는 안 보이지만 결정 지도에서는 이 축이 승부를 가른다.
+
+### 세 공유 방식 종합 (같은 카드 GPU1, 같은 플랜 alpha1_seed901, LLM 3B + DiT SD3.5m 512²)
+
+| | 기본 시간 분할 | MPS | MIG 반반 |
+|---|---|---|---|
+| 기제 | 컨텍스트 교대(슬라이스 ~2.3 ms) | 커널 동시 실행, SM 공유 | 하드웨어 분리 |
+| decode 스텝 | 1.84 → 1.85 (그대로) | 2.01 → 2.49 (1.24×) | 2.51 → 2.51 |
+| 스텝 사이 간격 | 0.21 → 1.68 ms (대기) | 0.21 → 0.25 | 0.32 → 0.32 |
+| 토큰당 시간 | **1.72×** | **1.23×** | **1.00×** (절대값은 통째의 1.36×) |
+| TPOT p90 | 2.0× | 1.31× | 1.02× |
+| DiT 커널 | p50 동일, 끼어든 464개만 +2.3 ms | 전부 +8~16% | 동일 (절대값 2×) |
+| 혼합 측정 필요 | 앵커 2 (R2) | 1 (부하 의존성 미확인) | 0 |
+| 운영 제약 | 없음 | 사용자당 서버 1, 격리 없음 | 조각 메뉴 고정, 바꿀 때 GPU 비움 |
+
+**판단(관측 수준).** 간섭의 "형태"는 공유 방식이 정하고, 그 형태마다 필요한 측정 횟수가 다르다(0/1/2). 시간 분할만 부하 의존 k가 필요하고, MIG는 용량 모델만, MPS는 1점 상수인지 2점인지 미정. 이 표가 solver의 "공유 방식" 레버의 입력 정의가 된다.
+
+### 제안 (가지치기 논의 2026-11-05 반영)
+1. MPS α 0.5·1.5 두 번으로 MPS k의 부하 의존성 확정 → MPS 측정 횟수 결정. 그 뒤 공유 방식 축의 실험은 종료.
+2. 간섭 모델링은 기본 시간 분할에만. MIG는 조각 단독 프로파일, 분리는 단독 프로파일.
+3. VLM·C_split은 실측에서 제외(시뮬 확장). 배치는 S4·S3·C·노드 간 C 네 개.
+4. 노드 간 링크는 25 GbE TCP 1.45 GB/s로 고정(RoCE 범위 밖, 사용자 결정).

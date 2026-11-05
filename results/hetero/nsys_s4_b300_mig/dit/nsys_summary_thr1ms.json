@@ -1,0 +1,27 @@
+{
+  "run": "dit",
+  "decode_proc": [
+    2251587,
+    "VLLM::EngineCor"
+  ],
+  "dit_proc": [
+    2246585,
+    "python"
+  ],
+  "window_s": 90.080615357,
+  "decode": {
+    "n_graph_steps": 0,
+    "n_nongraph_kernels": 0,
+    "busy_s": 0.0,
+    "busy_frac": 0.0
+  },
+  "dit": {
+    "n_kernels": 2515187,
+    "busy_s": 27.448109724,
+    "busy_frac": 0.3047060637321352,
+    "kernel_us_p50": 5.216,
+    "kernel_us_p90": 26.176,
+    "kernel_us_p99": 53.408,
+    "kernel_us_max": 1504.892
+  }
+}
