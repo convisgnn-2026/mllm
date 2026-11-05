@@ -156,12 +156,10 @@ results/hetero/
   stage0_b300/            Stage 0-1 스모크, nsys 옵션 진단(diag_*), 설정 분리 실험
   nsys_s4_b300/           한 장 공유, 시간 분할      (mixed/llm/dit, nsys_summary.json, nsys_summary_thr1ms.json, fig_*.png)
   nsys_c_b300/            PD 분할 + decode 카드 공유
-  nsys_s4_b300_mps/       한 장 공유, MPS            (dit 1차는 _dit_contaminated_by_probe, 재실행본이 dit/)
+  nsys_s4_b300_mps/       한 장 공유, MPS
   nsys_s4_b300_mig/       MIG 반반
-  nsys_s4_b300_node/      (참고) 2025.6.3 node 모드: EngineCore 커널 누락, 판정에 안 씀
-  nsys_s4_b300_graphtrace_stalled/  (참고) 2025.6.3 graph 모드: EngineCore 교착
   pd_xfer_b300/           같은 노드 KV 전송 4설정
-  pd_xfer_mn/             노드 간 KV 전송 2설정 (_로 시작하는 폴더는 실패한 시도: ssh 세션, 포트 충돌, 해시 불일치)
+  pd_xfer_mn/             노드 간 KV 전송 2설정
 ```
 각 캡처 폴더의 `replay/requests.live.jsonl`이 요청 기록(TTFT/TPOT/DiT 단계 시간), `serve_*.log`가 vLLM 로그, `dmon.txt`가 nvidia-smi 1 s 샘플이다.
 

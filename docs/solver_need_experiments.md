@@ -20,7 +20,7 @@
 최종 solver 필요성의 핵심 비교는 **동일 후보 공간·동일 자원에서 단독 성능에 기반한 구성 선택**과 **혼합 실행 간섭을 반영한 구성 선택**이다. 작은 후보 공간에서는 실측 최선 구성도 비교해서 예측 오차와 선택 손실을 분리한다. 간섭 관측만으로 solver의 개선을 주장하지 않으며, 고정된 간단한 정책보다 유용한 선택을 한다는 검증이 필요하다. 현재 고정 휴식·상황 제어 실험은 후보 장치의 탐색이고 최종 solver의 기여가 확정된 것은 아니다.
 
 
-현재 판단 및 근거는 [10/13 미팅](1013_meeting.md), 기존 데이터 분석은 [보고서](../results/hetero/solver_need/summary.md)를 참고한다.
+현재 판단 및 근거는 [10/13 미팅](notes/1013_meeting.md), 기존 데이터 분석은 [보고서](../results/hetero/solver_need/summary.md)를 참고한다.
 
 ## 재현 명령
 
@@ -120,7 +120,7 @@ python bench/hetero/compare_controlled.py
 
 설치된 vLLM 0.28의 mm_encoder_only, EC producer/consumer 및 ECExampleConnector 구현을 확인했다. 로컬 VLM이 없어 공개 Qwen2-VL-2B-Instruct 모델 다운로드를 시작했다. 이후 3090 encoder → 4090 prefill/decode 분리 smoke를 순차 실행하도록 연결했다. 아직 실제 분리 추론 성공을 확정하지 않는다.
 
-[실행 안내](../bench/hetero/vlm/README.md), [진행 상태](../results/hetero/vlm_encoder_check_status.json). 먼저 이미지 응답·encoder cache 전달·consumer 재인코딩 여부를 확인하고, 다음에 공유 간섭과 encoder 실행 허용 제어를 시험한다. 기능 검증 단계의 파일 전달 시간을 최적화 성능으로 해석하지 않는다.
+[실행 안내](../archive/legacy/vlm-2026-10/bench/vlm/README.md), [진행 상태](../archive/legacy/vlm-2026-10/results/vlm_encoder_check_status.json). 먼저 이미지 응답·encoder cache 전달·consumer 재인코딩 여부를 확인하고, 다음에 공유 간섭과 encoder 실행 허용 제어를 시험한다. 기능 검증 단계의 파일 전달 시간을 최적화 성능으로 해석하지 않는다.
 
 
 ### VLM 다운로드 장애 복구
@@ -150,7 +150,7 @@ LLM: 합성 입력 약 1024 tokens, 출력 256 tokens. VLM: 672²의 요청별 �
 
 측정: 계획 도착 기준 TTFT/E2E, 요청 평균 TPOT, 스트리밍 chunk 간격 p90, 오류 수, encoder 허용 대기·primer 왕복시간, GPU utilization·메모리·전력. **chunk 간격은 token ITL이 아니며 primer 왕복시간은 순수 GPU encoder 시간이 아니다.** 파일 전달과 전처리가 포함되므로 단계별 커널 원인 분리는 후속 계측이 필요하다. 지연 요약은 성공 요청만 사용하고 오류 수를 함께 기록한다.
 
-실행: bench/hetero/vlm/run_interference_pilot.py. 제어 프록시: bench/hetero/vlm/gated_proxy.py. 상태와 결과: results/hetero/vlm_interference_pilot/status.json, results.json, 조건별 summary.json·requests.live.jsonl. 전역 encoder_admission.jsonl은 요청 허용 대기를 기록한다.
+실행: archive/legacy/vlm-2026-10/bench/vlm/run_interference_pilot.py. 제어 프록시: archive/legacy/vlm-2026-10/bench/vlm/gated_proxy.py. 상태와 결과: archive/legacy/vlm-2026-10/results/vlm_interference_pilot/status.json, results.json, 조건별 summary.json·requests.live.jsonl. 전역 encoder_admission.jsonl은 요청 허용 대기를 기록한다.
 
 판정: 무제어 공유의 추가 악화를 확인한 다음 고정 제한이 LLM 지연 감소와 VLM 추가 대기 사이에서 유용한 영역을 만드는지 본다. 효과가 없으면 그대로 보고한다. 현재 장치를 solver의 성능 개선으로 미리 주장하지 않는다.
 
@@ -160,7 +160,7 @@ LLM: 합성 입력 약 1024 tokens, 출력 256 tokens. VLM: 672²의 요청별 �
 
 기존 파일럿은 7조건 완료, 측정 요청 오류 0건이다. high 부하에서 단독→공유 시 LLM 완료시간 p90은 4.07→4.63초, VLM 첫 응답 p90은 0.23→0.43초였다. 단순 직렬화에서는 각각 4.70초, 0.38초로 양쪽 손해를 함께 줄이지 못했다.
 
-기존 기록을 시간축으로 대조하면 high 무제어에서 LLM 요청의 encoder primer 겹침 비율과 요청별 chunk 간격 p90의 Pearson 상관은 약 0.77이다. **탐색적 연관성**이며 인과관계나 GPU 커널 충돌의 증명이 아니다. primer에는 HTTP·전처리·파일 전달이 포함되고, 기존 기록에는 개별 chunk 시각이 없다. 같은 부하 변동이 양쪽 지연을 동시에 늘렸을 수도 있다. [분석 결과](../results/hetero/vlm_interference_pilot/overlap_analysis.json).
+기존 기록을 시간축으로 대조하면 high 무제어에서 LLM 요청의 encoder primer 겹침 비율과 요청별 chunk 간격 p90의 Pearson 상관은 약 0.77이다. **탐색적 연관성**이며 인과관계나 GPU 커널 충돌의 증명이 아니다. primer에는 HTTP·전처리·파일 전달이 포함되고, 기존 기록에는 개별 chunk 시각이 없다. 같은 부하 변동이 양쪽 지연을 동시에 늘렸을 수도 있다. [분석 결과](../archive/legacy/vlm-2026-10/results/vlm_interference_pilot/overlap_analysis.json).
 
 | 조건 | 직관적인 의미 | 동작 |
 |---|---|---|
@@ -177,11 +177,11 @@ warmup 15초 + 측정 90초, 최대 drain 120초, seed 0의 동일 도착·입�
 
 실행:
 ```bash
-/home/jinwoo.kim27/venv/jinwoo/bin/python bench/hetero/vlm/run_interference_pilot.py \
-  --control-study --seed 0 --out results/hetero/vlm_encoder_control_seed0
+/home/jinwoo.kim27/venv/jinwoo/bin/python archive/legacy/vlm-2026-10/bench/vlm/run_interference_pilot.py \
+  --control-study --seed 0 --out archive/legacy/vlm-2026-10/results/vlm_encoder_control_seed0
 ```
 
-[진행 상태](../results/hetero/vlm_encoder_control_seed0/status.json). 완료 후 `results.json`과 조건별 `summary.json`을 비교한다. 기존 파일럿 결과는 보존했다.
+[진행 상태](../archive/legacy/vlm-2026-10/results/vlm_encoder_control_seed0/status.json). 완료 후 `results.json`과 조건별 `summary.json`을 비교한다. 기존 파일럿 결과는 보존했다.
 
 ### Seed 0 실행 결과: 구현은 정상, 상황 제어의 개선은 확인 못함
 
@@ -200,7 +200,7 @@ warmup 15초 + 측정 90초, 최대 drain 120초, seed 0의 동일 도착·입�
 
 판정: 현재의 **지연 관측 후 encoder 허용을 늦추는 규칙**은 효과가 입증되지 않았다. 지연 신호가 encoder 실행 이후에 도착하는지, LLM prefill 때문인지, primer의 CPU/파일 구간 때문인지 다음 분석에서 분리해야 한다. 바로 임계값을 바꿔 재실험하기보다 기록과 GPU 단계 계측을 통해 제어 시점·관측 신호의 적합성을 먼저 확인한다.
 
-[결과](../results/hetero/vlm_encoder_control_seed0/results.json), [시간 겹침 분석](../results/hetero/vlm_encoder_control_seed0/overlap_analysis.json).
+[결과](../archive/legacy/vlm-2026-10/results/vlm_encoder_control_seed0/results.json), [시간 겹침 분석](../archive/legacy/vlm-2026-10/results/vlm_encoder_control_seed0/overlap_analysis.json).
 
 ## 후속 실험: 지연 후 반응과 첫 응답 전 보호 비교
 
@@ -212,11 +212,11 @@ seed 0, warmup 15초 + 측정 60초, LLM 1 req/s·VLM 2 req/s, 동일 입력과 
 
 실행:
 ```bash
-/home/jinwoo.kim27/venv/jinwoo/bin/python bench/hetero/vlm/run_interference_pilot.py \
-  --timing-study --duration 60 --seed 0 --out results/hetero/vlm_signal_timing_seed0
+/home/jinwoo.kim27/venv/jinwoo/bin/python archive/legacy/vlm-2026-10/bench/vlm/run_interference_pilot.py \
+  --timing-study --duration 60 --seed 0 --out archive/legacy/vlm-2026-10/results/vlm_signal_timing_seed0
 ```
 
-[상태](../results/hetero/vlm_signal_timing_seed0/status.json). 결과가 개선되지 않으면 그대로 기록하고 신호·제어 시점 가설을 수정한다.
+[상태](../archive/legacy/vlm-2026-10/results/vlm_signal_timing_seed0/status.json). 결과가 개선되지 않으면 그대로 기록하고 신호·제어 시점 가설을 수정한다.
 
 ### 첫 응답 전 보호 실험 완료 (seed 0)
 
@@ -236,15 +236,15 @@ seed 0, warmup 15초 + 측정 60초, LLM 1 req/s·VLM 2 req/s, 동일 입력과 
 
 다음 우선순위: 임계값 변경보다 **encoder가 실행되는 동안 LLM decode가 받는 손해의 단계별 계측**이다. 현재 실행 전 대기 장치의 한계를 기록하고, 필요하면 GPU 실행 구간 계측을 별도 진단으로 수행한다. profiler 오버헤드가 있는 진단 결과를 위 성능 비교에 섞지 않는다.
 
-[결과](../results/hetero/vlm_signal_timing_seed0/results.json), [신호 시각 분석](../results/hetero/vlm_signal_timing_seed0/signal_timing_analysis.json), [겹침 분석](../results/hetero/vlm_signal_timing_seed0/overlap_analysis.json).
+[결과](../archive/legacy/vlm-2026-10/results/vlm_signal_timing_seed0/results.json), [신호 시각 분석](../archive/legacy/vlm-2026-10/results/vlm_signal_timing_seed0/signal_timing_analysis.json), [겹침 분석](../archive/legacy/vlm-2026-10/results/vlm_signal_timing_seed0/overlap_analysis.json).
 
 ## GPU 실행 구간 계측: 수집 완료
 
 seed 0에서 LLM만 요청 / VLM만 요청 / 함께 요청의 3조건을 실행했다. warmup 15초 + 부하 관측 30초이며, 각 조건에서 warmup 후 5초에 encoder(8510), 독립 LLM(8540)의 PyTorch profiler를 시작하고 약 8초 후 중지했다. 시작·중지 호출과 trace 저장 때문에 조건별 실제 소요시간이 늘어날 수 있다. profiler가 성능을 교란하므로 이 실행의 지연 값으로 앞선 무계측 실험 대비 개선을 주장하지 않는다.
 
-수집 상태는 complete(3/3), 측정 요청 오류 0건이다. encoder·LLM 각각 3개의 trace가 생성됐다. 요청이 없는 서비스의 trace는 GPU kernel 이벤트 0개이고, 요청이 있는 단독·공유 trace에는 GPU kernel 이벤트가 존재하는 것을 확인했다. 파일 목록과 이벤트 수는 `results/hetero/vlm_gpu_profile_seed0/trace_inventory.json`에 기록했다. **GPU trace 수집 완료와 원인 분석 완료는 구분한다.** 다음은 커널 실행시간·실행 간격과 클라이언트 응답 간격의 대조다.
+수집 상태는 complete(3/3), 측정 요청 오류 0건이다. encoder·LLM 각각 3개의 trace가 생성됐다. 요청이 없는 서비스의 trace는 GPU kernel 이벤트 0개이고, 요청이 있는 단독·공유 trace에는 GPU kernel 이벤트가 존재하는 것을 확인했다. 파일 목록과 이벤트 수는 `archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0/trace_inventory.json`에 기록했다. **GPU trace 수집 완료와 원인 분석 완료는 구분한다.** 다음은 커널 실행시간·실행 간격과 클라이언트 응답 간격의 대조다.
 
-실행: `run_interference_pilot.py --profile-study --duration 30 --seed 0 --out results/hetero/vlm_gpu_profile_seed0`.
+실행: `run_interference_pilot.py --profile-study --duration 30 --seed 0 --out archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0`.
 
 용어: “encoder 하나씩”은 프록시가 encoder primer 호출의 동시 진행을 1개로 제한한다는 뜻이다. 이미지 A의 encoder 호출 응답 후 이미지 B를 허용한다. A의 언어 생성 완료를 기다리지 않으며 독립 LLM도 계속 실행한다. 이번 GPU 계측 실험은 제어 없이 원인을 관찰한다.
 
@@ -282,9 +282,9 @@ LLM kernel busy 구간 사이 간격 p90은 단독 약 50.6µs, 공유 약 45.3�
 2. 다음 장치는 encoder 한 요청이 만드는 GPU 작업 구간의 길이·동시성·배치를 조절하거나 GPU 배치를 바꾸는 방향을 검토할 근거가 있다. 먼저 어떤 구간을 실제로 제어 가능한지 확인해야 한다.
 3. 전처리·파일 전달이 무관하다고 결론 내리지는 않는다. 그 기여율을 수치로 말하려면 별도 span 및 대조 실험이 필요하다. 특히 decoder 파일 읽기까지 현재 trace에 포함됐다고 해석하지 않는다.
 
-재현: `analyze_gpu_profile.py results/hetero/vlm_gpu_profile_seed0`, `plot_gpu_profile_summary.py results/hetero/vlm_gpu_profile_seed0`.
+재현: `analyze_gpu_profile.py archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0`, `plot_gpu_profile_summary.py archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0`.
 
-[상세 수치](../results/hetero/vlm_gpu_profile_seed0/gpu_analysis.json), [요약 그림](../results/hetero/vlm_gpu_profile_seed0/gpu_wait_summary.png). 단일 seed·짧은 공통 구간·profiler 오버헤드가 있는 탐색적 진단이며 추가 GPU 실험은 실행하지 않았다.
+[상세 수치](../archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0/gpu_analysis.json), [요약 그림](../archive/legacy/vlm-2026-10/results/vlm_gpu_profile_seed0/gpu_wait_summary.png). 단일 seed·짧은 공통 구간·profiler 오버헤드가 있는 탐색적 진단이며 추가 GPU 실험은 실행하지 않았다.
 
 ## Solver 후보 배치 비교: encoder를 어느 GPU에 둘 것인가
 
@@ -301,7 +301,7 @@ with_vlm도 encoder/언어 처리 프로세스와 파일 전달 connector를 유
 
 판정: 각 배치의 혼합 성능과 자기 배치 단독 기준 대비 악화율을 함께 본다. encoder GPU가 3090→4090으로 바뀌므로 절대 성능 차이를 전부 간섭 감소라고 해석하지 않는다. with_vlm에서는 encoder와 VLM 언어 처리 사이 간섭이 새로 생길 수 있다. 후보 중 한 배치가 모든 지표에서 우세하면 그 결과를 그대로 기록하며, 현 조건에서 복잡한 solver 필요성을 입증한 것으로 주장하지 않는다. 같은 후보 공간에서 단독 성능 기반 선택과 혼합 실행을 반영한 선택이 달라지는지는 다음 판단 대상이다.
 
-실행: `bench/hetero/vlm/run_placement_study.py`. [전체 상태](../results/hetero/vlm_placement_seed0/status.json)와 배치 하위 `status.json`에 진행 상황을 기록한다. 완료 시 동일 payload/계획을 검증하고 `comparison.json`에 단독 대비 악화율을 자동 저장한다. 기존 결과는 보존한다.
+실행: `archive/legacy/vlm-2026-10/bench/vlm/run_placement_study.py`. [전체 상태](../archive/legacy/vlm-2026-10/results/vlm_placement_seed0/status.json)와 배치 하위 `status.json`에 진행 상황을 기록한다. 완료 시 동일 payload/계획을 검증하고 `comparison.json`에 단독 대비 악화율을 자동 저장한다. 기존 결과는 보존한다.
 
 ### 배치 비교 결과 확인 (2026-10-14)
 
@@ -319,7 +319,7 @@ with_vlm도 encoder/언어 처리 프로세스와 파일 전달 connector를 유
 
 해석: 같은 GPU 2개에서 encoder 배치를 바꾸자 LLM 완료시간 약 24%, VLM 첫 응답 약 63% 감소가 관측됐다. 단계 배치가 유용한 제어 후보라는 근거다. 두 서비스의 주요 지표가 동시에 좋아져 이번 부하에서는 배치 간 trade-off나 복잡한 solver 필요성이 입증된 것은 아니다. 단일 seed·배치별 순차 실행·다른 GPU 속도라는 한계가 남는다. 다음 후보 검증은 혼합 비율/단계 부하 변화에서도 이 배치가 계속 우세한지, 혹은 선호 배치가 달라지는지 확인하는 것이다. 선호가 바뀌지 않으면 단순 고정 배치가 충분하다는 결과를 받아들인다.
 
-[원시 비교 결과](../results/hetero/vlm_placement_seed0/comparison.json).
+[원시 비교 결과](../archive/legacy/vlm-2026-10/results/vlm_placement_seed0/comparison.json).
 
 ## 부하 변화에 따른 배치 선호 검증 (2026-10-14 시작)
 
@@ -336,8 +336,8 @@ with_vlm도 encoder/언어 처리 프로세스와 파일 전달 connector를 유
 
 이번에는 with_llm→with_vlm 순서이며 배치 안의 조건은 seed 기반 shuffle이다. 순서 효과가 완전히 제거된 설계는 아니고 반복 seed는 추가하지 않는다. 각 부하의 두 배치끼리 LLM/VLM 첫 응답·완료시간·응답 간격·오류를 비교한다. 별도 부하별 단독 기준은 이번 실행에 포함하지 않아 이전 단독 수치로 악화율을 산출하지 않는다. reference_mix도 이번 60초 실행끼리 비교한다. p90은 성공 요청 기준이며 작은 표본, 특히 vlm_heavy의 LLM 결과는 탐색적으로 해석한다.
 
-실행: `bench/hetero/vlm/run_placement_study.py --load-sweep`.
-[상태](../results/hetero/vlm_placement_load_sweep_seed0/status.json). 배치별 하위 `status.json`에서 현재 조건을 볼 수 있고, 완료 후 `comparison.json`에 결과와 동일 계획/payload 검증 결과를 바탕으로 한 비교 입력이 저장된다. 이 실행은 비용 절감이나 solver의 최적성을 미리 주장하지 않는다.
+실행: `archive/legacy/vlm-2026-10/bench/vlm/run_placement_study.py --load-sweep`.
+[상태](../archive/legacy/vlm-2026-10/results/vlm_placement_load_sweep_seed0/status.json). 배치별 하위 `status.json`에서 현재 조건을 볼 수 있고, 완료 후 `comparison.json`에 결과와 동일 계획/payload 검증 결과를 바탕으로 한 비교 입력이 저장된다. 이 실행은 비용 절감이나 solver의 최적성을 미리 주장하지 않는다.
 
 ### 부하 변화 실험 결과: 주요 지표의 배치 선호 역전 없음
 
@@ -356,11 +356,11 @@ LLM 4 req/s 조건은 변경 배치에서도 첫 응답 p90이 약 11.2~13.7초�
 
 현재 판단: 이 모델 크기·입출력 길이·GPU 조합·부하 범위에서는 VLM 단계들을 4090에 두고 독립 LLM을 3090에 두는 고정 배치가 주요 지표에 유리하다. 요청률 변화만으로 적응형 배치 solver의 필요성은 입증되지 않았다. 기존 관측인 공유 실행 손해와 배치에 따른 완화는 유지된다. 다음 연구 후보는 실제 플랫폼에 해당하는 모델/입출력/단계별 부하 구성을 선정해 선택 공간을 넓히는 것이며, 역전을 만들기 위한 임의 조건 탐색과 구분한다.
 
-[결과](../results/hetero/vlm_placement_load_sweep_seed0/comparison.json). LLM 표본 수는 기존 비율 48건, LLM 중심·양쪽 고부하 242건, VLM 중심 15건으로 특히 마지막 조건의 LLM p90은 탐색적이다.
+[결과](../archive/legacy/vlm-2026-10/results/vlm_placement_load_sweep_seed0/comparison.json). LLM 표본 수는 기존 비율 48건, LLM 중심·양쪽 고부하 242건, VLM 중심 15건으로 특히 마지막 조건의 LLM p90은 탐색적이다.
 
 ## Stage 0 기능 smoke 완료 (2026-10-15)
 
-[인계 문서](claude_research_handoff_20261015.md)의 Stage 0을 실행했다. SLO·비용 판정은 하지 않았다. 아래 수치는 기능 확인용이며 결론에 쓰지 않는다.
+[인계 문서](notes/claude_research_handoff_20261015.md)의 Stage 0을 실행했다. SLO·비용 판정은 하지 않았다. 아래 수치는 기능 확인용이며 결론에 쓰지 않는다.
 
 **하네스 변경.** `run_mixed_modal.sh`에 `REPLAY_ONLY=llm|dit`를 추가했다. 두 서버를 모두 올린 채 한 서비스 요청만 재생하는 **상주형 단독(resident solo)** 경로다. 기존 `none`은 상대 모델을 띄우지 않으므로 다른 조건이다. `run_controlled_batch.py`는 후보 목록(`LLM_DIT[:only]`), plan 파일, 출력 경로, drain timeout, 실패 시 계속 진행을 인자로 받는다. 기본 인자는 10/13 batch의 작업 순서를 재현한다. 보고서는 `stage0_report.py`가 만든다. 기존 CPU 테스트 2건 통과.
 
@@ -900,11 +900,11 @@ C_4090의 fp 52는 전부 α 1.4·1.5(무릎 이후)에서 나온다.
 | C | `--trace=nvtx` | 정상. 74건 |
 
 **관측.** 멈춤은 nsys 2025.6.3의 `--cuda-graph-trace=graph` 와 vLLM(FlashInfer, CUDA graph) 조합에서만 난다. 수집을 켜지 않아도 주입만으로 난다. FlashInfer/TRTLLM 경로 자체는 문제 없다(가설 (b) 기각). 기록 `results/hetero/stage0_b300/diag_llm_nonsys`, `diag_nsys_{A,B,C}`.
-**조치.** `profile_mixed_nsys.sh` 의 `*_B300` 배치는 `--cuda-graph-trace=node` 를 쓴다(`GRAPH_TRACE_B300` 로 바꿀 수 있음). 4090/3090 분기는 graph 유지. 멈춘 1차 캡처는 `results/hetero/nsys_s4_b300_graphtrace_stalled/` 로 보존. node 모드에서는 graph 실행이 하나의 구간이 아니라 노드(커널) 단위로 기록되므로, `analyze_nsys.py`(graph 표 전제)는 그대로 두고 decode 스텝은 별도 집계로 복원한다(제안: 같은 프로세스 커널 사이 간격 < 1 ms 를 한 스텝으로 묶음).
+**조치.** `profile_mixed_nsys.sh` 의 `*_B300` 배치는 `--cuda-graph-trace=node` 를 쓴다(`GRAPH_TRACE_B300` 로 바꿀 수 있음). 4090/3090 분기는 graph 유지. 멈춘 1차 캡처는 삭제(2026-11-05 정리; 로그 요지는 위 관측에 있음). node 모드에서는 graph 실행이 하나의 구간이 아니라 노드(커널) 단위로 기록되므로, `analyze_nsys.py`(graph 표 전제)는 그대로 두고 decode 스텝은 별도 집계로 복원한다(제안: 같은 프로세스 커널 사이 간격 < 1 ms 를 한 스텝으로 묶음).
 
 ### 0-b nsys 구성 확정 (2026-11-05 11:07~11:30)
 
-- node 모드 재캡처(nsys 2025.6.3, `--cuda-graph-trace=node`): LLM 재생은 멈추지 않았으나(mixed 147건·오류 0) **EngineCore 커널이 수집되지 않음**(진단: "CUDA profiling might have not been started correctly"). DiT 프로세스만 기록됨. 결과는 `results/hetero/nsys_s4_b300_node/`에 보존, R6 판정에는 못 씀.
+- node 모드 재캡처(nsys 2025.6.3, `--cuda-graph-trace=node`): LLM 재생은 멈추지 않았으나(mixed 147건·오류 0) **EngineCore 커널이 수집되지 않음**(진단: "CUDA profiling might have not been started correctly"). DiT 프로세스만 기록됨. 결과는 R6 판정에 못 쓰므로 삭제(2026-11-05 정리).
 - 추가 시험(GPU1, LLM만 60 s, 20 s 캡처):
 
 | 시험 | nsys | 옵션 | 결과 |
@@ -912,7 +912,7 @@ C_4090의 fp 52는 전부 α 1.4·1.5(무릎 이후)에서 나온다.
 | D | 2025.6.3 | node + `--trace-fork-before-exec=true` | 멈춤 없음, EngineCore 커널 369,649개(graph 노드 340,536) 수집 |
 | E | **2026.5.1** (사용자가 NVIDIA 공개 rpm을 `~/tools/nsys`에 풀어 설치) | **graph (이전 서버와 동일)** | 멈춤 없음, EngineCore graph 실행 90,730건 수집, GRAPH_TRACE 표 생성 |
 
-- **결정.** B300 캡처는 nsys 2026.5.1 + graph 모드로 한다. 이전 서버와 nsys 버전·옵션·분석기(`analyze_nsys.py`)가 모두 같아져 비교에 변수가 없다. `profile_mixed_nsys.sh`의 `*_B300` 기본값을 그렇게 바꿈. `analyze_nsys_node.py`(새 파일)는 node 모드 대비용으로 남긴다.
+- **결정.** B300 캡처는 nsys 2026.5.1 + graph 모드로 한다. 이전 서버와 nsys 버전·옵션·분석기(`analyze_nsys.py`)가 모두 같아져 비교에 변수가 없다. `profile_mixed_nsys.sh`의 `*_B300` 기본값을 그렇게 바꿈. node 모드용 집계 스크립트는 graph 모드로 확정되어 삭제(2026-11-05 정리).
 - 11:31 S4_B300 세 모드 본 캡처 시작(`results/hetero/nsys_s4_b300/`).
 
 ## B300 포팅 0-b 결과: 한 장 공유(S4_B300) Nsight 캡처 (2026-11-05 11:31~11:48, nsys 2026.5.1 graph 모드)
@@ -1020,7 +1020,7 @@ C_4090의 fp 52는 전부 α 1.4·1.5(무릎 이후)에서 나온다.
 
 - **MPS는 간섭의 형태를 바꾼다.** 시간 분할에서는 스텝은 그대로이고 "상대 차례 대기"가 간격으로 붙었다. MPS에서는 간격이 사라지고(단독과 같음) 두 프로세스의 커널이 실제로 겹쳐 돌며(동시 실행 38%), 그 대신 스텝 자체가 1.24× 길어진다(SM·대역 경합). DiT 커널 p90·p99도 13→17, 29→34 µs로 늘어 DiT 쪽도 경합을 받는다.
 - **크기는 절반 이하로 줄지만 0이 아니다.** 토큰당 시간 1.72× → 1.23×, TPOT p90 2.0× → 1.31×. 이 요청률(α 1.0, 두 프로세스 점유 합 0.31)에서도 k≈1.15~1.3이 남는다.
-- DiT 단독(dit 모드) 1차는 노드 간 프로브의 포트 충돌로 오염(`_dit_contaminated_by_probe`), 14:23 깨끗이 재실행. **DiT 쪽 MPS 효과(커널 수준, 단독 → 혼합):** 커널 p50 5.1 → 5.5 µs(+8%), p90 14.6 → 17.0(+16%), p99 29.6 → 34.4(+16%). 시간 분할에서 464개였던 2.2~3.0 ms "멈춘 커널"은 6개로 사라진다. 즉 MPS에서 DiT는 멈추지 않는 대신 모든 커널이 조금씩 느려진다(SM 공유). 요청 수준 denoise(1.17 → 1.32 s)는 CPU launch 잡음 범위라 판정에 쓰지 않는다.
+- DiT 단독(dit 모드) 1차는 노드 간 프로브의 포트 충돌로 오염되어 삭제, 14:23 깨끗이 재실행. **DiT 쪽 MPS 효과(커널 수준, 단독 → 혼합):** 커널 p50 5.1 → 5.5 µs(+8%), p90 14.6 → 17.0(+16%), p99 29.6 → 34.4(+16%). 시간 분할에서 464개였던 2.2~3.0 ms "멈춘 커널"은 6개로 사라진다. 즉 MPS에서 DiT는 멈추지 않는 대신 모든 커널이 조금씩 느려진다(SM 공유). 요청 수준 denoise(1.17 → 1.32 s)는 CPU launch 잡음 범위라 판정에 쓰지 않는다.
 
 ### 제안
 - MPS 비율 스윕(`MPS_PCT_LLM/MPS_PCT_DIT` = 70/30, 30/70)을 같은 플랜으로 돌려 "비율이 LLM k와 DiT k를 반대로 움직이는지" 확인. 그 뒤 α 0.5·1.5에서 반복해 MPS k의 부하 의존성.
@@ -1028,7 +1028,7 @@ C_4090의 fp 52는 전부 α 1.4·1.5(무릎 이후)에서 나온다.
 
 ## B300 포팅 Stage 0-2b: 노드 간 KV 전송 프로브 (2026-11-05 14:19~14:24, B300 GPU3 → PRO6000 GPU1, 25 GbE)
 
-`bench/hetero/pd_xfer_probe_mn.sh`(새 파일): prefill vLLM = B300 GPU3, decode vLLM = PRO6000 GPU1(ssh -n -f 로 원격 기동), 프록시·로드젠 = B300. 3B, 2048 토큰 프롬프트(KV 235 MB), 순차 8 / 동시 16. 출력 `results/hetero/pd_xfer_mn/<tag>/` (decode.log 는 원격에서 복사).
+`bench/hetero/pd_xfer_probe_mn.sh`(새 파일): prefill vLLM = B300 GPU3, decode vLLM = PRO6000 GPU1(ssh -n -f 로 원격 기동), 프록시·로드젠 = B300. 3B, 2048 토큰 프롬프트(KV 235 MB), 순차 8 / 동시 16. 출력 `results/hetero/pd_xfer_mn/<tag>/` (decode.log 는 원격에서 복사). 실패한 시도(ssh 세션·포트 충돌·해시 불일치)의 폴더는 정리 때 삭제, 내용은 아래 '발견한 것'에 요약.
 
 ### 포팅 중 발견한 것 (실행 전제)
 1. **어텐션 백엔드가 NIXL 호환 해시에 들어간다.** B300(sm_103)은 FLASHINFER, PRO 6000(sm_120)은 FLASH_ATTN 을 자동 선택해 "NIXL compatibility hash mismatch" 로 모든 요청이 실패했다. vLLM 0.28 에서는 `VLLM_ATTENTION_BACKEND` 환경변수가 없어졌고 `--attention-backend FLASHINFER` CLI 인자로 양쪽을 맞춰야 한다. 이기종 노드 간 PD 의 필수 조건이며 멀티노드 하네스에도 넣는다.

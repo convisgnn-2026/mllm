@@ -1,1 +1,0 @@
-NSYS_OPTS=--trace=cuda,nvtx --cuda-graph-trace=graph --cuda-flush-interval=1000

@@ -1,60 +1,20 @@
-# 저장소 구조와 정리 기록
+# 저장소 구조와 정리 이력
 
-## 현재 연구
+## 구조 (2026-11-05)
 
 | 경로 | 역할 |
 |---|---|
-| bench/hetero/ | 현재 실측 harness·프로파일·분석·그림 코드 |
-| results/hetero/ | 현재 원시 측정·파생 분석·그림 |
-| docs/ | 현재 미팅·실험 계획·환경·폴더 안내 |
-| env/ | 의존성 기록 |
-| papers/ | 참고 논문과 외부 코드 |
-| presentations/ | 발표 자료와 생성 코드; slides/에 이전 ppt 폴더 내용 |
+| `bench/hetero/` | 실측 하네스·서버·채점·분석·그림 코드. 파일별 역할은 `bench/hetero/README.md` |
+| `results/hetero/` | 실험 결과. 폴더 하나가 실험 하나. 요약(json/md)·그림·로그·요청 기록만 git에 있고, Nsight 원본(`.nsys-rep`)과 sqlite는 `.gitignore` |
+| `docs/` | 실험 기록 `solver_need_experiments.md`, 프로토콜 `stage1_protocol.md`, 환경 `research_env.md`, 포팅 `handoff_b300.md`·`b300_playbook.md` |
+| `docs/notes/` | 미팅(`1013_meeting.md`)·메일(`1102_mail*.md`)·리뷰(`research_discussion/`, `claude_research_handoff_20261015.md`, `cost_efficiency_paper_comparison_20261015.md`)·이전 정리 이력(`reorganization.json`) |
+| `env/` | venv 패키지 고정 목록 (`requirements-b300-freeze.txt` 현재, `jinwoo-venv-freeze.txt` 4090 서버) |
+| `papers/` | 참고 논문 PDF(`refs/`)와 외부 코드(`code/tetriserve`) |
+| `presentations/` | 발표 자료(pptx/pdf)와 슬라이드 생성 코드 |
+| `archive/legacy/` | 이전 연구 보존. `solver/`·`hetsim/`·`scripts/`(MIG·시뮬레이터), `vlm-2026-10/`(LLM+VLM 실험, 실측 범위에서 제외), `early-2026-10/`(Stage 1 이전 개방 루프·프로파일) |
 
-현재 혼재 측정과 solver 필요성 분석 경로는 유지했다.
+## 정리 이력
 
-## 이전 연구
-
-이전 `solver/`, `hetsim/`, `scripts/`, `slo_configs/`, `figures/`, `bench/`의 MIG harness, `results/`의 비 hetero 결과, 과거 문서·assets를 **archive/legacy/**로 모았다. 코드·설정·결과의 상대 관계를 유지했다. [legacy 안내](../archive/legacy/README.md)를 참고한다.
-
-`docs/reseach_env.md`는 `docs/research_env.md`로 오타를 수정했다. 미팅 파일 `docs/1013_meeting.md`는 유지했다. 발표 파일은 presentations/로 모았다.
-
-이동 목록 전체는 [reorganization.json](reorganization.json)에 기록했다. Markdown 상대 링크를 새 위치로 수정했고 이전 실행 스크립트의 저장소 진입 경로를 수정했다. .gitignore의 이전 결과 경로도 갱신했다. 원시 데이터와 사용자 수정 파일은 내용 손실 없이 이동했다.
-
-## 제거한 파일
-
-참조 검색에서 쓰이지 않는 발표 슬라이드 JPG 미리보기와 재생성 가능한 Python cache를 제거했다. 원본 발표 자료는 남겼다.
-
-| 제거 경로 | 크기(bytes) |
-|---|---:|
-| docs/ppt/ong-1.jpg | 83674 |
-| docs/ppt/ong-2.jpg | 88150 |
-| docs/ppt/ong-3.jpg | 93096 |
-| docs/ppt/ong-4.jpg | 86398 |
-| docs/ppt/slide-1.jpg | 121393 |
-| docs/ppt/tech-1.jpg | 108178 |
-| docs/ppt/tech-2.jpg | 121012 |
-| docs/ppt/tech-3.jpg | 111062 |
-| docs/ppt/tech-4.jpg | 94250 |
-| docs/ppt/v04-01.jpg | 25443 |
-| docs/ppt/v04-02.jpg | 70058 |
-| docs/ppt/v04-03.jpg | 74101 |
-| docs/ppt/v04-04.jpg | 73880 |
-| docs/ppt/v04-05.jpg | 64743 |
-| docs/ppt/v04-06.jpg | 66066 |
-| docs/ppt/v04-07.jpg | 79282 |
-| docs/ppt/v04-08.jpg | 84086 |
-| docs/ppt/v04-09.jpg | 87032 |
-| docs/ppt/v04-10.jpg | 80311 |
-| docs/ppt/v04-11.jpg | 67088 |
-| bench/hetero/__pycache__ | 132146 |
-
-합계 1,811,449 bytes 제거.
-
-## 앞으로의 규칙
-
-- 신규 실험 코드는 bench/hetero/, 결과는 results/hetero/<실험명>/에 둔다.
-- 현재 문서는 docs/, 발표 원본은 presentations/, 종료된 연구는 archive/legacy/에 둔다.
-- papers/의 외부 코드는 폴더 구조를 유지한다.
-- 원시 데이터와 manifest를 보존하고 요약·그림은 재생성한다.
-- 기존 iso_cost와 SLO plot은 과거 탐색 가정으로 읽으며 새 서비스 요구로 자동 채택하지 않는다.
+- **2026-11-05 (2차).** VLM 실험 7개 폴더와 `bench/hetero/vlm/`을 `archive/legacy/vlm-2026-10/`로, 초기 개방 루프·프로파일(`open`, `profile_llm`, `mixed_summary`, `uncontended`)과 스크립트 5개를 `archive/legacy/early-2026-10/`로 이동. 참조 없는 `pd_smoke_graph`, `solver_v0`, `vlm_encoder_smoke_missing_embeds_flag`, `stage2_b` 삭제. 문서 링크는 새 경로로 수정.
+- **2026-11-05.** 실패한 시도의 결과 폴더(nsys 2025.6.3 캡처, 오염된 MPS dit, 노드 간 프로브 실패 8개)와 재생성 가능한 sqlite 내보내기를 삭제. 어디서도 참조하지 않는 옛 스크립트 16개 삭제(`open_eval.py`, `plot_ab.py`, `plot_controlled_tradeoff.py`, `plot_decision.py`, `plot_mixed_modal*.py`, `plot_mixed_summary.py`, `plot_model.py`, `plot_power.py`, `plot_throughput_model.py`, `plot_tradeoff_simple.py`, `slo_map_mixed.py`, `solver_v0.py`, `summarize_profile.py`, `uncontended_ref.sh`, `analyze_nsys_node.py`). 미팅·메일·리뷰 문서를 `docs/notes/`로, `mllm_v0.6.pptx`를 `presentations/`로 이동하고 링크 수정. README를 현재 상태로 다시 씀. 모두 git 이력에서 복구 가능.
+- **2026-10-15.** 이전 연구 자산(`solver/`, `hetsim/`, `scripts/`, `slo_configs/`, `figures/`, MIG harness, 비 hetero 결과)을 `archive/legacy/`로 이동. 이동 목록은 `docs/notes/reorganization.json`. 발표 슬라이드 JPG 미리보기와 Python cache 제거.

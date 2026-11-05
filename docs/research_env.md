@@ -80,14 +80,14 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     vLLM **0.28.0+cu129** (GitHub 릴리스 휠) · torch **2.13.0+cu129** · vllm-omni **0.28.0** · transformers 5.14.1 · diffusers 0.40.0.
     PyPI 기본 휠은 CUDA 13 빌드라 드라이버 575(CUDA 12.9)에서 못 씀 → cu129 변형 사용. 전체 고정 목록 `env/jinwoo-venv-freeze.txt`.
     실행 시 `CUDA_DEVICE_ORDER=PCI_BUS_ID` 필수(이기종이라 vLLM 경고), GPU 는 UUID 로 지정
-    (4090 = `GPU-d5bd27b1-…`, 3090 = `GPU-208c8076-…`, `bench/hetero/profile_llm.sh` 참조).
+    (4090 = `GPU-d5bd27b1-…`, 3090 = `GPU-208c8076-…`, `archive/legacy/early-2026-10/bench/profile_llm.sh` 참조).
     운영 메모: 이 서버 NIC 는 **100 Mb/s** 라 모델 다운로드 상한 약 12~15 MB/s. hf 1.32 기본 xet 백엔드는 이 회선에서
     멈춤 → `HF_HUB_DISABLE_XET=1` 로 받을 것. 4090↔3090 P2P 없음, GPU 간 복사 약 9.4 GB/s (`results/hetero/pcie_bw.md`).
     **CUDA 툴킷(nvcc) 없음** → vLLM 의 FlashInfer 샘플러 JIT 가 실패. `VLLM_USE_FLASHINFER_SAMPLER=0` 으로 우회
     (어텐션은 FLASH_ATTN 백엔드라 영향 없음). 나중에 FlashInfer JIT 가 꼭 필요하면 CUDA 툴킷 설치(sudo) 필요.
 
 27. **(2026-09-22) 4090·3090 LLM 프로파일 완료** — 빠른 확인 순서 1번. Llama-3.1-8B bf16, vLLM 0.28.0, prefix caching off,
-    `bench/hetero/profile_llm.sh`, 결과 `results/hetero/profile_llm/`. 3090/4090 비율:
+    `archive/legacy/early-2026-10/bench/profile_llm.sh`, 결과 `archive/legacy/early-2026-10/results/profile_llm/`. 3090/4090 비율:
     **프리필 2.1~2.2×**(512 토큰 이상, 연산 바운드) / **디코드 B=1 1.23×**(4090 은 HBM 하한의 95%, 3090 은 83%) /
     디코드 배치·문맥이 커질수록 1.4→1.8× 로 벌어짐(3090 이 먼저 연산에 묶임).
     → "프리필은 4090, 디코드는 3090" 의 비교우위가 실측으로 성립. 크기는 동작점(배치·문맥)에 따라 1.2~1.8 대 2.2.
@@ -187,7 +187,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     LLM-Pilot §IV-C 식 보정: ratio = min(1, (overflow·min(feed,3)/1.58)^−0.71) → PD 28칸 MAPE 109% → **15%** (overflow 만이면 22%).
     28칸 적합이라 검증은 열린 도착에서. solver 에는 (a) 실현가능성 필터 overflow·feed > 1.6 이면 PD 제외, 또는 (b) 이 곡선으로 크기 예측.
 
-35. **(2026-09-29) 열린 도착 검증 실험 시작** — `bench/hetero/run_open.sh`, 예측 고정 `results/hetero/open/predictions.json`, 비교 `compare_open.py`.
+35. **(2026-09-29) 열린 도착 검증 실험 시작** — `archive/legacy/early-2026-10/bench/run_open.sh`, 예측 고정 `archive/legacy/early-2026-10/results/open/predictions.json`, 비교 `compare_open.py`.
     포아송 λ = B 용량의 30/60/90% (프리필 1.1/2.2/3.3, 혼합 0.8/1.6/2.4, 디코드 0.7/1.4/2.2 req/s), n=150, 구성 A~D, 36칸, 셀 상한 10분.
     모델 파라미터는 닫힌 적합값으로 **고정** → 이것이 첫 검증(validation). PD 열린 예측에는 포화 보정 미적용(변수 정의를 검증으로 정함).
     `vllm bench serve`(포아송·burstiness·goodput 지원)는 loadgen 교차 확인용으로 1~2셀 병행 예정.
@@ -210,7 +210,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
 38. **(2026-09-29) 초점 재설정 (사용자 지적).** (a) 결과는 "워크로드·도착률 X 에서 구성 Y 가 제일 좋다/좋은 점이 없다/포화" 로 짧게 말한다.
     (b) 디코드 많을 때 PD 가 포화되는 것은 당연 — 논점은 **C 가 좋은 곳**(프리필 100%: 닫힌 n=200 처리량 4.16 = A 의 1.52×, TPOT 27 ms).
     (c) 기존 방식(A·B)이 포화되지 않는 도착률에서는 solver 의 가치를 보일 수 없음 → **기존 방식이 포화되는 도착률**에서 비교해야 함.
-    모델 포화 도착률 예측(`results/hetero/open/saturation_pred.md`): 프리필 100% A 2.8 / B 3.8 / **C 4.0** / D 2.3, 혼합 50% A 2.5 / **B 3.1** / C 1.9 / D 2.9.
+    모델 포화 도착률 예측(`archive/legacy/early-2026-10/results/open/saturation_pred.md`): 프리필 100% A 2.8 / B 3.8 / **C 4.0** / D 2.3, 혼합 50% A 2.5 / **B 3.1** / C 1.9 / D 2.9.
     혼합 실험의 PD 통찰: ① PD 한계는 약한 카드가 맡은 단계가 정함 ② 방향은 병목 단계가 정함(프리필 무거우면 C, 디코드 무거우면 D)
     ③ 카드 2장에서 PD 는 포화 도착률 레버가 아니라 지연 품질 레버(D TPOT 18~22 ms, 편차 1 ms; 대가 TTFT 2~3×) ④ 3장 이상(1P:2D)이면 달라짐 → 시뮬 몫.
     열린 실측(혼합 0.8~2.4): TTFT 중요하면 B, TPOT·처리량 중요하면 D(2.4 rps 에서 1.69 vs B 1.52), C 는 쓸 이유 없음.
@@ -222,7 +222,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     vLLM `timed_trace`(트레이스 재생, 교차 확인용).
     관찰: **실제 트레이스는 프리필이 무겁고 디코드 중심 요청은 드묾** — 합성 디코드 중심(128/1024)은 실제와 거리가 있음.
     `loadgen.py --trace`(길이는 트레이스 그대로, 실제 도착 간격을 목표 도착률로 배율 조정, 전체 분포에 가장 가까운 연속 300건).
-    모델 용량 예측(실측 전 고정, `results/hetero/open/trace_capacity_pred.json`): code A 3.66 / **B 4.01** / C 3.66 / D 2.04,
+    모델 용량 예측(실측 전 고정, `archive/legacy/early-2026-10/results/open/trace_capacity_pred.json`): code A 3.66 / **B 4.01** / C 3.66 / D 2.04,
     conv A 3.03 / **B 4.09** / C 3.02 / D 3.53. → 모델은 실제 트레이스에서 C 가 아니라 B 를 고름(출력이 짧아 3090 디코더가 놂).
     실험 대기열: 트레이스 A~D × code/conv × 2.4/3.2/4.0 rps (n=300) → 합성 프리필 100% 3.6/4.2 rps (A,B,C).
 
@@ -239,7 +239,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     열린 도착 1차 격자(합성, 36칸)는 단일 체인이었으므로 유효.
 
 42. **(2026-09-29 18:10) 혼합 워크로드(Azure code+conv 트레이스) 실측 완료 — 단일 체인, 20칸, 오류 0.** n=300, 도착률 2.5~4.5 rps.
-    표 `results/hetero/open/mixed_azure.md`, 그림 `fig_mixed_azure.png`, 스크립트 `bench/hetero/plot_mixed.py`.
+    표 `archive/legacy/early-2026-10/results/open/mixed_azure.md`, 그림 `fig_mixed_azure.png`, 스크립트 `bench/hetero/plot_mixed.py`.
     - **B(가중 2:1)가 전 도착률에서 처리량·TTFT 1위.** 4.5 rps: 처리량 A 2.88 → B 3.13, TTFT p90 A 4.7 s → B 1.8 s, TPOT p90 A 127 → B 96 ms.
     - **C(PD 4090→3090)는 제일 좋은 도착률이 없다.** 3.0~3.5 rps 에서 TPOT p90 만 A·B 보다 낮고(43~46 ms), 4.0 rps 부터 포화.
     - **D(PD 3090→4090)는 TPOT 가 전 도착률 1위**(p90 20~23 ms, A 의 1/3~1/5)이나 TTFT p90 9~20 s 로 최악.
@@ -257,7 +257,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
 44. **(2026-09-30) SLO 기준값 (재채점 결과까지 확인, 문헌 근거 확보).** TetriServe 방식: 요청 종류별 고정 기준값 × SLO Scale, 주 지표 SAR, 보조 goodput.
     - 기준값: conv TTFT 1 s / TPOT 150 ms, code TTFT 0.5 s / TPOT 150 ms. 근거: Abbas et al. 2022(PACM HCI, 대화형 응답 지연 허용 5 s, TetriServe ref [1]),
       Rayner et al. 2016(읽기 속도 ≈ 240~260 wpm ≈ 토큰당 180~190 ms, LLM-Pilot ref [5]). 민감도: TPOT 50 ms(LLM-Pilot 실험값 TTFT 200 / TBT 50 ms).
-    - 재채점(`bench/hetero/score_slo_mixed.py`, `results/hetero/open/mixed_slo.md`, `fig_mixed_sar.png`): B 가 전 조건 SAR 1위.
+    - 재채점(`bench/hetero/score_slo_mixed.py`, `archive/legacy/early-2026-10/results/open/mixed_slo.md`, `fig_mixed_sar.png`): B 가 전 조건 SAR 1위.
       **TPOT 150 ms 는 어느 카드 디코드도 거의 지킴(위반 0~6%) → 제약은 TTFT(프리필 계산력 배분).** D 의 TPOT 우위는 이 기준에서 가치 없음.
       TPOT 50 ms 로 빡빡하면 A·B TPOT 위반 11~36% → 그때만 PD 디코드 이득이 보임. SLO 값이 PD 의 가치를 정한다.
 45. **(2026-09-30) Splitwise 확인 (`papers/refs/splitwise-2311.18677`).** PD 분할 주장 근거: 디코드는 연산·전력 예산을 못 쓰므로 싼/구형/전력 제한 GPU 로 충분,
@@ -281,7 +281,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     `bench/hetero/power_summary.py`: 셀별 카드 평균·p95·피크 전력, 에너지 Wh, 요청당 Wh → `<cell>/power.json`. 전력 열 없는 옛 로그(기존 61+20 셀)는 건너뜀 → 비용 계산에는 재실행 필요.
     유휴 전력 실측 `results/hetero/power_idle.json`: 모델 적재·요청 없음 4090 23 W / 3090 33 W (프로세스 없음 23 / 28 W). 정격 450 / 370 W.
 
-49. **(2026-09-30 13:10) 혼합 워크로드 20칸 재실행 완료 (전력 열 포함).** 1차는 `mixed_azure_v1_r*` 로 보존, 2차가 `mixed_azure_r*`. 표 `results/hetero/open/mixed_power.md`, `mixed_azure.md`, `mixed_slo.md` 갱신.
+49. **(2026-09-30 13:10) 혼합 워크로드 20칸 재실행 완료 (전력 열 포함).** 1차는 `mixed_azure_v1_r*` 로 보존, 2차가 `mixed_azure_r*`. 표 `archive/legacy/early-2026-10/results/open/mixed_power.md`, `mixed_azure.md`, `mixed_slo.md` 갱신.
     - 재현성: **A·B·D 는 1차와 일치**(처리량 ±0.1, TTFT p90 ±0.2 s). **C 는 실행마다 편차 큼**(2.5 rps TTFT p90 14.9→1.2 s, 3.0 rps 5.3→10 s, 4.0 rps 부터 포화).
       D 4.5 rps 는 2차에서 포화(2.98→2.58, TTFT p90 38 s) → D 의 포화 경계 ≈ 4.5. PD 구성은 포화 경계 근처에서 단일 실행으로 결론 내지 말 것(범위로 보고).
     - 전력(합계 평균 W / 요청당 Wh, 3.5 rps): A 616 / 0.065, B 643 / 0.063, **C 469 / 0.051**, D 649 / 0.069.
@@ -289,7 +289,7 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
       부하 ↑ → 요청당 Wh ↓ (A 0.083→0.057): 배치 효과(DynamoLLM 관찰과 일치). 3090 은 A 에서 정격 370 W 상한에 걸려 클럭 1,380 MHz 까지 하락.
     - C 의 위치 = "처리량 최고" 가 아니라 **"포화 전 에너지 효율 최고"**. CE(상각 주항)에는 작게 잡히고, 전력 예산 제약 환경에서 의미.
 
-50. **(2026-09-30 오후) PD 가 이기는 곳 (Splitwise 조건의 우리 박스 재현, 새 실험 없음).** `bench/hetero/plot_pd_where.py` → `results/hetero/open/fig_pd_where.png`, `pd_where.md`.
+50. **(2026-09-30 오후) PD 가 이기는 곳 (Splitwise 조건의 우리 박스 재현, 새 실험 없음).** `bench/hetero/plot_pd_where.py` → `archive/legacy/early-2026-10/results/open/fig_pd_where.png`, `pd_where.md`.
     지표 = SAR ≥ 90% 를 지키는 최대 도착률(측정 격자 위), TTFT SLO ×2(긴 입력/code 1 s, 짧은 입력/conv 2 s), TPOT SLO = 무경합 4090 디코드 17 ms × 1.25~9.
     - **TPOT SLO ≤ 26 ms(Splitwise 의 TBT 1.5× 무경합)에서는 디코드 중심·혼합 50% 워크로드에서 D 만 살아남는다.** D 는 격자 상한 2.2~2.4 rps 까지 SAR 100%,
       A·B 는 0(TPOT p90 이 26 ms 를 넘음 = 혼합 배칭 간섭). TPOT 34 ms 부터 B 가 따라잡고 51 ms 이상이면 A·B·D 동률(격자 상한).
@@ -299,9 +299,9 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     - 주의: 합성 워크로드 격자 상한(2.2~2.4 rps)에 걸린 값은 "≥" 로 읽어야 함. Splitwise 의 나머지 조건(풀 크기 조정·싼 카드 추가)은 회사 풀 시뮬레이션에서.
 
 51. **(2026-10-01 01:00) 1단계 실측 지도 완료 — 구성 6(S3·S4·A·B·C·D) × 워크로드 3(code·conv 트레이스 포아송, 합성 디코드) × 도착률 6(0.5~3.0), 300건, 전력 포함.**
-    SLO 정의(확정): 3090 무경합 실측(`results/hetero/uncontended/3090/ref.json`: TTFT 입력길이 보간, TPOT 19.5 ms) × (TTFT 2, TPOT 1.25) × Scale(1/2/3),
+    SLO 정의(확정): 3090 무경합 실측(`archive/legacy/early-2026-10/results/uncontended/3090/ref.json`: TTFT 입력길이 보간, TPOT 19.5 ms) × (TTFT 2, TPOT 1.25) × Scale(1/2/3),
     요청별 만족, SAR ≥ 90% 통과. 출처: 기준·배율 Splitwise, Scale·SAR TetriServe, 90% DistServe. 채점 `map_score.py`, 지도 `plot_map.py`
-    → `results/hetero/open/map.md`, `map_decision.md`, `fig_map.png`. 비용 = 상각(4년) + 전력(실측 × PUE 1.3 × $0.12/kWh).
+    → `archive/legacy/early-2026-10/results/open/map.md`, `map_decision.md`, `fig_map.png`. 비용 = 상각(4년) + 전력(실측 × PUE 1.3 × $0.12/kWh).
     - **지도 요약(가장 싼 통과 구성):** conv Scale 2: 0.5→3090 단독, 1.0~2.5→4090 단독, 3.0→B. decode Scale 2: 0.5~1.0→3090, 1.5~2.0→4090, 2.5→A, 3.0→B.
       code Scale 2: 0.5→4090, **1.0~1.5→C**, 2.0→B, 2.5+ 불가. Scale 1: 4090 단독만 넓게 통과(conv 1.0, decode 1.5), 두 장 구성은 3090 몫 때문에 거의 탈락.
     - **PD 의 자리 = code(긴 입력·짧은 출력) 중부하.** C 가 1.0~1.5 rps 에서 A 보다 전력 20~25% 낮게 통과(387/436 W vs 411/487 W). D 는 어디서도 최선 아님.
@@ -310,14 +310,14 @@ Solver는 Router 아래서 작동하며, Input으로 SOlver에게 작업이 들�
     - 단독 두 장의 전력: 같은 처리량에서 3090 이 4090 보다 15% 낮음(conv 1.0: 310 vs 366 W) → 3090 으로 충분한 칸은 전력에서도 이김.
 
 52. **(2026-10-06) SLO 완화 변형 v2 (사용자 지시: 짧은 프롬프트 TTFT 기준 150 ms, TPOT 배율 1.25→1.5).** 구현: TTFT 기준에 하한 150 ms(512 토큰 미만만 영향), TPOT 1.5(Splitwise p90 값).
-    `TTFT_FLOOR=0.150 TPOT_MULT=1.5 MAP_TAG=_v2` → `results/hetero/open/map_v2.md`, `map_decision_v2.md`, `fig_map_v2.png`. 원본(v1)은 그대로 보존.
+    `TTFT_FLOOR=0.150 TPOT_MULT=1.5 MAP_TAG=_v2` → `archive/legacy/early-2026-10/results/open/map_v2.md`, `map_decision_v2.md`, `fig_map_v2.png`. 원본(v1)은 그대로 보존.
     - 바뀐 것: 4090 단독이 더 넓게 통과(code ×2 1.5, conv ×1 1.5, decode ×1 2.0). **C 가 code 에서 더 넓어짐**(×1 1.0, ×2 2.0, ×3 2.5~3.0 = 유일 통과).
       B 는 가장 싼 자리에서 사라짐(같은 칸을 S4·C 가 더 싸게 통과). D 는 통과 칸이 늘었으나(decode ×1 2.0) 여전히 최선 아님.
     - 안 바뀐 것: conv·decode 는 3090→4090→A 순서 그대로. none 칸은 Scale 1 고부하와 code ≥2.5(×2) 에 남음.
     - 해석: 완화해도 D 는 색을 못 얻음 — 3090 프리필 + 전송 고정비가 TTFT 2배 안에 안 들어오고, 같은 칸을 4090 단독이 늘 더 싸게 통과.
 
 53. **(2026-10-06) 비용 관점 확정: "3090 은 이미 있고 4090 을 새로 산다" (사용자).** Splitwise 의 iso-throughput 비용 비교를 이 관점으로 옮김.
-    `bench/hetero/iso_cost.py` → `results/hetero/open/fig_iso_cost_v2.png`, `iso_cost_v2.md`. 지표 = 수요(워크로드·도착률·Scale)마다 SLO 를 지키는 데 **새로 사야 하는 4090 수**(0/1/2), 동률이면 전력.
+    `bench/hetero/iso_cost.py` → `archive/legacy/early-2026-10/results/open/fig_iso_cost_v2.png`, `iso_cost_v2.md`. 지표 = 수요(워크로드·도착률·Scale)마다 SLO 를 지키는 데 **새로 사야 하는 4090 수**(0/1/2), 동률이면 전력.
     4090×2 는 실측 없음 → 4090 단독의 λ/2 결과로 추정(보수적 올림, 그림에 * 표시).
     - **기존 3090 이 두 번째 4090 구매를 막는 칸(초록 테두리)** = Splitwise 주장이 드러나는 곳: code ×1 1.0(C), code ×2 2.0(C), code ×3 2.5~3.0(C), decode ×2/×3 2.5~3.0(A).
       프리필 중심은 PD(C) 로, 디코드 중심은 복제(A) 로 3090 을 살림. 혼합(conv)은 4090 한 장으로 3.0 까지 되어 3090 이 구매를 막는 칸 없음(C 는 전력만 소폭 절감).

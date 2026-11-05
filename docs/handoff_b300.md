@@ -110,7 +110,7 @@ solver에 들어가는 규칙 세 개와 이식 여부:
 ### 7.5 반입 묶음과 저장소 상태 (5절 수정)
 
 - **Nsight 산출물은 저장소에 넣지 않는다.** `results/hetero/nsys_c3090/`(1.1 GB)와 `results/hetero/nsys_s4_4090/`(0.9 GB)의 `report.sqlite`·`report.nsys-rep`은 `.gitignore`에 **아직 없다**(11-03 기준). 커밋 전에 `results/hetero/nsys_*/**/report.sqlite`, `results/hetero/nsys_*/**/report.nsys-rep`을 추가하고, `nsys_summary.json`·`timeline_*.png`·`dmon.txt`·콘솔 로그만 남긴다. 캡처는 `profile_mixed_nsys.sh`로 재생성 가능하다.
-- **11-03 기준 미커밋 파일.** 코드: `bench/hetero/profile_mixed_nsys.sh`, `analyze_nsys.py`, `plot_nsys_timeline.py`, `analyze_k_model.py`, `analyze_k_timeshare.py`, `plot_k_timeshare_explained.py`, `plot_ieee.py`, `plot_ieee_pd.py`. 문서: `docs/solver_need_experiments.md`(세 절 추가), `docs/1102_mail.md`, `docs/1102_mail_full.md`, `docs/mllm_v0.6.pptx`, 이 문서의 7절. 결과: `results/hetero/k_model/`, `results/hetero/stage2b_report/fig_ieee_*.{pdf,png}`, nsys 두 디렉터리(위 제외 규칙 적용 후).
+- **11-03 기준 미커밋 파일.** 코드: `bench/hetero/profile_mixed_nsys.sh`, `analyze_nsys.py`, `plot_nsys_timeline.py`, `analyze_k_model.py`, `analyze_k_timeshare.py`, `plot_k_timeshare_explained.py`, `plot_ieee.py`, `plot_ieee_pd.py`. 문서: `docs/solver_need_experiments.md`(세 절 추가), `docs/notes/1102_mail.md`, `docs/notes/1102_mail_full.md`, `presentations/mllm_v0.6.pptx`, 이 문서의 7절. 결과: `results/hetero/k_model/`, `results/hetero/stage2b_report/fig_ieee_*.{pdf,png}`, nsys 두 디렉터리(위 제외 규칙 적용 후).
 
 ### 7.6 그쪽 Claude Code에게 주는 첫 지시 (6절을 대신함, 복사용)
 

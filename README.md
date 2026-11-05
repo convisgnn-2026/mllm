@@ -1,35 +1,43 @@
-# mllm — 고정 이종 GPU의 혼재 추론 연구
+# mllm — 고정 이종 GPU 풀의 멀티모달(LLM + DiT) 추론 서빙 연구
 
-LLM-PILOT을 LLM·VLM·DiT가 함께 실행되는 멀티모달 추론 환경으로 확장한다. 서비스별 SLO를 만족하도록 모델별 분할 전략·단계 배치·GPU 자원 구성을 선택하고, 주어진 서비스 수요를 충족하는 자원 비용을 최소화하는 것이 최종 목표다.
+LLM-Pilot(CCGrid'26)을 온프레미스 이종 GPU 풀로 확장한다. 한 GPU를 여러 서비스가 나눌 때 생기는 **프로세스 간 간섭**을
+측정·모델링하고, 공유 방식(시간 분할·MPS·MIG)·분할 기법(PD)·카드 배치를 수요와 SLO에 맞춰 고르는 **solver**의 필요성을 보인다.
 
-## 최신 연구 현황 — 2026-10-15 정리
+## 지금 어디까지 왔나 (2026-11-05)
 
-**최신 완료 실험 기록: 2026-10-14.** 아래 항목이 현재 연구의 최신 실측이다.
-
-- **LLM+DiT:** 4090+3090에서 LLM P/D 분리 배치와 서비스별 GPU 배치를 seed 0–4로 비교했다. 텍스트 첫 응답과 이미지 완료 사이의 trade-off를 관측했다. DiT 자체의 단계 분리 효과를 검증한 실험은 아니다.
-- **LLM+VLM:** VLM encoder와 독립 LLM의 GPU 공유 및 encoder 배치 변경을 비교했다. 단독 기준·혼합 실행 비교와 4개 부하 × 2개 배치 실험을 완료했다(seed 0). 해당 부하 범위에서는 VLM 단계들을 4090에 모은 배치가 주요 지연 지표에 유리했다.
-- **현재 검증 범위:** 두 서비스 조합의 공유 실행·배치 효과까지 확인했다. 세 모델 동시 실행, SLO 기반 최종 solver 및 비용 절감 효과의 검증은 남아 있다. GPU 속도·전송·공유 실행 효과를 구분해 해석한다.
-
-![최신 혼합 실행 실험 요약](results/hetero/mixed_summary/mixed_split_summary.png)
-
-### 실행 코드와 결과
-
-저장소 루트에서 실행한다. GPU 실험은 두 GPU를 사용하며, 기존 출력 보호와 완료 실행 건너뛰기 동작이 있으므로 재실험 시 출력 설정을 확인한다.
-
-| 실험 | 실행 진입점 | 결과 |
+| 단계 | 결과 | 기록 |
 |---|---|---|
-| LLM+DiT 반복 비교 | `python bench/hetero/run_controlled_batch.py` → `run_mixed_modal.sh` | [반복 실험 보고서](results/hetero/controlled_runs/comparison.md) |
-| LLM+VLM 배치 비교 | `python bench/hetero/vlm/run_placement_study.py` → `run_interference_pilot.py` | [배치 비교](results/hetero/vlm_placement_seed0/comparison.json) |
-| LLM+VLM 부하 변화 | `python bench/hetero/vlm/run_placement_study.py --load-sweep` | [부하별 비교](results/hetero/vlm_placement_load_sweep_seed0/comparison.json) |
-| 요약 그림 생성 | `python bench/hetero/plot_mixed_summary.py` | [그림 수치](results/hetero/mixed_summary/plotted_values.json) |
+| 4090+3090 (Stage 0–2b) | 공유 배치의 간섭 비율 k는 수요에 따라 커지고, 앵커 2개 선형으로 ±8% 예측. 분리 배치는 k=1 | `docs/solver_need_experiments.md` 앞부분 |
+| Nsight 진단 | 간섭의 원인은 CUDA 컨텍스트 시간 분할(~2.3 ms). 커널은 안 느려지고 상대 차례만큼 기다림 (R6) | 같은 문서 "Nsight 진단" |
+| B300 + RTX PRO 6000 포팅 | R6 재현. B300은 스텝이 슬라이스보다 짧아 "간격형". MPS는 경합(1.23×), MIG는 간섭 0(용량 대가). 같은 노드 NVLink 12 GB/s, 노드 간 25 GbE TCP 1.45 GB/s | 같은 문서 "B300 포팅" 절들, `docs/b300_playbook.md` |
+| 다음 | 30B급 LLM + SD3.5-large로 재측정, MPS 부하 의존성, 결정 지도, 시뮬 외삽 | `docs/solver_need_experiments.md` 끝의 제안 |
 
-세부 조건·한계·후속 과제는 [연구 및 실험 기록](docs/solver_need_experiments.md)을 따른다.
+**처음 보는 사람은** `docs/b300_playbook.md`(환경·명령·결과 위치) → `docs/handoff_b300.md`(배경과 체크리스트) → `docs/solver_need_experiments.md`(실험 기록 전체) 순서로 읽는다.
 
+## 저장소 구조
 
-## 연구 기록
+```
+bench/hetero/      실측 하네스·서버·분석·그림 코드 (목록과 역할: bench/hetero/README.md)
+results/hetero/    실험 결과. 폴더 하나 = 실험 하나. 요약·그림·로그만 git에 있고 대용량 원본(.nsys-rep)은 노드에만
+docs/              실험 기록(solver_need_experiments.md), 프로토콜(stage1_protocol.md), 포팅(handoff_b300.md, b300_playbook.md)
+docs/notes/        미팅·메일·리뷰 기록, 이전 정리 이력
+env/               venv 패키지 고정 목록
+papers/            참고 논문(refs/)과 외부 코드(code/tetriserve)
+presentations/     발표 자료
+archive/legacy/    이전 MIG·시뮬레이터 연구 (코드·결과 보존, 현재 실험과 무관)
+```
 
-- [연구 배경·미팅 기록](docs/1013_meeting.md)
-- [실험 조건·진행 결과·한계](docs/solver_need_experiments.md)
-- [연구 환경](docs/research_env.md)
+## 실행 요약
 
-이 업데이트는 최신 연구 코드·문서·결과를 담는다. 대용량 profiler trace와 실행 로그, 외부 논문 자료 및 이전 연구의 폴더 재배치는 포함하지 않는다.
+모두 저장소 루트에서, `~/venv/mllm`(`env/requirements-b300-freeze.txt`)로 실행한다. GPU는 UUID로 지정하고, 다른 사용자의 GPU는 건드리지 않는다.
+
+| 하고 싶은 것 | 명령 |
+|---|---|
+| 공유 GPU 간섭 캡처(Nsight) | `PLACE=S4_B300 bench/hetero/profile_mixed_nsys.sh mixed\|llm\|dit` |
+| 캡처 분석 | `STEP_MIN_MS=1 python3 bench/hetero/analyze_nsys_steps.py <dir>/mixed <dir>/llm <dir>/dit` |
+| KV 전송 대역 (같은 노드 / 노드 간) | `bench/hetero/pd_xfer_probe_b300.sh <tag>` / `bench/hetero/pd_xfer_probe_mn.sh <tag>` |
+| Stage 1 실험 1회 | `bench/hetero/run_mixed_modal.sh` (단일 노드), `run_mixed_modal_mn.sh` (멀티노드) |
+| Stage 1 전체 | `python bench/hetero/run_stage1_pilot.py prepare \| dry-run \| run` |
+| 채점·보고서 | `bench/hetero/stage1_report.py`, `stage2_report.py`, `stage2b_report.py` |
+
+자세한 옵션과 MPS/MIG 설정은 `docs/b300_playbook.md`.
